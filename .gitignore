@@ -1,0 +1,70 @@
+# === Universal ===
+.DS_Store
+Thumbs.db
+*.tmp
+*.swp
+*.log
+.env*
+!.env.example
+.vscode/
+.idea/
+.dockerignore
+
+
+# === Node.js / Angular / Frontend ===
+node_modules/
+dist/
+.angular/
+full_stack/frontend/dist/
+full_stack/frontend/node_modules/
+full_stack/frontend/.angular/
+
+# === Java / Spring Boot ===
+target/
+*.class
+*.jar
+.gradle/
+build/
+full_stack/services/gateway/.mvn/wrapper/maven-wrapper.jar
+full_stack/services/gateway/target/
+full_stack/services/gateway/.mvn/
+full_stack/services/gateway/startup.log
+
+# === Python ===
+__pycache__/
+*.pyc
+.venv/
+venv/
+*.egg-info/
+.pytest_cache/
+db/
+db/import/.pytest_cache/
+db/import/.venv/
+db/import/__pycache__/
+
+# === Build artifacts ===
+frontend/package-lock.json
+
+# === IDE / Editor ===
+*.iml
+*.ipr
+*.iws
+.project
+.classpath
+.settings/
+
+# === Spec Kit / Opencode / AI tools ===
+.remember/
+.specify/
+.opencode/
+.claude/
+AGENTS.md
+CLAUDE.md
+PLAN.md
+
+# === Project specs & prototypes (dev-only) ===
+specs/
+prototype/
+
+# === Sensitive / Local config ===
+full_stack/services/gateway/src/main/resources/

@@ -1,0 +1,275 @@
+<div class="h-screen flex overflow-hidden" style="overflow:hidden;">
+
+  <!-- Left panel — dark brand -->
+  <div class="w-1/2 flex flex-col items-center justify-center relative overflow-hidden px-14 py-12"
+       style="background: linear-gradient(135deg, #1A1A1A 0%, #1E293B 60%, #1A1A1A 100%);">
+    <!-- Decorative circles -->
+    <div class="absolute pointer-events-none rounded-full"
+         style="top:-80px;left:-80px;width:300px;height:300px;background:#F7941D10;"></div>
+    <div class="absolute pointer-events-none rounded-full"
+         style="bottom:-100px;right:-60px;width:400px;height:400px;background:#0EA5E910;"></div>
+    <div class="absolute pointer-events-none rounded-full"
+         style="top:30%;right:-40px;width:160px;height:160px;background:#F7941D08;"></div>
+
+    <!-- Content -->
+    <div class="relative z-10 text-center" style="max-width:360px;">
+      <!-- Logo block: banner + orange arrow tile -->
+      <div class="flex items-center justify-center gap-4 mb-7">
+        <img src="assets/logo.png" alt="INTERSIG" style="height:60px;object-fit:contain;" />
+        <div class="flex items-center justify-center flex-shrink-0 rounded-2xl"
+             style="width:56px;height:56px;background:#F7941D;box-shadow:0 8px 24px #F7941D60;">
+          <svg width="28" height="22" viewBox="0 0 20 16" fill="none">
+            <path d="M0 8L7 0V4H20V12H7V16L0 8Z" fill="white"/>
+          </svg>
+        </div>
+      </div>
+
+      <div class="font-bold text-white mb-1" style="font-family:'Montserrat',sans-serif;font-size:20px;letter-spacing:0.08em;font-weight:800;">INTERSIG</div>
+      <div class="mb-5" style="font-family:'Open Sans',sans-serif;font-size:12px;color:#F7941D;letter-spacing:0.06em;font-weight:600;">GROUPE KARKACHI &amp; FATH</div>
+
+      <div class="mb-4" style="font-family:'Montserrat',sans-serif;font-size:36px;font-weight:800;color:#F7941D;line-height:1.1;">FleetTracker</div>
+      <p style="font-family:'Open Sans',sans-serif;font-size:15px;color:rgba(255,255,255,0.6);line-height:1.7;margin:0;">
+        Pilotage maintenance de votre parc industriel — suivi véhicules, interventions &amp; KPIs en temps réel.
+      </p>
+    </div>
+  </div>
+
+  <!-- Right panel -->
+  <div class="w-1/2 flex flex-col items-center justify-center relative overflow-hidden px-14 py-12"
+       style="background:linear-gradient(135deg,#FDF8F1 0%,#F4F6FA 55%,#EDEFF4 100%);overflow:hidden;">
+    <!-- Decorative blobs -->
+    <div class="absolute pointer-events-none rounded-full"
+         style="top:-80px;right:-100px;width:340px;height:340px;background:#F7941D2A;filter:blur(70px);"></div>
+    <div class="absolute pointer-events-none rounded-full"
+         style="bottom:-120px;left:-80px;width:400px;height:400px;background:#0EA5E920;filter:blur(90px);"></div>
+    <div class="absolute pointer-events-none rounded-full"
+         style="top:38%;left:-10%;width:220px;height:220px;background:#F7941D1F;filter:blur(60px);"></div>
+
+    <!-- Glass card -->
+    <div class="w-full relative z-10"
+         style="max-width:480px;padding:48px 40px;border-radius:28px;
+                background:linear-gradient(180deg,rgba(255,255,255,0.78),rgba(255,255,255,0.5));
+                border:1px solid rgba(255,255,255,0.75);
+                backdrop-filter:blur(28px) saturate(180%);
+                -webkit-backdrop-filter:blur(28px) saturate(180%);
+                box-shadow:0 24px 60px rgba(17,24,39,0.1),0 8px 20px rgba(17,24,39,0.05),inset 0 1px 0 rgba(255,255,255,0.95),inset 0 -1px 0 rgba(17,24,39,0.03);">
+
+      <!-- Tab switcher -->
+      <div class="relative flex mb-9"
+           style="padding:4px;gap:4px;
+                  background:linear-gradient(180deg,rgba(245,245,245,0.55),rgba(229,229,229,0.35));
+                  border:1px solid rgba(17,24,39,0.07);border-radius:8px;
+                  backdrop-filter:blur(20px) saturate(180%);
+                  box-shadow:inset 0 1px 0 rgba(255,255,255,0.9),inset 0 -1px 0 rgba(17,24,39,0.03),0 1px 2px rgba(17,24,39,0.04);">
+        <!-- Sliding indicator -->
+        <div aria-hidden="true"
+             class="absolute pointer-events-none"
+             [style.left]="tab() === 'connexion' ? '4px' : 'calc(50% + 2px)'"
+             style="top:4px;bottom:4px;width:calc(50% - 6px);border-radius:6px;
+                    background:linear-gradient(180deg,rgba(255,255,255,0.98),rgba(255,255,255,0.78));
+                    border:1px solid rgba(17,24,39,0.08);
+                    backdrop-filter:blur(12px) saturate(180%);
+                    box-shadow:0 4px 12px rgba(17,24,39,0.08),0 1px 2px rgba(17,24,39,0.04),inset 0 1px 0 rgba(255,255,255,0.95);
+                    transition:left 360ms cubic-bezier(0.34,1.25,0.64,1);z-index:0;"></div>
+
+        <button type="button" (click)="switchTab('connexion')"
+                class="relative flex-1 flex items-center justify-center cursor-pointer select-none transition-all"
+                style="z-index:1;height:38px;border-radius:6px;border:none;background:transparent;
+                       font-family:'Montserrat',sans-serif;font-size:13px;transition:color 220ms ease;"
+                [style.fontWeight]="tab() === 'connexion' ? '700' : '500'"
+                [style.color]="tab() === 'connexion' ? '#111827' : '#6B7280'">
+          Connexion
+        </button>
+        <button type="button" (click)="switchTab('inscription')"
+                class="relative flex-1 flex items-center justify-center cursor-pointer select-none"
+                style="z-index:1;height:38px;border-radius:6px;border:none;background:transparent;
+                       font-family:'Montserrat',sans-serif;font-size:13px;transition:color 220ms ease;"
+                [style.fontWeight]="tab() === 'inscription' ? '700' : '500'"
+                [style.color]="tab() === 'inscription' ? '#111827' : '#6B7280'">
+          Inscription
+        </button>
+      </div>
+
+      <!-- Error message -->
+      @if (errorMessage()) {
+        <div class="mb-4 px-4 py-3 rounded-lg text-sm"
+             style="background:#FEE2E2;color:#991B1B;font-family:'Open Sans',sans-serif;font-size:13px;">
+          {{ errorMessage() }}
+        </div>
+      }
+
+      <!-- CONNEXION FORM -->
+      @if (tab() === 'connexion') {
+        <form [formGroup]="loginForm" (ngSubmit)="onLogin()">
+          <h2 class="mb-1" style="font-family:'Montserrat',sans-serif;font-size:24px;font-weight:700;color:#111827;margin:0 0 6px;">Bienvenue</h2>
+          <p class="mb-7" style="font-family:'Open Sans',sans-serif;font-size:14px;color:#6B7280;margin:0 0 28px;">Connectez-vous à votre espace FleetTracker</p>
+
+          <!-- Email -->
+          <div class="mb-4">
+            <label for="login-email" style="font-family:'Montserrat',sans-serif;font-size:11px;font-weight:600;color:#374151;text-transform:uppercase;letter-spacing:0.05em;display:block;margin-bottom:6px;">
+              ADRESSE EMAIL
+            </label>
+            <div class="flex items-center"
+                 style="height:40px;padding:0 14px;border:1px solid #D1D5DB;border-radius:8px;background:#fff;
+                        box-shadow:0 1px 2px rgba(17,24,39,.06);gap:8px;">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#6B7280" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink:0;">
+                <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/>
+              </svg>
+              <input id="login-email" type="email" formControlName="email" placeholder="email@intersig.ma"
+                     style="flex:1;border:none;outline:none;background:transparent;font-family:'Open Sans',sans-serif;font-size:14px;color:#111827;" />
+            </div>
+          </div>
+
+          <!-- Password -->
+          <div class="mb-4">
+            <label for="login-password" style="font-family:'Montserrat',sans-serif;font-size:11px;font-weight:600;color:#374151;text-transform:uppercase;letter-spacing:0.05em;display:block;margin-bottom:6px;">
+              MOT DE PASSE
+            </label>
+            <div class="flex items-center"
+                 style="height:40px;padding:0 14px;border:1px solid #D1D5DB;border-radius:8px;background:#fff;
+                        box-shadow:0 1px 2px rgba(17,24,39,.06);gap:8px;">
+              <input id="login-password" [type]="showPassword() ? 'text' : 'password'" formControlName="password" placeholder="••••••••"
+                     style="flex:1;border:none;outline:none;background:transparent;font-family:'Open Sans',sans-serif;font-size:14px;color:#111827;" />
+              <button type="button" (click)="showPassword.set(!showPassword())"
+                      style="border:none;background:transparent;padding:0;cursor:pointer;display:flex;align-items:center;flex-shrink:0;color:#9CA3AF;">
+                @if (showPassword()) {
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                    <path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24"/><line x1="1" y1="1" x2="23" y2="23"/>
+                  </svg>
+                } @else {
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                    <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/>
+                  </svg>
+                }
+              </button>
+            </div>
+          </div>
+
+          <!-- Remember + forgot -->
+          <div class="flex items-center justify-between mb-7">
+            <label class="flex items-center gap-2 cursor-pointer">
+              <input type="checkbox" [checked]="remember()" (change)="remember.set(!remember())"
+                     class="sr-only" aria-label="Se souvenir de moi" />
+              <div class="flex items-center justify-center flex-shrink-0 transition-all"
+                   style="width:18px;height:18px;border-radius:4px;transition:all 150ms;"
+                   [style.border]="remember() ? '2px solid #F7941D' : '2px solid #D1D5DB'"
+                   [style.background]="remember() ? '#F7941D' : '#fff'">
+                @if (remember()) {
+                  <svg width="10" height="8" viewBox="0 0 10 8">
+                    <path d="M1 4L3.5 6.5L9 1" stroke="white" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+                  </svg>
+                }
+              </div>
+              <span style="font-family:'Open Sans',sans-serif;font-size:13px;color:#374151;">Se souvenir</span>
+            </label>
+            <a routerLink="/forgot-password" class="font-semibold" style="font-family:'Open Sans',sans-serif;font-size:13px;color:#F7941D;text-decoration:none;">Mot de passe oublié ?</a>
+          </div>
+
+          <!-- Submit -->
+          <button type="submit"
+                  [disabled]="loading()"
+                  class="w-full flex items-center justify-center mb-6"
+                  style="height:52px;border:none;border-radius:8px;font-family:'Montserrat',sans-serif;font-size:16px;font-weight:700;color:#fff;
+                         box-shadow:0 8px 24px #F7941D40;transition:all 150ms ease-out;cursor:pointer;"
+                  [style.background]="loading() ? '#E6851A' : '#F7941D'"
+                  [style.cursor]="loading() ? 'wait' : 'pointer'">
+            {{ loading() ? 'Connexion en cours…' : 'Se connecter →' }}
+          </button>
+
+          <div class="text-center" style="font-family:'Open Sans',sans-serif;font-size:12px;color:#9CA3AF;">v1.0 · Atlas Industrie · 2026</div>
+        </form>
+      }
+
+      <!-- INSCRIPTION FORM -->
+      @if (tab() === 'inscription') {
+        <form [formGroup]="registerForm" (ngSubmit)="onRegister()">
+          <h2 style="font-family:'Montserrat',sans-serif;font-size:24px;font-weight:700;color:#111827;margin:0 0 6px;">Créer un compte</h2>
+          <p style="font-family:'Open Sans',sans-serif;font-size:14px;color:#6B7280;margin:0 0 24px;">Rejoignez FleetTracker pour votre équipe</p>
+
+          <!-- Prenom + Nom -->
+          <div class="grid grid-cols-2 gap-3 mb-4">
+            <div>
+              <label for="register-prenom" style="font-family:'Montserrat',sans-serif;font-size:11px;font-weight:600;color:#374151;text-transform:uppercase;letter-spacing:0.05em;display:block;margin-bottom:6px;">PRÉNOM</label>
+              <div style="height:40px;padding:0 14px;border:1px solid #D1D5DB;border-radius:8px;background:#fff;display:flex;align-items:center;box-shadow:0 1px 2px rgba(17,24,39,.06);">
+                <input id="register-prenom" type="text" formControlName="prenom" placeholder="Karim"
+                       style="flex:1;border:none;outline:none;background:transparent;font-family:'Open Sans',sans-serif;font-size:14px;color:#111827;" />
+              </div>
+            </div>
+            <div>
+              <label for="register-nom" style="font-family:'Montserrat',sans-serif;font-size:11px;font-weight:600;color:#374151;text-transform:uppercase;letter-spacing:0.05em;display:block;margin-bottom:6px;">NOM</label>
+              <div style="height:40px;padding:0 14px;border:1px solid #D1D5DB;border-radius:8px;background:#fff;display:flex;align-items:center;box-shadow:0 1px 2px rgba(17,24,39,.06);">
+                <input id="register-nom" type="text" formControlName="nom" placeholder="Benhassou"
+                       style="flex:1;border:none;outline:none;background:transparent;font-family:'Open Sans',sans-serif;font-size:14px;color:#111827;" />
+              </div>
+            </div>
+          </div>
+
+          <!-- Email professionnel -->
+          <div class="mb-4">
+            <label for="register-email" style="font-family:'Montserrat',sans-serif;font-size:11px;font-weight:600;color:#374151;text-transform:uppercase;letter-spacing:0.05em;display:block;margin-bottom:6px;">EMAIL PROFESSIONNEL</label>
+            <div style="height:40px;padding:0 14px;border:1px solid #D1D5DB;border-radius:8px;background:#fff;display:flex;align-items:center;gap:8px;box-shadow:0 1px 2px rgba(17,24,39,.06);">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#6B7280" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink:0;">
+                <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/>
+              </svg>
+              <input id="register-email" type="email" formControlName="email" placeholder="email@intersig.ma"
+                     style="flex:1;border:none;outline:none;background:transparent;font-family:'Open Sans',sans-serif;font-size:14px;color:#111827;" />
+            </div>
+          </div>
+
+          <!-- Mot de passe -->
+          <div class="mb-4">
+            <label for="register-password" style="font-family:'Montserrat',sans-serif;font-size:11px;font-weight:600;color:#374151;text-transform:uppercase;letter-spacing:0.05em;display:block;margin-bottom:6px;">MOT DE PASSE</label>
+            <div style="height:40px;padding:0 14px;border:1px solid #D1D5DB;border-radius:8px;background:#fff;display:flex;align-items:center;gap:8px;box-shadow:0 1px 2px rgba(17,24,39,.06);">
+              <input id="register-password" [type]="showRegisterPassword() ? 'text' : 'password'" formControlName="password" placeholder="••••••••"
+                     style="flex:1;border:none;outline:none;background:transparent;font-family:'Open Sans',sans-serif;font-size:14px;color:#111827;" />
+              <button type="button" (click)="showRegisterPassword.set(!showRegisterPassword())"
+                      style="border:none;background:transparent;padding:0;cursor:pointer;display:flex;align-items:center;flex-shrink:0;color:#9CA3AF;">
+                @if (showRegisterPassword()) {
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                    <path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24"/><line x1="1" y1="1" x2="23" y2="23"/>
+                  </svg>
+                } @else {
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                    <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/>
+                  </svg>
+                }
+              </button>
+            </div>
+          </div>
+
+          <!-- Confirmer mot de passe -->
+          <div class="mb-5">
+            <label for="register-confirm" style="font-family:'Montserrat',sans-serif;font-size:11px;font-weight:600;color:#374151;text-transform:uppercase;letter-spacing:0.05em;display:block;margin-bottom:6px;">CONFIRMER MOT DE PASSE</label>
+            <div style="height:40px;padding:0 14px;border:1px solid #D1D5DB;border-radius:8px;background:#fff;display:flex;align-items:center;gap:8px;box-shadow:0 1px 2px rgba(17,24,39,.06);">
+              <input id="register-confirm" [type]="showRegisterConfirm() ? 'text' : 'password'" formControlName="confirm" placeholder="••••••••"
+                     style="flex:1;border:none;outline:none;background:transparent;font-family:'Open Sans',sans-serif;font-size:14px;color:#111827;" />
+              <button type="button" (click)="showRegisterConfirm.set(!showRegisterConfirm())"
+                      style="border:none;background:transparent;padding:0;cursor:pointer;display:flex;align-items:center;flex-shrink:0;color:#9CA3AF;">
+                @if (showRegisterConfirm()) {
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                    <path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24"/><line x1="1" y1="1" x2="23" y2="23"/>
+                  </svg>
+                } @else {
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                    <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/>
+                  </svg>
+                }
+              </button>
+            </div>
+          </div>
+
+          <!-- Submit -->
+          <button type="submit"
+                  [disabled]="loading()"
+                  class="w-full flex items-center justify-center"
+                  style="height:52px;border:none;background:#F7941D;border-radius:8px;font-family:'Montserrat',sans-serif;font-size:16px;font-weight:700;color:#fff;
+                         box-shadow:0 8px 24px #F7941D40;transition:all 150ms ease-out;"
+                  [style.cursor]="loading() ? 'wait' : 'pointer'">
+            {{ loading() ? 'Création en cours…' : 'Créer le compte' }}
+          </button>
+        </form>
+      }
+
+    </div>
+  </div>
+</div>
