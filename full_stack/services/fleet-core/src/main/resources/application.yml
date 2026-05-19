@@ -1,0 +1,46 @@
+spring:
+  application:
+    name: fleet-core
+  datasource:
+    url: ${POSTGRES_URL:jdbc:postgresql://localhost:5432/fleettracker}
+    username: ${POSTGRES_USER:intersig}
+    password: ${POSTGRES_PASSWORD:CHANGE_ME}
+  jpa:
+    hibernate:
+      ddl-auto: validate
+    properties:
+      hibernate:
+        default_schema: public
+        format_sql: false
+  flyway:
+    enabled: false
+
+app:
+  fleet-core:
+    scheduler:
+      alert-window-hours: ${ALERT_WINDOW_HOURS:1}
+  mail:
+    from: ${MAIL_FROM:noreply@intersig.ma}
+
+spring.mail.host: ${MAIL_HOST:localhost}
+spring.mail.port: ${MAIL_PORT:587}
+spring.mail.username: ${MAIL_USERNAME:}
+spring.mail.password: ${MAIL_PASSWORD:}
+spring.mail.properties.mail.smtp.auth: true
+spring.mail.properties.mail.smtp.starttls.enable: true
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health
+
+server:
+  port: 8081
+  address: 127.0.0.1
+
+---
+spring:
+  config:
+    activate:
+      on-profile: dev

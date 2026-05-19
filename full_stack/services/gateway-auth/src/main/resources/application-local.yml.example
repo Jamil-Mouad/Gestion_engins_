@@ -1,0 +1,25 @@
+# Copy to application-local.yml and fill in all values before running locally
+spring:
+  datasource:
+    url: jdbc:postgresql://localhost:5432/fleettracker
+    username: YOUR_DB_USERNAME
+    password: YOUR_DB_PASSWORD
+  mail:
+    host: smtp.gmail.com
+    port: 587
+    username: YOUR_GMAIL_ADDRESS@gmail.com
+    password: YOUR_GOOGLE_APP_PASSWORD
+    properties:
+      mail.smtp.auth: true
+      mail.smtp.starttls.enable: true
+
+app:
+  jwt:
+    secret: YOUR_JWT_SECRET_AT_LEAST_64_CHARS_RANDOM_STRING
+    access-ttl-seconds: 900
+    refresh-ttl-hours: 8
+  rate-limit:
+    max-attempts: 5
+    refill-seconds: 30
+  mail:
+    from: noreply@intersig.ma
