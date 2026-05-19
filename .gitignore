@@ -29,6 +29,9 @@ full_stack/services/gateway/.mvn/wrapper/maven-wrapper.jar
 full_stack/services/gateway/target/
 full_stack/services/gateway/.mvn/
 full_stack/services/gateway/startup.log
+full_stack/services/fleet-core/target/
+full_stack/services/fleet-core/.mvn/
+full_stack/services/fleet-core/startup.log
 
 # === Python ===
 __pycache__/
@@ -68,3 +71,5 @@ prototype/
 
 # === Sensitive / Local config ===
 full_stack/services/gateway/src/main/resources/
+full_stack/services/gateway-auth/src/main/resources/application-local.yml
+full_stack/services/gateway-auth/src/main/resources/application-local.yaml

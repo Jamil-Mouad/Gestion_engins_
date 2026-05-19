@@ -1,0 +1,25 @@
+server:
+  port: 8080
+
+spring:
+  cloud:
+    gateway:
+      routes:
+        - id: gateway-auth
+          uri: ${GATEWAY_AUTH_URI:http://localhost:8086}
+          predicates:
+            - Path=/api/auth/**, /api/users/me
+        - id: fleet-core
+          uri: ${FLEET_CORE_URI:http://localhost:8081}
+          predicates:
+            - Path=/api/v1/**
+
+app:
+  jwt:
+    secret: ${JWT_SECRET:}
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health
