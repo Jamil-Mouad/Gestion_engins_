@@ -140,4 +140,77 @@ describe('LoginComponent', () => {
     const compiled = fixture.nativeElement as HTMLElement;
     expect(compiled.textContent).toContain('INTERSIG');
   });
+
+  it('should display "Trop de tentatives" on 429 error', () => {
+    authServiceSpy.login.and.returnValue(throwError(() => new HttpErrorResponse({ status: 429 })));
+    component.loginForm.setValue({ email: 'test@intersig.ma', password: 'pass' });
+    component.onLogin();
+    expect(component.errorMessage()).toBe('Trop de tentatives. Réessayez dans quelques secondes.');
+  });
+
+  it('should display generic error on 500', () => {
+    authServiceSpy.login.and.returnValue(throwError(() => new HttpErrorResponse({ status: 500 })));
+    component.loginForm.setValue({ email: 'test@intersig.ma', password: 'pass' });
+    component.onLogin();
+    expect(component.errorMessage()).toBe('Erreur de connexion. Veuillez réessayer.');
+  });
+
+  it('logout() navigates to /login on error', () => {
+    const router = TestBed.inject(Router);
+    spyOn(router, 'navigate').and.returnValue(Promise.resolve(true));
+    authServiceSpy.logout.and.returnValue(throwError(() => new Error('network error')));
+    component.logout();
+    expect(router.navigate).toHaveBeenCalledWith(['/login']);
+  });
+
+  it('onRegister() sets passwordMismatch error when passwords differ', () => {
+    component.registerForm.patchValue({
+      prenom: 'A', nom: 'B', email: 'a@b.c',
+      password: 'pass1234', confirm: 'different', cgu: true,
+    });
+    component.onRegister();
+    expect(component.errorMessage()).toBe('Les mots de passe ne correspondent pas.');
+  });
+
+  it('onRegister() navigates to /dashboard on success', () => {
+    const router = TestBed.inject(Router);
+    spyOn(router, 'navigate').and.returnValue(Promise.resolve(true));
+    authServiceSpy.register.and.returnValue(of({ access_token: 'at', refresh_token: 'rt', user: { id: 1 } } as any));
+    component.registerForm.patchValue({
+      prenom: 'A', nom: 'B', email: 'a@b.c',
+      password: 'pass1234', confirm: 'pass1234', cgu: true,
+    });
+    component.onRegister();
+    expect(router.navigate).toHaveBeenCalledWith(['/dashboard']);
+  });
+
+  it('onRegister() shows 409 error when email already exists', () => {
+    authServiceSpy.register.and.returnValue(throwError(() => new HttpErrorResponse({ status: 409 })));
+    component.registerForm.patchValue({
+      prenom: 'A', nom: 'B', email: 'a@b.c',
+      password: 'pass1234', confirm: 'pass1234', cgu: true,
+    });
+    component.onRegister();
+    expect(component.errorMessage()).toBe('Un compte existe déjà avec cet email.');
+  });
+
+  it('onRegister() shows 422 error', () => {
+    authServiceSpy.register.and.returnValue(throwError(() => new HttpErrorResponse({ status: 422 })));
+    component.registerForm.patchValue({
+      prenom: 'A', nom: 'B', email: 'a@b.c',
+      password: 'pass1234', confirm: 'pass1234', cgu: true,
+    });
+    component.onRegister();
+    expect(component.errorMessage()).toBe('Données invalides. Vérifiez les champs.');
+  });
+
+  it('onRegister() shows generic error on 500', () => {
+    authServiceSpy.register.and.returnValue(throwError(() => new HttpErrorResponse({ status: 500 })));
+    component.registerForm.patchValue({
+      prenom: 'A', nom: 'B', email: 'a@b.c',
+      password: 'pass1234', confirm: 'pass1234', cgu: true,
+    });
+    component.onRegister();
+    expect(component.errorMessage()).toBe('Erreur lors de la création du compte.');
+  });
 });

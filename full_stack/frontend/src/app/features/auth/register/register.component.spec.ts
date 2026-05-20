@@ -1,6 +1,6 @@
 import { ComponentFixture, TestBed } from '@angular/core/testing';
 import { ReactiveFormsModule } from '@angular/forms';
-import { provideRouter } from '@angular/router';
+import { Router, provideRouter } from '@angular/router';
 import { signal, computed } from '@angular/core';
 import { of, throwError } from 'rxjs';
 import { HttpErrorResponse } from '@angular/common/http';
@@ -15,8 +15,8 @@ describe('RegisterComponent', () => {
 
   beforeEach(async () => {
     authServiceSpy = jasmine.createSpyObj('AuthService', ['register']);
-    (authServiceSpy as any).currentUser = signal(null);
-    (authServiceSpy as any).isLoggedIn = computed(() => false);
+    (authServiceSpy as any).user = signal(null);
+    (authServiceSpy as any).isAuthenticated = computed(() => false);
 
     await TestBed.configureTestingModule({
       imports: [RegisterComponent, ReactiveFormsModule],
@@ -79,7 +79,7 @@ describe('RegisterComponent', () => {
     const authResponse = {
       access_token: 'jwt-token',
       refresh_token: 'refresh-token',
-      user: { id: 1, email: 'test@intersig.ma', prenom: 'Test', nom: 'User' },
+      user: { id: 1, email: 'test@intersig.ma', prenom: 'Test', nom: 'User', role: 'USER' as const, dashboardConfig: null, actif: true },
     };
     authServiceSpy.register.and.returnValue(of(authResponse));
 
@@ -130,5 +130,41 @@ describe('RegisterComponent', () => {
     component.onSubmit();
 
     expect(authServiceSpy.register).not.toHaveBeenCalled();
+  });
+
+  it('renders split-screen layout with glass card', () => {
+    const compiled = fixture.nativeElement as HTMLElement;
+    expect(compiled.textContent).toContain('Créer un compte');
+    expect(compiled.textContent).toContain('FleetTracker');
+  });
+
+  it('form shows validation errors in French on submit', () => {
+    component.registerForm.setValue({ prenom: '', nom: '', email: '', password: '' });
+    component.onSubmit();
+    expect(component.registerForm.invalid).toBeTrue();
+    expect(component.errorMessage()).toContain('remplir');
+  });
+
+  it('should navigate to /dashboard on successful registration', () => {
+    const router = TestBed.inject(Router);
+    const navSpy = spyOn(router, 'navigate').and.returnValue(Promise.resolve(true));
+    authServiceSpy.register.and.returnValue(of({ access_token: 'at', refresh_token: 'rt', user: { id: 1, email: 'test@intersig.ma', prenom: 'Test', nom: 'User', role: 'USER' as const, dashboardConfig: null, actif: true } }));
+    component.registerForm.setValue({ prenom: 'Test', nom: 'User', email: 'test@intersig.ma', password: 'testtest' });
+    component.onSubmit();
+    expect(navSpy).toHaveBeenCalledWith(['/dashboard']);
+  });
+
+  it('should display 422 error message', () => {
+    authServiceSpy.register.and.returnValue(throwError(() => new HttpErrorResponse({ status: 422 })));
+    component.registerForm.setValue({ prenom: 'Test', nom: 'User', email: 'test@intersig.ma', password: 'testtest' });
+    component.onSubmit();
+    expect(component.errorMessage()).toBe('Données invalides. Vérifiez les champs.');
+  });
+
+  it('should display generic error on 500', () => {
+    authServiceSpy.register.and.returnValue(throwError(() => new HttpErrorResponse({ status: 500 })));
+    component.registerForm.setValue({ prenom: 'Test', nom: 'User', email: 'test@intersig.ma', password: 'testtest' });
+    component.onSubmit();
+    expect(component.errorMessage()).toBe('Erreur lors de la création du compte.');
   });
 });
