@@ -31,7 +31,7 @@ export class LoginComponent {
   showPassword = signal(false);
   showRegisterPassword = signal(false);
   showRegisterConfirm = signal(false);
-  isLoggedIn = this.auth.isLoggedIn;
+  isAuthenticated = this.auth.isAuthenticated;
 
   loginForm = this.fb.group({
     email: ['', [Validators.required, Validators.email]],

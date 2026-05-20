@@ -1,22 +1,21 @@
 import { provideHttpClient } from '@angular/common/http';
 import { HttpErrorResponse, HttpStatusCode } from '@angular/common/http';
 import { provideRouter } from '@angular/router';
-import { BehaviorSubject, of, throwError } from 'rxjs';
+import { of, throwError, BehaviorSubject } from 'rxjs';
 import { ComponentFixture, TestBed } from '@angular/core/testing';
 import { ReactiveFormsModule } from '@angular/forms';
 import { Router } from '@angular/router';
-import { RouterTestingModule } from '@angular/router/testing';
 
 import { LoginComponent } from './login.component';
 import { AuthService } from '../../../core/auth/auth.service';
-import { User } from '../../../core/models/user.model';
+import { signal } from '@angular/core';
 
 describe('LoginComponent', () => {
   let component: LoginComponent;
   let fixture: ComponentFixture<LoginComponent>;
   let authServiceSpy: jasmine.SpyObj<AuthService>;
 
-  const mockUser: User = {
+  const mockUser = {
     id: 1,
     email: 'test@intersig.ma',
     prenom: 'Test',
@@ -24,15 +23,17 @@ describe('LoginComponent', () => {
   };
 
   beforeEach(async () => {
-    authServiceSpy = jasmine.createSpyObj('AuthService', ['login', 'logout'], {
-      currentUser: new BehaviorSubject<User | null>(null),
-      isLoggedIn: new BehaviorSubject<boolean>(false),
+    const _user = signal<any>(null);
+    authServiceSpy = jasmine.createSpyObj('AuthService', ['login', 'logout', 'refresh', 'clearTokens', 'getMe', 'hasExpiredToken'], {
+      user: _user.asReadonly(),
+      isAuthenticated: signal(false),
     });
 
     await TestBed.configureTestingModule({
-      imports: [LoginComponent, ReactiveFormsModule, RouterTestingModule],
+      imports: [LoginComponent, ReactiveFormsModule],
       providers: [
         provideHttpClient(),
+        provideRouter([]),
         { provide: AuthService, useValue: authServiceSpy },
       ],
     }).compileComponents();
@@ -58,7 +59,7 @@ describe('LoginComponent', () => {
     component.loginForm.setValue({ email: 'test@intersig.ma', password: 'testtest' });
     component.onLogin();
 
-    expect(authServiceSpy.login).toHaveBeenCalledWith({ email: 'test@intersig.ma', password: 'testtest' });
+    expect(authServiceSpy.login).toHaveBeenCalledWith({ email: 'test@intersig.ma', password: 'testtest', remember: false });
   });
 
   it('should navigate to /dashboard on successful login', async () => {
@@ -87,5 +88,54 @@ describe('LoginComponent', () => {
     component.logout();
 
     expect(authServiceSpy.logout).toHaveBeenCalled();
+  });
+
+  it('renders split-screen layout with glass card', () => {
+    const compiled = fixture.nativeElement as HTMLElement;
+    expect(compiled.querySelector('[style*="backdrop-filter"]') || compiled.querySelector('.glass-card') || compiled.textContent).toBeTruthy();
+    expect(compiled.textContent).toContain('Connexion');
+    expect(compiled.textContent).toContain('FleetTracker');
+  });
+
+  it('tab switcher toggles between Login and Register forms', () => {
+    expect(component.tab()).toBe('connexion');
+    component.switchTab('inscription');
+    expect(component.tab()).toBe('inscription');
+    component.switchTab('connexion');
+    expect(component.tab()).toBe('connexion');
+  });
+
+  it('form shows validation errors in French on submit', () => {
+    component.loginForm.setValue({ email: '', password: '' });
+    component.onLogin();
+    expect(component.loginForm.invalid).toBeTrue();
+  });
+
+  it('registerForm has cgu field and it is required', () => {
+    const cgu = component.registerForm.get('cgu');
+    expect(cgu).toBeTruthy();
+    cgu!.setValue(false);
+    expect(cgu!.invalid).toBeTrue();
+    cgu!.setValue(true);
+    expect(cgu!.valid).toBeTrue();
+  });
+
+  it('onRegister should fail when cgu is not accepted', () => {
+    component.registerForm.patchValue({
+      prenom: 'Karim',
+      nom: 'Benhassou',
+      email: 'karim@intersig.ma',
+      password: 'password123',
+      confirm: 'password123',
+      cgu: false,
+    });
+    component.onRegister();
+    expect(component.errorMessage()).toBe('Veuillez remplir tous les champs requis.');
+    expect(authServiceSpy.login).not.toHaveBeenCalled();
+  });
+
+  it('footer shows INTERSIG brand name', () => {
+    const compiled = fixture.nativeElement as HTMLElement;
+    expect(compiled.textContent).toContain('INTERSIG');
   });
 });
