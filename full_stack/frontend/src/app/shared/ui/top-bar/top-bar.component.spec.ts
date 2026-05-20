@@ -5,7 +5,6 @@ import { of } from 'rxjs';
 
 import { TopBarComponent } from './top-bar.component';
 import { AuthService } from '../../../core/auth/auth.service';
-import { Notification } from '../../../shared/models/notification.model';
 
 describe('TopBarComponent', () => {
   let component: TopBarComponent;

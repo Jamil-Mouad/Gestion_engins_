@@ -100,11 +100,11 @@ import { BellDropdownComponent } from './bell-dropdown.component';
       transition: background 150ms, color 150ms;
     }
     .top-bar__nav-link:hover {
-      background: var(--color-primary-soft);
+      background: rgba(247, 148, 29, 0.15);
       color: var(--color-primary);
     }
     .top-bar__nav-link.active {
-      background: var(--color-primary-soft);
+      background: rgba(247, 148, 29, 0.15);
       color: var(--color-primary);
       font-weight: 600;
     }
