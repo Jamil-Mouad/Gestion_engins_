@@ -1,7 +1,7 @@
 import { provideHttpClient } from '@angular/common/http';
 import { HttpErrorResponse, HttpStatusCode } from '@angular/common/http';
 import { provideRouter } from '@angular/router';
-import { of, throwError, BehaviorSubject } from 'rxjs';
+import { of, throwError } from 'rxjs';
 import { ComponentFixture, TestBed } from '@angular/core/testing';
 import { ReactiveFormsModule } from '@angular/forms';
 import { Router } from '@angular/router';
@@ -24,10 +24,12 @@ describe('LoginComponent', () => {
 
   beforeEach(async () => {
     const _user = signal<any>(null);
-    authServiceSpy = jasmine.createSpyObj('AuthService', ['login', 'logout', 'refresh', 'clearTokens', 'getMe', 'hasExpiredToken'], {
+    authServiceSpy = jasmine.createSpyObj('AuthService', ['login', 'logout', 'refresh', 'clearTokens', 'getMe', 'hasExpiredToken', 'register'], {
       user: _user.asReadonly(),
       isAuthenticated: signal(false),
     });
+
+    authServiceSpy.register.and.returnValue(of({ id: 1, email: 'test@test.com' } as any));
 
     await TestBed.configureTestingModule({
       imports: [LoginComponent, ReactiveFormsModule],
