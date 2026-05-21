@@ -1,6 +1,5 @@
 import { Component, inject, signal, computed } from '@angular/core';
 import { DecimalPipe } from '@angular/common';
-import { ScrollingModule } from '@angular/cdk/scrolling';
 import { ReleveCompteurService } from './releve-compteur.service';
 import { ReleveCompteur } from '../../shared/models/releve-compteur.model';
 import {
@@ -17,7 +16,6 @@ type SourceFilter = 'all' | 'manual' | 'excel_import' | 'intervention';
   standalone: true,
   imports: [
     DecimalPipe,
-    ScrollingModule,
     PageHeaderComponent,
     FilterChipComponent,
     SkeletonComponent,
@@ -32,21 +30,21 @@ type SourceFilter = 'all' | 'manual' | 'excel_import' | 'intervention';
       <!-- Filter bar -->
       <div class="hist-filter-bar">
         <div class="hist-filter-left">
-          <app-filter-chip label="Tous"         [active]="sourceFilter() === 'all'"          (clicked)="sourceFilter.set('all')" />
-          <app-filter-chip label="Manuel"       [active]="sourceFilter() === 'manual'"       (clicked)="sourceFilter.set(sourceFilter() === 'manual'       ? 'all' : 'manual')" />
-          <app-filter-chip label="Import"       [active]="sourceFilter() === 'excel_import'" (clicked)="sourceFilter.set(sourceFilter() === 'excel_import' ? 'all' : 'excel_import')" />
-          <app-filter-chip label="Intervention" [active]="sourceFilter() === 'intervention'" (clicked)="sourceFilter.set(sourceFilter() === 'intervention' ? 'all' : 'intervention')" />
+          <app-filter-chip label="Tous"         [active]="sourceFilter() === 'all'"          (clicked)="onSourceFilter('all')" />
+          <app-filter-chip label="Manuel"       [active]="sourceFilter() === 'manual'"       (clicked)="onSourceFilter(sourceFilter() === 'manual'       ? 'all' : 'manual')" />
+          <app-filter-chip label="Import"       [active]="sourceFilter() === 'excel_import'" (clicked)="onSourceFilter(sourceFilter() === 'excel_import' ? 'all' : 'excel_import')" />
+          <app-filter-chip label="Intervention" [active]="sourceFilter() === 'intervention'" (clicked)="onSourceFilter(sourceFilter() === 'intervention' ? 'all' : 'intervention')" />
         </div>
         <div class="hist-filter-right">
           <span class="hist-filter-label">Véhicule :</span>
-          <select class="hist-select" (change)="onVehicleFilter($event)">
+          <select class="hist-select" [value]="selectedVehiculeId()" (change)="onVehicleFilter($event)">
             <option value="">Tous les véhicules</option>
             @for (v of vehicles(); track v.id) {
               <option [value]="v.id">{{ v.code }}</option>
             }
           </select>
           @if (sourceFilter() !== 'all') {
-            <button class="hist-reset-btn" (click)="sourceFilter.set('all')">Réinitialiser</button>
+            <button class="hist-reset-btn" (click)="onSourceFilter('all')">Réinitialiser</button>
           }
         </div>
       </div>
@@ -80,38 +78,45 @@ type SourceFilter = 'all' | 'manual' | 'excel_import' | 'intervention';
                 <!-- Vertical spine -->
                 <div class="hist-spine"></div>
 
-                <!-- Virtual scroll viewport (kept for large dataset performance) -->
-                <cdk-virtual-scroll-viewport class="historique__viewport" itemSize="88">
-                  <div *cdkVirtualFor="let releve of group.releves; let i = index"
-                       class="hist-entry"
-                       [style.animation-delay]="i * 30 + 'ms'">
+                <!-- Entries list -->
+                <div class="hist-entries">
+                  @for (releve of group.releves; track releve.id; let i = $index) {
+                    <div class="hist-entry" [style.animation-delay]="i * 30 + 'ms'">
 
-                    <!-- Timeline node dot -->
-                    <div class="hist-node" [class]="'hist-node hist-node--' + getSourceVariant(releve.source)"></div>
+                      <!-- Timeline node dot -->
+                      <div class="hist-node" [class]="'hist-node hist-node--' + getSourceVariant(releve.source)"></div>
 
-                    <!-- Entry card -->
-                    <div class="hist-card">
-                      <div class="hist-card-top">
-                        <div class="hist-card-meta">
-                          <span class="hist-date">{{ formatDate(releve.dateReleve) }}</span>
-                          <span [class]="'hist-badge hist-badge--' + getSourceVariant(releve.source)">
-                            {{ getSourceLabel(releve.source) }}
-                          </span>
-                          <span class="hist-veh-chip">{{ releve.vehicule.code }}</span>
+                      <!-- Entry card -->
+                      <div class="hist-card">
+                        <div class="hist-card-top">
+                          <div class="hist-card-meta">
+                            <span class="hist-date">{{ formatDate(releve.dateReleve) }}</span>
+                            <span [class]="'hist-badge hist-badge--' + getSourceVariant(releve.source)">
+                              {{ getSourceLabel(releve.source) }}
+                            </span>
+                            <span class="hist-veh-chip">{{ releve.vehicule.code }}</span>
+                          </div>
+                          <div class="hist-card-right">
+                            @if (releve.compteurKm !== null && releve.compteurKm !== undefined) {
+                              <span class="hist-km-chip">{{ releve.compteurKm | number }} km</span>
+                            }
+                            @if (releve.compteurHeures !== null && releve.compteurHeures !== undefined) {
+                              <span class="hist-km-chip hist-km-chip--hours">{{ releve.compteurHeures }} h</span>
+                            }
+                          </div>
                         </div>
-                        <div class="hist-card-right">
-                          @if (releve.compteurKm !== null && releve.compteurKm !== undefined) {
-                            <span class="hist-km-chip">{{ releve.compteurKm | number }} km</span>
-                          }
-                          @if (releve.compteurHeures !== null && releve.compteurHeures !== undefined) {
-                            <span class="hist-km-chip hist-km-chip--hours">{{ releve.compteurHeures }} h</span>
-                          }
-                        </div>
+                        @if (releve.createdBy) {
+                          <div class="hist-card-secondary">
+                            Enregistré par : {{ releve.createdBy.prenom }} {{ releve.createdBy.nom }}
+                          </div>
+                        } @else {
+                          <div class="hist-card-secondary">{{ getSourceTypeLabel(releve.source) }}</div>
+                        }
                       </div>
-                    </div>
 
-                  </div>
-                </cdk-virtual-scroll-viewport>
+                    </div>
+                  }
+                </div>
               </div>
 
             </div>
@@ -133,7 +138,7 @@ type SourceFilter = 'all' | 'manual' | 'excel_import' | 'intervention';
 
     /* ── Page shell ──────────────────────────────────────────── */
     .hist-page {
-      background: #F5F5F5;
+      background: var(--color-background, #F5F5F5);
       min-height: calc(100vh - 72px);
     }
 
@@ -254,11 +259,10 @@ type SourceFilter = 'all' | 'manual' | 'excel_import' | 'intervention';
       min-height: 40px;
     }
 
-    /* ── Virtual scroll viewport ─────────────────────────────── */
-    .historique__viewport {
+    /* ── Entries container ───────────────────────────────────── */
+    .hist-entries {
       flex: 1;
-      height: calc(100vh - 200px);
-      overflow-y: auto;
+      min-width: 0;
     }
 
     /* ── Timeline entry row ──────────────────────────────────── */
@@ -282,10 +286,10 @@ type SourceFilter = 'all' | 'manual' | 'excel_import' | 'intervention';
       margin-right: 19px;
       border: 3px solid #fff;
     }
-    .hist-node--info    { background: #3B82F6; box-shadow: 0 0 0 2px rgba(59,130,246,0.3); }
-    .hist-node--warning { background: #F59E0B; box-shadow: 0 0 0 2px rgba(245,158,11,0.3); }
-    .hist-node--success { background: #10B981; box-shadow: 0 0 0 2px rgba(16,185,129,0.3); }
-    .hist-node--neutral { background: #9CA3AF; box-shadow: 0 0 0 2px rgba(156,163,175,0.3); }
+    .hist-node--info    { background: var(--color-info, #3B82F6);        box-shadow: 0 0 0 2px rgba(59,130,246,0.3); }
+    .hist-node--warning { background: var(--color-warning, #F59E0B);     box-shadow: 0 0 0 2px rgba(245,158,11,0.3); }
+    .hist-node--success { background: var(--color-success, #10B981);     box-shadow: 0 0 0 2px rgba(16,185,129,0.3); }
+    .hist-node--neutral { background: var(--color-text-muted, #9CA3AF);  box-shadow: 0 0 0 2px rgba(156,163,175,0.3); }
 
     /* ── Entry card ──────────────────────────────────────────── */
     .hist-card {
@@ -315,6 +319,12 @@ type SourceFilter = 'all' | 'manual' | 'excel_import' | 'intervention';
       gap: 6px;
       flex-shrink: 0;
     }
+    .hist-card-secondary {
+      font-family: 'Open Sans', sans-serif;
+      font-size: 12px;
+      color: var(--color-text-muted, #6B7280);
+      margin-top: 6px;
+    }
 
     /* ── Date label ──────────────────────────────────────────── */
     .hist-date {
@@ -332,10 +342,10 @@ type SourceFilter = 'all' | 'manual' | 'excel_import' | 'intervention';
       font-size: 12px;
       font-weight: 600;
     }
-    .hist-badge--info    { background: #E0F2FE; color: #0369A1; }
-    .hist-badge--warning { background: #FEF3C7; color: #92400E; }
-    .hist-badge--success { background: #D1FAE5; color: #065F46; }
-    .hist-badge--neutral { background: #F3F4F6; color: #374151; }
+    .hist-badge--info    { background: var(--color-info-subtle, #E0F2FE);    color: var(--color-info-text, #0369A1); }
+    .hist-badge--warning { background: var(--color-warning-subtle, #FEF3C7); color: var(--color-warning-text, #92400E); }
+    .hist-badge--success { background: var(--color-success-subtle, #D1FAE5); color: var(--color-success-text, #065F46); }
+    .hist-badge--neutral { background: var(--color-neutral-subtle, #F3F4F6); color: var(--color-neutral-text, #374151); }
 
     /* ── Vehicle chip ────────────────────────────────────────── */
     .hist-veh-chip {
@@ -372,6 +382,7 @@ export class HistoriqueComponent {
   loadError = signal<string | null>(null);
   vehicles = signal<{ id: number; code: string }[]>([]);
   sourceFilter = signal<SourceFilter>('all');
+  selectedVehiculeId = signal<string>('');
 
   filteredReleves = computed(() => {
     const f = this.sourceFilter();
@@ -416,7 +427,14 @@ export class HistoriqueComponent {
 
   onVehicleFilter(event: Event): void {
     const value = (event.target as HTMLSelectElement).value;
+    this.selectedVehiculeId.set(value);
+    this.sourceFilter.set('all');
     this.loadReleves(value ? Number(value) : undefined);
+  }
+
+  onSourceFilter(value: SourceFilter): void {
+    this.sourceFilter.set(value);
+    this.selectedVehiculeId.set('');
   }
 
   getSourceVariant(source: string): string {
@@ -434,6 +452,15 @@ export class HistoriqueComponent {
       case 'excel_import': return 'Import';
       case 'intervention': return 'Intervention';
       default: return source;
+    }
+  }
+
+  getSourceTypeLabel(source: string): string {
+    switch (source) {
+      case 'manual': return 'Relevé kilométrique manuel';
+      case 'excel_import': return 'Relevé importé via Excel';
+      case 'intervention': return 'Relevé lié à une intervention';
+      default: return 'Relevé kilométrique';
     }
   }
 

@@ -57,7 +57,7 @@ describe('HistoriqueComponent', () => {
     expect(component.releves().length).toBe(10);
   });
 
-  it('renders virtual scroll viewport for large datasets', () => {
+  it('renders all entries using plain @for (no virtual scroll) for large datasets', () => {
     const fixture = TestBed.createComponent(HistoriqueComponent);
     fixture.detectChanges();
 
@@ -80,7 +80,9 @@ describe('HistoriqueComponent', () => {
 
     fixture.detectChanges();
     const viewport = fixture.nativeElement.querySelector('cdk-virtual-scroll-viewport');
-    expect(viewport).not.toBeNull();
+    expect(viewport).toBeNull();
+    const entries = fixture.nativeElement.querySelectorAll('.hist-entry');
+    expect(entries.length).toBe(500);
   });
 
   it('loadReleves() sets loading to false on HTTP error', () => {
