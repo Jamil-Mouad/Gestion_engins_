@@ -1,4 +1,4 @@
-import { Component, inject, signal, OnDestroy, ElementRef, ViewChild, AfterViewChecked } from '@angular/core';
+import { Component, inject, signal, OnDestroy, ElementRef, ViewChild, effect } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { Subscription } from 'rxjs';
 import { ChatbotService } from '../../core/chatbot/chatbot.service';
@@ -111,7 +111,7 @@ const SUGGESTIONS = [
     .chatbot-screen {
       display: flex;
       flex-direction: column;
-      height: calc(100vh - var(--topbar-height, 56px));
+      height: calc(100vh - var(--topbar-height, 72px));
       background: var(--color-surface-1, #f8f9fc);
       animation: screenEnter 300ms ease-out both;
     }
@@ -279,7 +279,7 @@ const SUGGESTIONS = [
     }
   `],
 })
-export class ChatbotComponent implements OnDestroy, AfterViewChecked {
+export class ChatbotComponent implements OnDestroy {
   private chatbotService = inject(ChatbotService);
   private subscription: Subscription | null = null;
 
@@ -290,6 +290,15 @@ export class ChatbotComponent implements OnDestroy, AfterViewChecked {
   inputText = '';
   suggestions = SUGGESTIONS;
 
+  constructor() {
+    effect(() => {
+      const msgs = this.messages(); // tracks this signal
+      if (msgs.length) {
+        setTimeout(() => this.scrollToBottom(), 50);
+      }
+    });
+  }
+
   /** True while the last assistant message is still streaming (dotBounce shown). */
   isTyping(): boolean {
     const msgs = this.messages();
@@ -298,7 +307,7 @@ export class ChatbotComponent implements OnDestroy, AfterViewChecked {
     return last.role === 'assistant' && (last.streaming === true);
   }
 
-  ngAfterViewChecked(): void {
+  private scrollToBottom(): void {
     this.bottomAnchor?.nativeElement?.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
   }
 

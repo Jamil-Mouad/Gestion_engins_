@@ -103,7 +103,7 @@ import { ChatbotMessage } from '../../shared/models/chatbot.model';
     }
     .bubble--user {
       background: var(--color-text, #0f172a);
-      border: 1px solid #334155;
+      border: 1px solid var(--color-text-muted, #64748b);
       border-radius: 12px 4px 12px 12px;
     }
     .bubble--assistant {
