@@ -1,6 +1,6 @@
-import { Component, signal, inject } from '@angular/core';
+import { Component, signal, computed, inject, ElementRef, ViewChild } from '@angular/core';
 import { Router, RouterLink, RouterLinkActive } from '@angular/router';
-import { CommonModule } from '@angular/common';
+import { LucideAngularModule, ChevronDown } from 'lucide-angular';
 import { AuthService } from '../../../core/auth/auth.service';
 import { NotificationService } from '../../../core/notifications/notification.service';
 import { BellDropdownComponent } from './bell-dropdown.component';
@@ -9,185 +9,418 @@ import { ClickOutsideDirective } from '../../directives/click-outside.directive'
 @Component({
   selector: 'app-top-bar',
   standalone: true,
-  imports: [CommonModule, RouterLink, RouterLinkActive, BellDropdownComponent, ClickOutsideDirective],
+  imports: [RouterLink, RouterLinkActive, LucideAngularModule, BellDropdownComponent, ClickOutsideDirective],
   template: `
-    <header class="top-bar" [style.height]="'var(--topbar-height)'">
-      <div class="top-bar__left">
-        <a routerLink="/dashboard" class="top-bar__logo">
-          <img src="assets/logo.png" alt="INTERSIG" class="top-bar__logo-img" />
-          <span class="top-bar__logo-text">FleetTracker</span>
-        </a>
-      </div>
+    <header class="top-bar">
 
-      <nav class="top-bar__nav">
-        @for (link of navLinks; track link.path) {
-          <a [routerLink]="link.path"
-             routerLinkActive="active"
-             [routerLinkActiveOptions]="{ exact: link.path === '/dashboard' }"
-             class="top-bar__nav-link">
-            {{ link.label }}
+      <!-- Logo lockup -->
+      <a routerLink="/dashboard" class="logo-wrap">
+        <img src="assets/logo.png" alt="INTERSIG" class="logo-img" />
+        <div class="logo-arrow-square">
+          <svg width="20" height="16" viewBox="0 0 20 16" fill="none">
+            <path d="M0 8L7 0V4H20V12H7V16L0 8Z" fill="white"/>
+          </svg>
+        </div>
+        <div class="logo-text-stack">
+          <div class="logo-brand">INTERSIG</div>
+          <div class="logo-product">FleetTracker</div>
+        </div>
+      </a>
+
+      <!-- Nav + liquid-glass pill -->
+      <div #navContainer class="nav-container" (mouseleave)="hidePill()">
+
+        <!-- Glass pill -->
+        <div #hoverPill class="hover-pill"></div>
+
+        <!-- Dashboard -->
+        <div class="nav-item-wrap" (mouseenter)="movePill($event.currentTarget)">
+          <a routerLink="/dashboard" routerLinkActive="nav-link--active" [routerLinkActiveOptions]="{exact:true}" class="nav-link">
+            <span class="nav-label" [class.nav-label--active]="router.url === '/dashboard'">Dashboard</span>
           </a>
-        }
-      </nav>
+        </div>
 
-      <div class="top-bar__right">
-        <app-bell-dropdown [unreadCount]="unreadCount()" />
+        <!-- Véhicules -->
+        <div class="nav-item-wrap" (mouseenter)="movePill($event.currentTarget)">
+          <a routerLink="/vehicules" routerLinkActive="nav-link--active" class="nav-link">
+            <span class="nav-label" [class.nav-label--active]="router.url.startsWith('/vehicules')">Véhicules</span>
+          </a>
+        </div>
 
-        <div class="top-bar__user" (click)="userMenuOpen.set(!userMenuOpen())" (clickOutside)="userMenuOpen.set(false)">
-          <div class="top-bar__avatar">
-            {{ (auth.user()?.prenom?.[0] ?? '') + (auth.user()?.nom?.[0] ?? '') }}
+        <!-- Interventions -->
+        <div class="nav-item-wrap" (mouseenter)="movePill($event.currentTarget)">
+          <a routerLink="/interventions" routerLinkActive="nav-link--active" class="nav-link">
+            <span class="nav-label" [class.nav-label--active]="router.url.startsWith('/interventions')">Interventions</span>
+          </a>
+        </div>
+
+        <!-- Composants -->
+        <div class="nav-item-wrap" (mouseenter)="movePill($event.currentTarget)">
+          <a routerLink="/composants" routerLinkActive="nav-link--active" class="nav-link">
+            <span class="nav-label" [class.nav-label--active]="router.url.startsWith('/composants')">Composants</span>
+          </a>
+        </div>
+
+        <!-- Vidanges -->
+        <div class="nav-item-wrap" (mouseenter)="movePill($event.currentTarget)">
+          <a routerLink="/vidanges" routerLinkActive="nav-link--active" class="nav-link">
+            <span class="nav-label" [class.nav-label--active]="router.url.startsWith('/vidanges')">Vidanges</span>
+          </a>
+        </div>
+
+        <!-- Demandes dropdown -->
+        <div class="nav-item-wrap nav-item-wrap--demandes"
+             (mouseenter)="demandesOpen.set(true); movePill($event.currentTarget)"
+             (mouseleave)="demandesOpen.set(false)">
+          <div class="nav-link" [class.nav-link--active]="isDemandesActive()">
+            <span class="nav-label" [class.nav-label--active]="isDemandesActive()">Demandes ▾</span>
           </div>
+          @if (demandesOpen()) {
+            <div class="demandes-dropdown">
+              <a routerLink="/demandes-intervention" class="demandes-sub-item"
+                 [class.demandes-sub-item--active]="router.url.startsWith('/demandes-intervention')"
+                 (click)="demandesOpen.set(false)"
+                 (mouseenter)="onSubItemEnter($event)"
+                 (mouseleave)="onSubItemLeave($event)">
+                Intervention
+              </a>
+              <a routerLink="/demandes-achat" class="demandes-sub-item"
+                 [class.demandes-sub-item--active]="router.url.startsWith('/demandes-achat')"
+                 (click)="demandesOpen.set(false)"
+                 (mouseenter)="onSubItemEnter($event)"
+                 (mouseleave)="onSubItemLeave($event)">
+                Achat
+              </a>
+            </div>
+          }
+        </div>
+
+        <!-- Chat AI -->
+        <div class="nav-item-wrap" (mouseenter)="movePill($event.currentTarget)">
+          <a routerLink="/chatbot" routerLinkActive="nav-link--active" class="nav-link">
+            <span class="nav-label" [class.nav-label--active]="router.url.startsWith('/chatbot')">Chat AI</span>
+          </a>
+        </div>
+
+        <!-- Historique -->
+        <div class="nav-item-wrap" (mouseenter)="movePill($event.currentTarget)">
+          <a routerLink="/historique" routerLinkActive="nav-link--active" class="nav-link">
+            <span class="nav-label" [class.nav-label--active]="router.url.startsWith('/historique')">Historique</span>
+          </a>
+        </div>
+
+        <!-- Import -->
+        <div class="nav-item-wrap" (mouseenter)="movePill($event.currentTarget)">
+          <a routerLink="/import-export" routerLinkActive="nav-link--active" class="nav-link">
+            <span class="nav-label" [class.nav-label--active]="router.url.startsWith('/import-export')">Import</span>
+          </a>
+        </div>
+
+        <!-- Journées -->
+        <div class="nav-item-wrap" (mouseenter)="movePill($event.currentTarget)">
+          <a routerLink="/tableau-journees" routerLinkActive="nav-link--active" class="nav-link">
+            <span class="nav-label" [class.nav-label--active]="router.url.startsWith('/tableau-journees')">Journées</span>
+          </a>
+        </div>
+
+      </div><!-- /nav-container -->
+
+      <!-- Right cluster -->
+      <div class="topbar-right">
+        <app-bell-dropdown [unreadCount]="unreadCount()" />
+        <div class="topbar-divider"></div>
+        <div class="user-cluster"
+             (click)="userMenuOpen.set(!userMenuOpen())"
+             (clickOutside)="userMenuOpen.set(false)">
+          <div class="user-avatar">{{ initials() }}</div>
+          <lucide-icon name="chevron-down" [size]="14" color="rgba(107,114,128,1)" />
           @if (userMenuOpen()) {
-            <div class="top-bar__user-menu">
-              <div class="top-bar__user-name">
-                {{ auth.user()?.prenom }} {{ auth.user()?.nom }}
-              </div>
-              <a routerLink="/profil" class="top-bar__menu-item">Profil</a>
-              <button (click)="logout()" class="top-bar__menu-item top-bar__menu-item--logout">
-                Déconnexion
-              </button>
+            <div class="user-menu">
+              <div class="user-name">{{ auth.user()?.prenom }} {{ auth.user()?.nom }}</div>
+              <a routerLink="/profil" class="user-menu-item">Profil</a>
+              <button (click)="logout()" class="user-menu-item user-menu-item--logout">Déconnexion</button>
             </div>
           }
         </div>
       </div>
+
     </header>
   `,
   styles: [`
+    :host { display: block; }
+
     .top-bar {
       display: flex;
       align-items: center;
-      padding: 0 24px;
-      background: var(--color-dark);
+      padding: 0 20px;
+      background: #141414;
       position: fixed;
       top: 0;
       left: 0;
       right: 0;
+      height: 72px;
       z-index: 100;
+      gap: 0;
+      flex-shrink: 0;
     }
-    .top-bar__left { flex: 0 0 auto; }
-    .top-bar__logo {
+
+    /* ── Logo ── */
+    .logo-wrap {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      margin-right: 28px;
       text-decoration: none;
+      flex-shrink: 0;
+      cursor: pointer;
+    }
+    .logo-img {
+      height: 36px;
+      width: auto;
+      display: block;
+      flex-shrink: 0;
+    }
+    .logo-arrow-square {
+      width: 36px;
+      height: 36px;
+      background: #F7941D;
+      border-radius: 8px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      flex-shrink: 0;
+    }
+    .logo-text-stack { line-height: 1; }
+    .logo-brand {
+      font-family: 'Montserrat', sans-serif;
+      font-size: 13px;
+      font-weight: 700;
+      color: #fff;
+      letter-spacing: 0.05em;
+      line-height: 1.2;
+    }
+    .logo-product {
+      font-family: 'Open Sans', sans-serif;
+      font-size: 10px;
+      color: #F7941D;
+      font-weight: 500;
+      letter-spacing: 0.03em;
+    }
+
+    /* ── Nav container ── */
+    .nav-container {
+      display: flex;
+      flex: 1;
+      height: 100%;
+      position: relative;
+      overflow: visible;
+    }
+
+    /* ── Hover pill ── */
+    .hover-pill {
+      position: absolute;
+      top: 50%;
+      transform: translateY(-50%);
+      height: 36px;
+      border-radius: 8px;
+      pointer-events: none;
+      z-index: 0;
+      background: rgba(255,255,255,0.07);
+      border: 1px solid rgba(255,255,255,0.13);
+      backdrop-filter: blur(14px);
+      box-shadow: 0 2px 16px rgba(0,0,0,0.18), inset 0 1px 0 rgba(255,255,255,0.09);
+      transition: left 320ms cubic-bezier(0.34,1.2,0.64,1), width 320ms cubic-bezier(0.34,1.2,0.64,1), opacity 180ms ease;
+      opacity: 0;
+    }
+
+    /* ── Nav items ── */
+    .nav-item-wrap {
+      position: relative;
+      z-index: 1;
+    }
+    .nav-item-wrap--demandes {
+      position: relative;
+    }
+
+    .nav-link {
+      height: 72px;
+      padding: 0 14px;
+      display: flex;
+      align-items: center;
+      cursor: pointer;
+      border-bottom: 2px solid transparent;
+      transition: border-color 200ms ease-out;
+      text-decoration: none;
+    }
+    .nav-link--active,
+    .nav-link.active {
+      border-bottom-color: #F7941D;
+    }
+
+    .nav-label {
+      font-family: 'Open Sans', sans-serif;
+      font-size: 13.5px;
+      font-weight: 400;
+      color: rgba(255,255,255,0.62);
+      user-select: none;
+      transition: color 200ms;
+      white-space: nowrap;
+    }
+    .nav-label--active {
+      font-weight: 600;
+      color: #fff;
+    }
+
+    /* ── Demandes dropdown ── */
+    .demandes-dropdown {
+      position: absolute;
+      top: 70px;
+      left: 0;
+      background: rgba(20,20,20,0.97);
+      backdrop-filter: blur(18px);
+      border: 1px solid rgba(255,255,255,0.1);
+      border-radius: 8px;
+      min-width: 160px;
+      box-shadow: 0 24px 48px rgba(17,24,39,0.14);
+      z-index: 20;
+      overflow: hidden;
+    }
+    .demandes-sub-item {
+      display: block;
+      padding: 12px 20px;
+      font-family: 'Open Sans', sans-serif;
+      font-size: 14px;
+      cursor: pointer;
+      text-decoration: none;
+      border-left: 3px solid transparent;
+      font-weight: 400;
+      color: rgba(255,255,255,0.7);
+      transition: all 120ms;
+    }
+    .demandes-sub-item--active {
+      border-left-color: #F7941D;
+      font-weight: 600;
+      color: #fff;
+    }
+
+    /* ── Right cluster ── */
+    .topbar-right {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+    .topbar-divider {
+      width: 1px;
+      height: 24px;
+      background: #374151;
+    }
+    .user-cluster {
       display: flex;
       align-items: center;
       gap: 8px;
+      cursor: pointer;
+      position: relative;
     }
-    .top-bar__logo-text {
-      font-family: 'Montserrat', sans-serif;
-      font-size: 18px;
-      font-weight: 700;
-      color: var(--color-primary);
-      letter-spacing: 0.04em;
-    }
-    .top-bar__logo-img {
-      height: 36px;
-      object-fit: contain;
-    }
-    .top-bar__nav {
-      display: flex;
-      align-items: center;
-      gap: 4px;
-      margin-left: 32px;
-      flex: 1;
-    }
-    .top-bar__nav-link {
-      font-family: 'Open Sans', sans-serif;
-      font-size: 13px;
-      font-weight: 500;
-      color: rgba(255,255,255,0.7);
-      text-decoration: none;
-      padding: 6px 12px;
-      border-radius: var(--radius-sm);
-      transition: background 150ms, color 150ms;
-    }
-    .top-bar__nav-link:hover {
-      background: rgba(247, 148, 29, 0.15);
-      color: var(--color-primary);
-    }
-    .top-bar__nav-link.active {
-      background: rgba(247, 148, 29, 0.15);
-      color: var(--color-primary);
-      font-weight: 600;
-    }
-    .top-bar__right {
-      display: flex;
-      align-items: center;
-      gap: 16px;
-      margin-left: auto;
-    }
-    .top-bar__user { position: relative; cursor: pointer; }
-    .top-bar__avatar {
+    .user-avatar {
       width: 36px;
       height: 36px;
-      border-radius: 50%;
-      background: var(--color-primary-soft);
-      color: var(--color-primary);
+      border-radius: 9999px;
+      background: #F7941D;
       display: flex;
       align-items: center;
       justify-content: center;
       font-family: 'Montserrat', sans-serif;
       font-size: 13px;
-      font-weight: 600;
+      font-weight: 700;
+      color: #1A1A1A;
+      flex-shrink: 0;
     }
-    .top-bar__user-menu {
+    .user-menu {
       position: absolute;
       top: 44px;
       right: 0;
       min-width: 200px;
-      background: var(--color-surface);
-      border: 1px solid var(--color-border);
-      border-radius: var(--radius-md);
+      background: rgba(20,20,20,0.97);
+      backdrop-filter: blur(18px);
+      border: 1px solid rgba(255,255,255,0.1);
+      border-radius: 8px;
       box-shadow: 0 8px 24px rgba(0,0,0,0.12);
       padding: 8px 0;
       z-index: 200;
+      color: #fff;
     }
-    .top-bar__user-name {
+    .user-name {
       padding: 8px 16px;
       font-family: 'Montserrat', sans-serif;
       font-size: 13px;
       font-weight: 600;
-      color: var(--color-text);
+      color: #fff;
     }
-    .top-bar__menu-item {
+    .user-menu-item {
       display: block;
       width: 100%;
       padding: 8px 16px;
       font-family: 'Open Sans', sans-serif;
       font-size: 13px;
-      color: var(--color-text);
+      color: rgba(255,255,255,0.8);
       text-decoration: none;
       background: transparent;
       border: none;
       cursor: pointer;
       text-align: left;
+      box-sizing: border-box;
     }
-    .top-bar__menu-item:hover {
-      background: var(--color-surface-2);
+    .user-menu-item:hover {
+      background: rgba(255,255,255,0.07);
     }
-    .top-bar__menu-item--logout {
-      color: var(--color-danger);
+    .user-menu-item--logout {
+      color: #EF4444;
     }
   `],
 })
 export class TopBarComponent {
   auth = inject(AuthService);
-  private router = inject(Router);
+  router = inject(Router);
   private notificationService = inject(NotificationService);
+
+  @ViewChild('navContainer') navContainerRef!: ElementRef;
+  @ViewChild('hoverPill') hoverPillRef!: ElementRef;
 
   unreadCount = this.notificationService.unreadCount;
   userMenuOpen = signal(false);
+  demandesOpen = signal(false);
 
-  navLinks = [
-    { path: '/dashboard', label: 'Dashboard' },
-    { path: '/vehicules', label: 'Véhicules' },
-    { path: '/interventions', label: 'Interventions' },
-    { path: '/composants', label: 'Composants' },
-    { path: '/vidanges', label: 'Vidanges' },
-    { path: '/historique', label: 'Historique' },
-    { path: '/tableau-journees', label: 'Tableau' },
-    { path: '/import-export', label: 'Import/Export' },
-    { path: '/demandes-achat', label: 'Demandes' },
-    { path: '/chatbot', label: 'Chatbot' },
-  ];
+  initials = computed(() => (this.auth.user()?.prenom?.[0] ?? '') + (this.auth.user()?.nom?.[0] ?? ''));
+
+  isDemandesActive(): boolean {
+    return this.router.url.startsWith('/demandes-intervention') || this.router.url.startsWith('/demandes-achat');
+  }
+
+  movePill(el: EventTarget | null): void {
+    const pill = this.hoverPillRef?.nativeElement;
+    const container = this.navContainerRef?.nativeElement;
+    if (!pill || !container || !el) return;
+    const htmlEl = el as HTMLElement;
+    const elRect = htmlEl.getBoundingClientRect();
+    const cRect = container.getBoundingClientRect();
+    pill.style.left = (elRect.left - cRect.left) + 'px';
+    pill.style.width = elRect.width + 'px';
+    pill.style.opacity = '1';
+  }
+
+  hidePill(): void {
+    if (this.hoverPillRef?.nativeElement) {
+      this.hoverPillRef.nativeElement.style.opacity = '0';
+    }
+  }
+
+  onSubItemEnter(event: MouseEvent): void {
+    (event.currentTarget as HTMLElement).style.background = 'rgba(255,255,255,0.07)';
+  }
+
+  onSubItemLeave(event: MouseEvent): void {
+    (event.currentTarget as HTMLElement).style.background = 'transparent';
+  }
 
   logout(): void {
     this.auth.logout().subscribe({
