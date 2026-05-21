@@ -74,15 +74,18 @@ export class StatusBadgeComponent {
     .sev-badge--corrective { background:#FEF3C7; color:#92400E; }
     .sev-badge--depannage  { background:#FEE2E2; color:#991B1B; }
     .sev-badge--controle   { background:#E0F2FE; color:#0369A1; }
+    .sev-badge--depasse    { background:#FEE2E2; color:#991B1B; }
+    .sev-badge--proche     { background:#FEF3C7; color:#92400E; }
   `],
 })
 export class SevBadgeComponent {
-  @Input() type: 'warning'|'critical'|'success'|'info'|'preventive'|'corrective'|'depannage'|'controle' = 'info';
+  @Input() type: 'warning'|'critical'|'success'|'info'|'preventive'|'corrective'|'depannage'|'controle'|'depasse'|'proche' = 'info';
 
   get label(): string {
     const labels: Record<string, string> = {
       warning: '⚠ Alerte', critical: '🔴 Critique', success: '✓ OK', info: 'Info',
       preventive: 'Préventive', corrective: 'Corrective', depannage: 'Dépannage', controle: 'Contrôle',
+      depasse: '🔴 Dépassé', proche: '⚠ Proche',
     };
     return labels[this.type] ?? this.type;
   }

@@ -52,6 +52,32 @@ describe('SevBadgeComponent', () => {
     const span: HTMLElement = fixture.nativeElement.querySelector('.sev-badge');
     expect(span.classList.contains('sev-badge--critical')).toBeTrue();
   });
+
+  it('should show "🔴 Dépassé" for type=depasse', () => {
+    component.type = 'depasse';
+    fixture.detectChanges();
+    expect(fixture.nativeElement.textContent.trim()).toBe('🔴 Dépassé');
+  });
+
+  it('should apply sev-badge--depasse CSS class for type=depasse', () => {
+    component.type = 'depasse';
+    fixture.detectChanges();
+    const span: HTMLElement = fixture.nativeElement.querySelector('.sev-badge');
+    expect(span.classList.contains('sev-badge--depasse')).toBeTrue();
+  });
+
+  it('should show "⚠ Proche" for type=proche', () => {
+    component.type = 'proche';
+    fixture.detectChanges();
+    expect(fixture.nativeElement.textContent.trim()).toBe('⚠ Proche');
+  });
+
+  it('should apply sev-badge--proche CSS class for type=proche', () => {
+    component.type = 'proche';
+    fixture.detectChanges();
+    const span: HTMLElement = fixture.nativeElement.querySelector('.sev-badge');
+    expect(span.classList.contains('sev-badge--proche')).toBeTrue();
+  });
 });
 
 describe('RequestStatusBadgeComponent', () => {

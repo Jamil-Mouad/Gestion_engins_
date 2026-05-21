@@ -28,20 +28,6 @@ interface VidangeRow {
   etat: EtatFilter;
 }
 
-/** Map VidangeStatut → etat filter bucket */
-function statutToEtat(statut: VidangeStatut): EtatFilter {
-  if (statut === 'depasse') return 'depasse';
-  if (statut === 'a_faire' || statut === 'en_cours') return 'proche';
-  return 'ok';
-}
-
-/** Map etat bucket → SevBadge type */
-function etatToSevType(etat: EtatFilter): 'critical' | 'warning' | 'success' {
-  if (etat === 'depasse') return 'critical';
-  if (etat === 'proche') return 'warning';
-  return 'success';
-}
-
 @Component({
   selector: 'app-vidanges',
   standalone: true,
@@ -260,8 +246,8 @@ function etatToSevType(etat: EtatFilter): 'critical' | 'warning' | 'success' {
       font-weight: 700;
     }
     .reste-text--depasse { color: var(--color-danger, #EF4444); }
-    .reste-text--proche  { color: #D97706; }
-    .reste-text--ok      { color: #059669; }
+    .reste-text--proche  { color: var(--color-warning, #D97706); }
+    .reste-text--ok      { color: var(--color-success, #059669); }
     .reste-text--all     { color: #374151; }
 
     /* Effectuer button */
@@ -363,7 +349,6 @@ export class VidangesComponent {
   loading = signal(true);
 
   // ── UI filter signals ────────────────────────────────────────────────────────
-  searchQuery = signal('');
   etatFilter = signal<EtatFilter>('all');
 
   // ── computed flat rows ───────────────────────────────────────────────────────
@@ -378,7 +363,7 @@ export class VidangesComponent {
         dernierKm: '—',
         prochainKm: '—',
         reste: '—',
-        etat: statutToEtat(v.statut),
+        etat: this.statutToEtat(v.statut),
       }))
     )
   );
@@ -401,8 +386,17 @@ export class VidangesComponent {
   ];
 
   // ── helpers exposed to template ──────────────────────────────────────────────
-  readonly etatToSevType = etatToSevType;
-  readonly statutToEtat = statutToEtat;
+  etatToSevType(etat: EtatFilter): 'depasse' | 'proche' | 'success' {
+    if (etat === 'depasse') return 'depasse';
+    if (etat === 'proche') return 'proche';
+    return 'success';
+  }
+
+  statutToEtat(statut: VidangeStatut): EtatFilter {
+    if (statut === 'depasse') return 'depasse';
+    if (statut === 'a_faire' || statut === 'en_cours') return 'proche';
+    return 'ok';
+  }
 
   constructor() {
     this.loadPlanning();
