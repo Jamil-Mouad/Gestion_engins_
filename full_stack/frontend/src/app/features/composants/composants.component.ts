@@ -121,7 +121,7 @@ const PARTIE_LABELS: Record<string, string> = {
               <!-- Inline children when expanded -->
               @if (expanded().has(node.id) && node.children.length > 0) {
                 @for (child of node.children; track child.id; let ci = $index) {
-                  <app-data-table-row [idx]="i * 10 + ci" [clickable]="child.children.length > 0" (rowClicked)="toggle(child.id)">
+                  <app-data-table-row [idx]="i * 1000 + ci" [clickable]="child.children.length > 0" (rowClicked)="toggle(child.id)">
                     <div class="dtr-cell" style="flex:1.2">
                       @if (child.reference) {
                         <span class="ref-chip">{{ child.reference }}</span>
@@ -152,7 +152,7 @@ const PARTIE_LABELS: Record<string, string> = {
 
                   @if (expanded().has(child.id) && child.children.length > 0) {
                     @for (leaf of child.children; track leaf.id; let li = $index) {
-                      <app-data-table-row [idx]="i * 100 + ci * 10 + li">
+                      <app-data-table-row [idx]="i * 10000 + ci * 100 + li">
                         <div class="dtr-cell" style="flex:1.2">
                           @if (leaf.reference) {
                             <span class="ref-chip">{{ leaf.reference }}</span>
@@ -190,14 +190,15 @@ const PARTIE_LABELS: Record<string, string> = {
     </div>
   `,
   styles: [`
-    .comp-page { background: #F9FAFB; min-height: 100vh; }
+    @keyframes screenEnter { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: translateY(0); } }
+    .comp-page { background: #F5F5F5; min-height: calc(100vh - 72px); }
     .comp-content { padding: 20px 32px 32px; }
 
     /* Filter card */
     .filter-card {
-      background: white;
+      background: var(--color-surface);
       border-radius: 12px;
-      border: 1px solid #E5E7EB;
+      border: 1px solid var(--color-border);
       padding: 14px 20px;
       margin-bottom: 20px;
       display: flex;
@@ -225,7 +226,7 @@ const PARTIE_LABELS: Record<string, string> = {
     .search-input {
       height: 36px;
       padding: 0 12px 0 32px;
-      border: 1px solid #E5E7EB;
+      border: 1px solid var(--color-border);
       border-radius: 8px;
       font-family: 'Open Sans', sans-serif;
       font-size: 13px;
@@ -240,7 +241,7 @@ const PARTIE_LABELS: Record<string, string> = {
     .table-wrap {
       background: white;
       border-radius: 12px;
-      border: 1px solid #E5E7EB;
+      border: 1px solid var(--color-border);
       box-shadow: 0 1px 3px rgba(0,0,0,0.07);
       overflow: hidden;
     }
@@ -308,13 +309,6 @@ const PARTIE_LABELS: Record<string, string> = {
       color: #6B7280;
       font-size: 12px;
     }
-    .comp-chevron {
-      font-size: 11px;
-      color: #9CA3AF;
-      margin-right: 6px;
-      width: 14px;
-    }
-
     /* Partie badges */
     .partie-badge {
       padding: 3px 10px;
@@ -360,7 +354,7 @@ const PARTIE_LABELS: Record<string, string> = {
       transition: background 150ms;
       white-space: nowrap;
     }
-    .btn-primary:hover { background: #1648c7; }
+    .btn-primary:hover { background: var(--color-primary-dark, #1648c7); }
   `],
 })
 export class ComposantsComponent {
@@ -381,7 +375,7 @@ export class ComposantsComponent {
     const q      = this.searchQuery().toLowerCase().trim();
     const partie = this.partieFilter();
     return this.tree().filter(node => {
-      const matchQ = !q || node.designation.toLowerCase().includes(q);
+      const matchQ = !q || node.designation.toLowerCase().includes(q) || (node.reference ?? '').toLowerCase().includes(q);
       const matchP = partie === 'all' || node.categorie === partie;
       return matchQ && matchP;
     });
@@ -404,6 +398,7 @@ export class ComposantsComponent {
     { value: 'hydraulique',   label: 'Hydraulique' },
     { value: 'electrique',    label: 'Électrique' },
     { value: 'transmission',  label: 'Transmission' },
+    { value: 'autre',         label: 'Autre' },
   ];
 
   constructor() {

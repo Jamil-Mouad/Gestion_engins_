@@ -220,8 +220,8 @@ describe('ComposantsComponent', () => {
 
     const nativeEl = fixture.nativeElement as HTMLElement;
     const chips = nativeEl.querySelectorAll('app-filter-chip');
-    // "Toutes" + 6 parties = 7
-    expect(chips.length).toBe(7);
+    // "Toutes" + 7 parties (incl. 'autre') = 8
+    expect(chips.length).toBe(8);
   });
 
   it('partieLabel returns correct display label', () => {
