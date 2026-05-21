@@ -244,19 +244,6 @@ describe('NotificationsComponent', () => {
     expect(component.markingAll()).toBe(false);
   });
 
-  it('getSeveriteVariant maps severities correctly', () => {
-    const fixture = TestBed.createComponent(NotificationsComponent);
-    const component = fixture.componentInstance;
-    const initReq = httpMock.expectOne((r) => r.url === '/api/v1/notifications');
-    initReq.flush(mockPage);
-
-    expect(component.getSeveriteVariant('critical')).toBe('danger');
-    expect(component.getSeveriteVariant('warning')).toBe('warning');
-    expect(component.getSeveriteVariant('success')).toBe('success');
-    expect(component.getSeveriteVariant('info')).toBe('info');
-    expect(component.getSeveriteVariant('unknown')).toBe('info');
-  });
-
   it('shows skeleton while loading', () => {
     const fixture = TestBed.createComponent(NotificationsComponent);
     fixture.detectChanges();

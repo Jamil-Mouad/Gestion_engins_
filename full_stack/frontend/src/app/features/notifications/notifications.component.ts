@@ -2,8 +2,6 @@ import { Component, inject, signal, computed } from '@angular/core';
 import { NotificationService } from '../../core/notifications/notification.service';
 import { Notification, NotificationCategorie } from '../../shared/models/notification.model';
 import {
-  PageHeaderComponent,
-  FilterChipComponent,
   SkeletonComponent,
   EmptyStateComponent,
 } from '../../shared/ui';
@@ -17,18 +15,16 @@ interface SevConfig {
 }
 
 const SEV_CFG: Record<string, SevConfig> = {
-  critical: { bg: '#FEE2E2', iconColor: '#EF4444', icon: '⚠' },
-  warning:  { bg: '#FEF3C7', iconColor: '#F59E0B', icon: '⚠' },
-  info:     { bg: '#DBEAFE', iconColor: '#3B82F6', icon: 'ℹ' },
-  success:  { bg: '#D1FAE5', iconColor: '#10B981', icon: '✓' },
+  critical: { bg: 'var(--color-danger-soft, #FEE2E2)', iconColor: 'var(--color-danger, #EF4444)', icon: '⚠' },
+  warning:  { bg: 'var(--color-warning-soft, #FEF3C7)', iconColor: 'var(--color-warning, #F59E0B)', icon: '⚠' },
+  info:     { bg: 'var(--color-info-soft, #EFF6FF)', iconColor: 'var(--color-info, #3B82F6)', icon: 'ℹ' },
+  success:  { bg: 'var(--color-success-soft, #D1FAE5)', iconColor: 'var(--color-success, #10B981)', icon: '✓' },
 };
 
 @Component({
   selector: 'app-notifications',
   standalone: true,
   imports: [
-    PageHeaderComponent,
-    FilterChipComponent,
     SkeletonComponent,
     EmptyStateComponent,
   ],
@@ -57,7 +53,7 @@ const SEV_CFG: Record<string, SevConfig> = {
 
         <!-- ── Filter tabs ── -->
         <div class="notif-tabs">
-          @for (tab of tabs; track tab.id) {
+          @for (tab of tabs(); track tab.id) {
             <button
               class="notifications__tab"
               [class.notifications__tab--active]="activeTab() === tab.id"
@@ -184,7 +180,7 @@ const SEV_CFG: Record<string, SevConfig> = {
     }
 
     .notif-screen {
-      background: #F5F5F5;
+      background: var(--color-background, #F5F5F5);
       min-height: calc(100vh - 72px);
       animation: screenEnter 300ms ease-out both;
     }
@@ -210,7 +206,7 @@ const SEV_CFG: Record<string, SevConfig> = {
       font-family: 'Montserrat', sans-serif;
       font-size: 28px;
       font-weight: 700;
-      color: #111827;
+      color: var(--color-text, #111827);
       margin: 0;
     }
     .notif-unread-badge {
@@ -327,8 +323,8 @@ const SEV_CFG: Record<string, SevConfig> = {
       gap: 14px;
       padding: 16px 20px;
       border-radius: 8px;
-      border: 1px solid #F3F4F6;
-      background: #fff;
+      border: 1px solid var(--color-border, #F3F4F6);
+      background: var(--color-surface, #fff);
       margin-bottom: 8px;
       cursor: pointer;
       transition: all 150ms ease-out;
@@ -340,8 +336,8 @@ const SEV_CFG: Record<string, SevConfig> = {
       transform: translateX(2px);
     }
     .notif-item--unread {
-      border-color: #FCD34D;
-      background: #FFFBF5;
+      border-color: var(--color-warning, #FCD34D);
+      background: var(--color-warning-soft, #FFFBF5);
     }
 
     /* Unread dot */
@@ -385,7 +381,7 @@ const SEV_CFG: Record<string, SevConfig> = {
       font-family: 'Montserrat', sans-serif;
       font-size: 14px;
       font-weight: 400;
-      color: #111827;
+      color: var(--color-text, #111827);
       margin-bottom: 2px;
       white-space: nowrap;
       overflow: hidden;
@@ -414,7 +410,7 @@ const SEV_CFG: Record<string, SevConfig> = {
     .notif-item-time {
       font-family: 'Open Sans', sans-serif;
       font-size: 12px;
-      color: #9CA3AF;
+      color: var(--color-text-muted, #9CA3AF);
     }
   `],
 })
@@ -426,12 +422,12 @@ export class NotificationsComponent {
   markingAll = signal(false);
   activeTab = signal<NotificationTab>('all');
 
-  readonly tabs = [
-    { id: 'all' as NotificationTab,    label: 'Tous',         badge: 0 },
-    { id: 'unread' as NotificationTab, label: 'Non lues',     badge: 0 },
-    { id: 'seuils' as NotificationTab, label: 'Seuils',       badge: 0 },
-    { id: 'systeme' as NotificationTab, label: 'Système',     badge: 0 },
-  ];
+  readonly tabs = computed(() => [
+    { id: 'all' as NotificationTab,     label: 'Tous',     badge: 0 },
+    { id: 'unread' as NotificationTab,  label: 'Non lues', badge: this.unreadCount() },
+    { id: 'seuils' as NotificationTab,  label: 'Seuils',   badge: 0 },
+    { id: 'systeme' as NotificationTab, label: 'Système',  badge: 0 },
+  ]);
 
   unreadCount = computed(() =>
     this.notifications().filter(n => !n.lu).length
@@ -500,15 +496,6 @@ export class NotificationsComponent {
           this.notificationService.unreadCount.update(c => Math.max(0, c - 1));
         },
       });
-    }
-  }
-
-  getSeveriteVariant(severite: string): string {
-    switch (severite) {
-      case 'critical': return 'danger';
-      case 'warning':  return 'warning';
-      case 'success':  return 'success';
-      default:         return 'info';
     }
   }
 
