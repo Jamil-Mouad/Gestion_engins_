@@ -11,7 +11,6 @@ import {
   TabGroupComponent,
   CardComponent,
   KpiCardComponent,
-  DataTableHeaderComponent,
   SkeletonComponent,
   EmptyStateComponent,
   SevBadgeComponent,
@@ -30,7 +29,6 @@ type TabId = 'overview' | 'activite' | 'inspections' | 'historique';
     LucideAngularModule,
     BreadcrumbComponent, TabGroupComponent,
     CardComponent, KpiCardComponent,
-    DataTableHeaderComponent,
     SkeletonComponent, EmptyStateComponent, SevBadgeComponent,
     PneuDetailsTabComponent, PneuInspectionsTabComponent,
     PneuHistoriqueTabComponent,
@@ -137,7 +135,6 @@ type TabId = 'overview' | 'activite' | 'inspections' | 'historique';
           <!-- Activité (inspections table) -->
           @if (activeTab() === 'activite') {
             <app-card title="Activité du pneu">
-              <app-data-table-header [cols]="activityCols" />
               <app-pneu-inspections-tab [pneuId]="pneu()!.id" />
             </app-card>
           }
@@ -189,7 +186,7 @@ type TabId = 'overview' | 'activite' | 'inspections' | 'historique';
       width: 80px;
       height: 80px;
       border-radius: 12px;
-      background: #1D4ED8;
+      background: var(--color-primary);
       display: flex;
       align-items: center;
       justify-content: center;
@@ -228,7 +225,7 @@ type TabId = 'overview' | 'activite' | 'inspections' | 'historique';
 
     .pneu-detail__km-restant {
       font-weight: 600;
-      color: #EF4444;
+      color: var(--color-danger, #EF4444);
     }
 
     /* ── Content ─────────────────────────────────────────── */
@@ -298,15 +295,6 @@ export class PneuDetailComponent {
   readonly tabIds: TabId[] = ['overview', 'activite', 'inspections', 'historique'];
 
   activeTabIndex = computed(() => this.tabIds.indexOf(this.activeTab()));
-
-  activityCols = [
-    { label: 'Date',       flex: 1.2 },
-    { label: 'Activité',   flex: 1.2 },
-    { label: 'Pression',   flex: 0.8 },
-    { label: 'Profondeur', flex: 0.8 },
-    { label: 'Méthode',    flex: 0.8 },
-    { label: 'Notes',      flex: 1.4 },
-  ];
 
   pneu = toSignal<Pneu | null>(
     (() => {
