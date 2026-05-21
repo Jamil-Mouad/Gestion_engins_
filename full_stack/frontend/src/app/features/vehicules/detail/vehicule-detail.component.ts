@@ -1,5 +1,5 @@
 import { Component, inject, signal, computed } from '@angular/core';
-import { UpperCasePipe } from '@angular/common';
+import { UpperCasePipe, DecimalPipe } from '@angular/common';
 import { ActivatedRoute, Router, RouterLink } from '@angular/router';
 import { toSignal } from '@angular/core/rxjs-interop';
 import { tap, catchError, of } from 'rxjs';
@@ -26,7 +26,7 @@ import { DocumentsTabComponent } from './tabs/documents-tab.component';
   selector: 'app-vehicule-detail',
   standalone: true,
   imports: [
-    UpperCasePipe, RouterLink,
+    UpperCasePipe, DecimalPipe, RouterLink,
     LucideAngularModule,
     StatusBadgeComponent, StatusLabelPipe, SkeletonComponent,
     ConfirmDeleteModalComponent, EmptyStateComponent,

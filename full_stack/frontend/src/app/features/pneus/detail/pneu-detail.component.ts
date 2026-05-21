@@ -92,7 +92,7 @@ type TabId = 'overview' | 'activite' | 'inspections' | 'historique';
               />
               <app-kpi-card
                 label="Profondeur"
-                [value]="pneu()!.profondeur32e != null ? (pneu()!.profondeur32e! + '/32\"') : '—'"
+                [value]="pneu()!.profondeur32e != null ? (pneu()!.profondeur32e! + '/32in') : '—'"
               />
               <app-kpi-card
                 label="Dernier montage"
