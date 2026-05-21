@@ -42,36 +42,72 @@ const ALL_WIDGET_IDS = [
   ],
   templateUrl: './dashboard.component.html',
   styles: [`
-    .dashboard { padding: 24px; }
-    .dashboard--compact ::ng-deep gridster-item { padding: 8px !important; }
-    .dashboard--compact ::ng-deep .widget-card { padding: 8px !important; }
-    .dashboard__header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 24px; }
-    .dashboard__title { font-family: 'Montserrat', sans-serif; font-size: 24px; font-weight: 700; color: var(--color-text); margin: 0; }
-    .dashboard__actions { display: flex; gap: 12px; }
-    .dashboard__toggle-btn {
-      background: var(--color-surface);
-      border: 1px solid var(--color-border);
-      border-radius: var(--radius-sm);
-      padding: 8px 16px;
-      font-family: 'Open Sans', sans-serif;
-      font-size: 13px;
-      color: var(--color-text-muted);
-      cursor: pointer;
+    .dashboard-page {
+      background: var(--color-surface-2, #F5F5F5);
+      min-height: calc(100vh - 72px);
     }
-    .dashboard__toggle-btn:hover { background: var(--color-surface-2); }
-    .dashboard__manage-btn {
-      background: var(--color-primary);
-      color: #fff;
-      border: none;
-      border-radius: var(--radius-sm);
-      padding: 8px 16px;
+    .dashboard-header {
+      background: white;
+      border-bottom: 1px solid var(--color-border);
+      padding: 16px 32px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+    }
+    .dashboard-header__title {
+      font-family: 'Montserrat', sans-serif;
+      font-size: 26px;
+      font-weight: 700;
+      color: var(--color-text-primary, #111827);
+      margin: 0;
+    }
+    .dashboard-header__actions {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+    .compact-toggle {
+      height: 36px;
+      padding: 0 14px;
+      border: 1px solid var(--color-border);
+      border-radius: 8px;
+      background: white;
       font-family: 'Open Sans', sans-serif;
       font-size: 13px;
       font-weight: 600;
+      color: var(--color-text-secondary, #374151);
       cursor: pointer;
+      transition: all 150ms;
     }
-    .dashboard__manage-btn:hover { background: var(--color-primary-dark); }
-    .dashboard__grid { min-height: 600px; }
+    .compact-toggle--active {
+      border-color: var(--color-primary);
+      background: var(--color-primary-soft);
+      color: var(--color-primary-text);
+    }
+    .manage-widgets-btn {
+      height: 36px;
+      padding: 0 14px;
+      border: 1px solid var(--color-border);
+      border-radius: 8px;
+      background: white;
+      font-family: 'Montserrat', sans-serif;
+      font-size: 13px;
+      font-weight: 600;
+      color: var(--color-text-secondary, #374151);
+      cursor: pointer;
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      box-shadow: 0 1px 2px rgba(17,24,39,.06);
+      transition: all 150ms;
+    }
+    .manage-widgets-btn:hover {
+      background: var(--color-surface-2);
+    }
+    .dashboard-content {
+      padding: 24px 32px 40px;
+    }
   `],
 })
 export class DashboardComponent implements OnDestroy {
