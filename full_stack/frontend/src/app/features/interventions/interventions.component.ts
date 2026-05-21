@@ -2,6 +2,7 @@ import { Component, inject, signal, computed } from '@angular/core';
 import { toSignal } from '@angular/core/rxjs-interop';
 import { BehaviorSubject } from 'rxjs';
 import { switchMap, tap } from 'rxjs';
+import { LucideAngularModule } from 'lucide-angular';
 import { InterventionService } from './intervention.service';
 import { Intervention, InterventionStatut, InterventionCategorie } from '../../shared/models/intervention.model';
 import { Page } from '../../shared/models/pagination.model';
@@ -34,6 +35,7 @@ type CategorieFilter = 'all' | InterventionCategorie;
     DataTableHeaderComponent, DataTableRowComponent,
     SevBadgeComponent, StatusBadgeComponent,
     NewInterventionModalComponent, CloturerConfirmModalComponent,
+    LucideAngularModule,
   ],
   template: `
     <div class="int-page" style="animation: screenEnter 400ms ease both">
@@ -53,6 +55,11 @@ type CategorieFilter = 'all' | InterventionCategorie;
             (tabChange)="onTabChange($event)" />
 
           <div class="filter-row">
+            <div class="search-wrap">
+              <lucide-icon name="search" class="search-icon" [size]="15" />
+              <input class="search-input" placeholder="Rechercher ID, véhicule, composant…"
+                     [value]="searchQuery()" (input)="searchQuery.set($any($event.target).value)" />
+            </div>
             <span class="filter-label">Catégorie :</span>
             @for (f of categorieFilters; track f.value) {
               <app-filter-chip
@@ -151,6 +158,23 @@ type CategorieFilter = 'all' | InterventionCategorie;
     .filter-row { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; padding: 14px 20px; border-top: 1px solid var(--color-border); }
     .filter-label { font-family: 'Open Sans', sans-serif; font-size: 13px; color: #6B7280; flex-shrink: 0; }
 
+    /* Search input */
+    .search-wrap { position: relative; display: inline-flex; align-items: center; }
+    .search-icon { position: absolute; left: 10px; color: #9CA3AF; pointer-events: none; }
+    .search-input {
+      height: 36px;
+      padding: 0 12px 0 36px;
+      border: 1px solid var(--color-border);
+      border-radius: 8px;
+      font-family: 'Open Sans', sans-serif;
+      font-size: 13px;
+      color: var(--color-text);
+      background: var(--color-surface);
+      outline: none;
+      min-width: 240px;
+    }
+    .search-input:focus { border-color: var(--color-primary); }
+
     /* Table */
     .table-wrap { background: white; border-radius: 12px; border: 1px solid var(--color-border); box-shadow: 0 1px 2px rgba(17,24,39,.06); overflow: hidden; margin-bottom: 16px; }
 
@@ -193,6 +217,7 @@ export class InterventionsComponent {
 
   activeTabIndex = signal(0);
   categorieFilter = signal<CategorieFilter>('all');
+  searchQuery = signal('');
   loading = signal(true);
   showNewModal = signal(false);
   cloturerIntervention = signal<Intervention | null>(null);
@@ -244,15 +269,23 @@ export class InterventionsComponent {
     const list = this.pageData().content;
     const tabIdx = this.activeTabIndex();
     const cat = this.categorieFilter();
+    const q = this.searchQuery().toLowerCase().trim();
 
     // Tab filtering: 0 = en_cours, 1 = cloture, 2 = all
     const tabStatuts: (InterventionStatut | null)[] = ['en_cours', 'cloture', null];
     const tabStatut = tabStatuts[tabIdx];
 
-    return list.filter((i: Intervention) =>
-      (tabStatut === null || i.statut === tabStatut) &&
-      (cat === 'all' || i.categorie === cat)
-    );
+    return list.filter((i: Intervention) => {
+      if (tabStatut !== null && i.statut !== tabStatut) return false;
+      if (cat !== 'all' && i.categorie !== cat) return false;
+      if (q) {
+        const matchesId = String(i.id).includes(q);
+        const matchesVehicule = (i.vehicule?.code ?? '').toLowerCase().includes(q);
+        const matchesComposant = (i.composant?.designation ?? '').toLowerCase().includes(q);
+        if (!matchesId && !matchesVehicule && !matchesComposant) return false;
+      }
+      return true;
+    });
   });
 
   onTabChange(index: number): void {
