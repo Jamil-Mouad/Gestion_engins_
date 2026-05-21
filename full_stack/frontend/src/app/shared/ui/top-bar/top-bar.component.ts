@@ -1,15 +1,15 @@
-import { Component, Input, Output, EventEmitter, signal, inject } from '@angular/core';
+import { Component, signal, inject } from '@angular/core';
 import { Router, RouterLink, RouterLinkActive } from '@angular/router';
 import { CommonModule } from '@angular/common';
 import { AuthService } from '../../../core/auth/auth.service';
 import { NotificationService } from '../../../core/notifications/notification.service';
-import { Notification } from '../../../shared/models/notification.model';
 import { BellDropdownComponent } from './bell-dropdown.component';
+import { ClickOutsideDirective } from '../../directives/click-outside.directive';
 
 @Component({
   selector: 'app-top-bar',
   standalone: true,
-  imports: [CommonModule, RouterLink, RouterLinkActive, BellDropdownComponent],
+  imports: [CommonModule, RouterLink, RouterLinkActive, BellDropdownComponent, ClickOutsideDirective],
   template: `
     <header class="top-bar" [style.height]="'var(--topbar-height)'">
       <div class="top-bar__left">
@@ -31,7 +31,7 @@ import { BellDropdownComponent } from './bell-dropdown.component';
       </nav>
 
       <div class="top-bar__right">
-        <app-bell-dropdown [unreadCount]="unreadCount()" [notifications]="notificationsList" />
+        <app-bell-dropdown [unreadCount]="unreadCount()" />
 
         <div class="top-bar__user" (click)="userMenuOpen.set(!userMenuOpen())" (clickOutside)="userMenuOpen.set(false)">
           <div class="top-bar__avatar">
@@ -174,9 +174,6 @@ export class TopBarComponent {
   private notificationService = inject(NotificationService);
 
   unreadCount = this.notificationService.unreadCount;
-  notificationsList: Notification[] = [];
-
-  @Input() set topBarNotifications(v: Notification[]) { this.notificationsList = v; }
   userMenuOpen = signal(false);
 
   navLinks = [
