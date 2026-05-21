@@ -82,14 +82,14 @@ import {
       gap: 6px;
     }
     .hit-warn-icon {
-      color: #d97706;
+      color: var(--color-warning, #d97706);
       flex-shrink: 0;
     }
     .hit-warn-text {
       font-family: 'Open Sans', sans-serif;
       font-size: 13px;
       font-weight: 700;
-      color: #d97706;
+      color: var(--color-warning, #d97706);
     }
     .hit-badge {
       display: inline-flex;
@@ -101,12 +101,12 @@ import {
       white-space: nowrap;
     }
     .hit-badge--ok {
-      background: #DCFCE7;
-      color: #16a34a;
+      background: var(--color-success-soft, #DCFCE7);
+      color: var(--color-success, #16a34a);
     }
     .hit-badge--partial {
-      background: #FEF9C3;
-      color: #92400E;
+      background: var(--color-warning-soft, #FEF9C3);
+      color: var(--color-warning, #d97706);
     }
   `],
 })

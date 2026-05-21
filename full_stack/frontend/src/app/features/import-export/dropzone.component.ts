@@ -1,4 +1,4 @@
-import { Component, Output, EventEmitter, signal } from '@angular/core';
+import { Component, signal, computed, output } from '@angular/core';
 import { LucideAngularModule } from 'lucide-angular';
 import { ImportPreview } from '../../shared/models/import.model';
 
@@ -98,7 +98,7 @@ import { ImportPreview } from '../../shared/models/import.model';
     .dz-zone--over {
       border-color: var(--color-primary);
       border-style: solid;
-      background: rgba(247, 148, 29, 0.05);
+      background: color-mix(in srgb, var(--color-primary) 5%, transparent);
     }
     .dz-zone--parsing {
       cursor: default;
@@ -116,11 +116,11 @@ import { ImportPreview } from '../../shared/models/import.model';
       transition: background 200ms, transform 200ms;
     }
     .dz-icon-wrap--over {
-      background: rgba(247, 148, 29, 0.12);
+      background: color-mix(in srgb, var(--color-primary) 12%, transparent);
       transform: scale(1.1);
     }
     .dz-icon-wrap--success {
-      background: #DCFCE7;
+      background: var(--color-success-soft, #DCFCE7);
     }
     .dz-icon {
       color: #9ca3af;
@@ -130,7 +130,7 @@ import { ImportPreview } from '../../shared/models/import.model';
       color: var(--color-primary);
     }
     .dz-icon-success {
-      color: #16a34a;
+      color: var(--color-success, #16a34a);
     }
 
     /* Labels */
@@ -144,7 +144,7 @@ import { ImportPreview } from '../../shared/models/import.model';
       font-family: 'Montserrat', sans-serif;
       font-size: 15px;
       font-weight: 700;
-      color: #16a34a;
+      color: var(--color-success, #16a34a);
     }
     .dz-subtext {
       font-family: 'Open Sans', sans-serif;
@@ -230,18 +230,17 @@ import { ImportPreview } from '../../shared/models/import.model';
   `],
 })
 export class DropzoneComponent {
-  @Output() fileSelected = new EventEmitter<File>();
+  fileSelected = output<File>();
 
   isDragOver = signal(false);
   isParsing = signal(false);
   previewData = signal<ImportPreview | null>(null);
 
   /** Keys of the first sample row (used for table headers) */
-  previewKeys(): string[] {
+  previewKeys = computed(() => {
     const data = this.previewData();
-    if (!data || data.sampleRows.length === 0) return [];
-    return Object.keys(data.sampleRows[0]);
-  }
+    return data && data.sampleRows.length > 0 ? Object.keys(data.sampleRows[0]) : [];
+  });
 
   onDragOver(event: DragEvent): void {
     event.preventDefault();

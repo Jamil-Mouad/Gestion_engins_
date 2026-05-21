@@ -102,7 +102,7 @@ import { CardComponent } from '../../shared/ui/card/card.component';
     @keyframes spin { to { transform: rotate(360deg); } }
 
     .ie-page {
-      background: #F5F5F5;
+      background: var(--color-background, #F5F5F5);
       min-height: calc(100vh - 72px);
     }
 
@@ -131,7 +131,7 @@ import { CardComponent } from '../../shared/ui/card/card.component';
       align-items: center;
       gap: 12px;
       padding: 9px 0;
-      border-bottom: 1px solid #f3f4f6;
+      border-bottom: 1px solid var(--color-border);
       cursor: pointer;
     }
     .ie-export-row:hover { background: #f9fafb; }
@@ -308,8 +308,7 @@ export class ImportExportComponent {
   exportVehicules(): void {
     this.exportService.exportVehicules({}).subscribe({
       next: (blob) => this.downloadBlob(blob, 'vehicules.xlsx'),
-      error: (err) => {
-        console.error('Export véhicules failed', err);
+      error: () => {
         this.uploadError.set("Erreur lors de l'export des véhicules.");
       },
     });
@@ -318,8 +317,7 @@ export class ImportExportComponent {
   exportInterventions(): void {
     this.exportService.exportInterventions({}).subscribe({
       next: (blob) => this.downloadBlob(blob, 'interventions.xlsx'),
-      error: (err) => {
-        console.error('Export interventions failed', err);
+      error: () => {
         this.uploadError.set("Erreur lors de l'export des interventions.");
       },
     });
