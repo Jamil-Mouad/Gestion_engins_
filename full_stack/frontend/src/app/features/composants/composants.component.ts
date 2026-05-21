@@ -82,6 +82,14 @@ const PARTIE_LABELS: Record<string, string> = {
           } @else {
             @for (node of filteredNodes(); track node.id; let i = $index) {
               <app-data-table-row [idx]="i" [clickable]="node.children.length > 0" (rowClicked)="toggle(node.id)">
+                <!-- Référence -->
+                <div class="dtr-cell" style="flex:1.2">
+                  @if (node.reference) {
+                    <span class="ref-chip">{{ node.reference }}</span>
+                  } @else {
+                    <span class="ref-chip ref-chip--empty">—</span>
+                  }
+                </div>
                 <!-- Désignation -->
                 <div class="dtr-cell" style="flex:2.5">
                   <span class="comp-designation">{{ node.designation }}</span>
@@ -96,9 +104,13 @@ const PARTIE_LABELS: Record<string, string> = {
                     <span class="partie-badge partie-badge--autre">—</span>
                   }
                 </div>
-                <!-- Niveau -->
+                <!-- Unité -->
+                <div class="dtr-cell" style="flex:0.5">
+                  <span class="mono-text">{{ node.unite ?? '—' }}</span>
+                </div>
+                <!-- Stock -->
                 <div class="dtr-cell" style="flex:0.7">
-                  <span class="niveau-chip">Niv. {{ node.niveau }}</span>
+                  <span class="niveau-chip">{{ node.stock ?? '—' }}</span>
                 </div>
                 <!-- Actions -->
                 <div class="dtr-cell dtr-cell--actions" style="flex:0.4">
@@ -110,6 +122,13 @@ const PARTIE_LABELS: Record<string, string> = {
               @if (expanded().has(node.id) && node.children.length > 0) {
                 @for (child of node.children; track child.id; let ci = $index) {
                   <app-data-table-row [idx]="i * 10 + ci" [clickable]="child.children.length > 0" (rowClicked)="toggle(child.id)">
+                    <div class="dtr-cell" style="flex:1.2">
+                      @if (child.reference) {
+                        <span class="ref-chip">{{ child.reference }}</span>
+                      } @else {
+                        <span class="ref-chip ref-chip--empty">—</span>
+                      }
+                    </div>
                     <div class="dtr-cell" style="flex:2.5; padding-left:40px">
                       <span class="comp-designation comp-designation--child">{{ child.designation }}</span>
                     </div>
@@ -120,8 +139,11 @@ const PARTIE_LABELS: Record<string, string> = {
                         </span>
                       }
                     </div>
+                    <div class="dtr-cell" style="flex:0.5">
+                      <span class="mono-text">{{ child.unite ?? '—' }}</span>
+                    </div>
                     <div class="dtr-cell" style="flex:0.7">
-                      <span class="niveau-chip niveau-chip--child">Niv. {{ child.niveau }}</span>
+                      <span class="niveau-chip niveau-chip--child">{{ child.stock ?? '—' }}</span>
                     </div>
                     <div class="dtr-cell dtr-cell--actions" style="flex:0.4">
                       <lucide-icon name="more-horizontal" [size]="16" class="action-icon" />
@@ -131,6 +153,13 @@ const PARTIE_LABELS: Record<string, string> = {
                   @if (expanded().has(child.id) && child.children.length > 0) {
                     @for (leaf of child.children; track leaf.id; let li = $index) {
                       <app-data-table-row [idx]="i * 100 + ci * 10 + li">
+                        <div class="dtr-cell" style="flex:1.2">
+                          @if (leaf.reference) {
+                            <span class="ref-chip">{{ leaf.reference }}</span>
+                          } @else {
+                            <span class="ref-chip ref-chip--empty">—</span>
+                          }
+                        </div>
                         <div class="dtr-cell" style="flex:2.5; padding-left:72px">
                           <span class="comp-designation comp-designation--leaf">{{ leaf.designation }}</span>
                         </div>
@@ -141,8 +170,11 @@ const PARTIE_LABELS: Record<string, string> = {
                             </span>
                           }
                         </div>
+                        <div class="dtr-cell" style="flex:0.5">
+                          <span class="mono-text">{{ leaf.unite ?? '—' }}</span>
+                        </div>
                         <div class="dtr-cell" style="flex:0.7">
-                          <span class="niveau-chip niveau-chip--leaf">Niv. {{ leaf.niveau }}</span>
+                          <span class="niveau-chip niveau-chip--leaf">{{ leaf.stock ?? '—' }}</span>
                         </div>
                         <div class="dtr-cell dtr-cell--actions" style="flex:0.4"></div>
                       </app-data-table-row>
@@ -230,6 +262,35 @@ const PARTIE_LABELS: Record<string, string> = {
     }
     .action-icon { color: #9CA3AF; cursor: pointer; }
     .action-icon:hover { color: #374151; }
+
+    /* Reference chip — monospace code style */
+    .ref-chip {
+      font-family: 'JetBrains Mono', 'Courier New', monospace;
+      font-size: 12px;
+      font-weight: 500;
+      background: #F5F5F5;
+      padding: 2px 8px;
+      border-radius: 4px;
+      border: 1px solid #E5E5E5;
+      color: #374151;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      max-width: 100%;
+      display: inline-block;
+    }
+    .ref-chip--empty {
+      background: transparent;
+      border-color: transparent;
+      color: #9CA3AF;
+    }
+
+    /* Mono text for units */
+    .mono-text {
+      font-family: 'JetBrains Mono', 'Courier New', monospace;
+      font-size: 13px;
+      color: #6B7280;
+    }
 
     /* Designation */
     .comp-designation {
@@ -328,9 +389,11 @@ export class ComposantsComponent {
 
   // ── static config ─────────────────────────────────────────────────────────────
   readonly tableCols = [
+    { label: 'Référence',    flex: 1.2 },
     { label: 'Désignation',  flex: 2.5 },
     { label: 'Partie',       flex: 1   },
-    { label: 'Niveau',       flex: 0.7 },
+    { label: 'Unité',        flex: 0.5 },
+    { label: 'Stock',        flex: 0.7 },
     { label: 'Actions',      flex: 0.4 },
   ];
 
