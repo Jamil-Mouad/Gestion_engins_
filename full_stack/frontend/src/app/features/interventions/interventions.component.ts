@@ -1,7 +1,6 @@
 import { Component, inject, signal, computed } from '@angular/core';
 import { toSignal } from '@angular/core/rxjs-interop';
-import { BehaviorSubject } from 'rxjs';
-import { switchMap, tap } from 'rxjs';
+import { BehaviorSubject, switchMap, tap } from 'rxjs';
 import { LucideAngularModule } from 'lucide-angular';
 import { InterventionService } from './intervention.service';
 import { Intervention, InterventionStatut, InterventionCategorie } from '../../shared/models/intervention.model';
@@ -103,9 +102,7 @@ type CategorieFilter = 'all' | InterventionCategorie;
                 </div>
                 <!-- Statut -->
                 <div class="td td--w1">
-                  <span class="status-pill status-pill--{{ intervention.statut }}">
-                    {{ statutLabels[intervention.statut] }}
-                  </span>
+                  <app-status-badge [status]="intervention.statut" [label]="statutLabels[intervention.statut]" />
                 </div>
                 <!-- Action -->
                 <div class="td td--w09">
@@ -192,12 +189,6 @@ type CategorieFilter = 'all' | InterventionCategorie;
     /* Véhicule code chip */
     .code-chip { font-family: 'JetBrains Mono', monospace; font-size: 13px; font-weight: 600; background: #F5F5F5; padding: 2px 8px; border-radius: 4px; border: 1px solid #E5E5E5; }
 
-    /* Status pills */
-    .status-pill { display: inline-flex; align-items: center; padding: 3px 10px; border-radius: 9999px; font-family: 'Open Sans', sans-serif; font-size: 12px; font-weight: 600; }
-    .status-pill--ouvert   { background: #E0F2FE; color: #0369A1; }
-    .status-pill--en_cours { background: #FEF3C7; color: #92400E; }
-    .status-pill--cloture  { background: #D1FAE5; color: #065F46; }
-
     /* Clôturer button */
     .btn-cloturer { background: transparent; border: 1px solid #DC2626; color: #DC2626; border-radius: 6px; padding: 4px 12px; font-family: 'Open Sans', sans-serif; font-size: 12px; cursor: pointer; transition: background 150ms; }
     .btn-cloturer:hover { background: #FEF2F2; }
@@ -271,12 +262,15 @@ export class InterventionsComponent {
     const cat = this.categorieFilter();
     const q = this.searchQuery().toLowerCase().trim();
 
-    // Tab filtering: 0 = en_cours, 1 = cloture, 2 = all
+    // Tab filtering: 0 = en_cours|ouvert, 1 = cloture, 2 = all
     const tabStatuts: (InterventionStatut | null)[] = ['en_cours', 'cloture', null];
     const tabStatut = tabStatuts[tabIdx];
 
     return list.filter((i: Intervention) => {
-      if (tabStatut !== null && i.statut !== tabStatut) return false;
+      if (tabStatut !== null) {
+        if (tabIdx === 0 && i.statut !== 'en_cours' && i.statut !== 'ouvert') return false;
+        if (tabIdx !== 0 && i.statut !== tabStatut) return false;
+      }
       if (cat !== 'all' && i.categorie !== cat) return false;
       if (q) {
         const matchesId = String(i.id).includes(q);
@@ -314,6 +308,7 @@ export class InterventionsComponent {
 
   onInterventionSaved(_intervention: Intervention): void {
     this.showNewModal.set(false);
+    this.loading.set(true);
     this.refreshTrigger.next();
   }
 }
