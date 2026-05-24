@@ -5,6 +5,11 @@ spring:
     url: ${POSTGRES_URL:jdbc:postgresql://localhost:5432/fleettracker}
     username: ${POSTGRES_USER:intersig}
     password: ${POSTGRES_PASSWORD:CHANGE_ME}
+    hikari:
+      maximum-pool-size: 20
+      minimum-idle: 5
+      connection-timeout: 5000
+      leak-detection-threshold: 10000
   jpa:
     hibernate:
       ddl-auto: validate
@@ -12,8 +17,14 @@ spring:
       hibernate:
         default_schema: public
         format_sql: false
+        generate_statistics: true
+        session.events.log.LOG_QUERIES_SLOWER_THAN_MS: 50
   flyway:
-    enabled: false
+    enabled: true
+    baseline-on-migrate: true
+    baseline-version: "11"
+    table: flyway_schema_history_fleet_core
+    locations: classpath:db/migrations
 
 app:
   fleet-core:
@@ -33,11 +44,23 @@ management:
   endpoints:
     web:
       exposure:
-        include: health
+        include: health,metrics,prometheus,caches
+  metrics:
+    distribution:
+      percentiles-histogram:
+        http.server.requests: true
+
+logging:
+  level:
+    org.hibernate.stat: DEBUG
 
 server:
   port: 8081
   address: 127.0.0.1
+  compression:
+    enabled: true
+    mime-types: application/json,application/xml,text/html,text/plain
+    min-response-size: 1024
 
 ---
 spring:
