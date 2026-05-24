@@ -5,6 +5,7 @@ import ma.intersig.fleetcore.dto.response.ComposantDto;
 import ma.intersig.fleetcore.service.ComposantService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
+import jakarta.servlet.http.HttpServletResponse;
 import jakarta.validation.Valid;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
@@ -25,7 +26,8 @@ public class ComposantController {
 
     @Operation(summary = "Get component hierarchy tree")
     @GetMapping("/tree")
-    public ResponseEntity<List<ComposantDto>> getTree() {
+    public ResponseEntity<List<ComposantDto>> getTree(HttpServletResponse response) {
+        response.setHeader("Cache-Control", "public, max-age=300");
         return ResponseEntity.ok(composantService.getTree());
     }
 

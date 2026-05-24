@@ -1,6 +1,9 @@
 package ma.intersig.fleetcore.config;
 
+import org.springframework.boot.web.servlet.FilterRegistrationBean;
+import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.web.filter.ShallowEtagHeaderFilter;
 import org.springframework.web.method.support.HandlerMethodArgumentResolver;
 import org.springframework.web.servlet.config.annotation.WebMvcConfigurer;
 
@@ -13,6 +16,14 @@ public class WebMvcConfig implements WebMvcConfigurer {
 
     public WebMvcConfig(UserIdResolver userIdResolver) {
         this.userIdResolver = userIdResolver;
+    }
+
+    @Bean
+    public FilterRegistrationBean<ShallowEtagHeaderFilter> shallowEtagHeaderFilter() {
+        FilterRegistrationBean<ShallowEtagHeaderFilter> registration = new FilterRegistrationBean<>();
+        registration.setFilter(new ShallowEtagHeaderFilter());
+        registration.addUrlPatterns("/api/v1/*");
+        return registration;
     }
 
     @Override

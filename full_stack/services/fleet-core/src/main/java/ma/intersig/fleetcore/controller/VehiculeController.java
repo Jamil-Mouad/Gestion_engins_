@@ -8,6 +8,7 @@ import ma.intersig.fleetcore.dto.response.VehiculeDto;
 import ma.intersig.fleetcore.service.VehiculeService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
+import jakarta.servlet.http.HttpServletResponse;
 import jakarta.validation.Valid;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.web.PageableDefault;
@@ -32,7 +33,9 @@ public class VehiculeController {
             @RequestParam(required = false) String q,
             @RequestParam(required = false) String type,
             @RequestParam(required = false) String statut,
-            @PageableDefault(size = 20) Pageable pageable) {
+            @PageableDefault(size = 20) Pageable pageable,
+            HttpServletResponse response) {
+        response.setHeader("Cache-Control", "private, max-age=15, must-revalidate");
         return ResponseEntity.ok(vehiculeService.list(q, type, statut, pageable));
     }
 

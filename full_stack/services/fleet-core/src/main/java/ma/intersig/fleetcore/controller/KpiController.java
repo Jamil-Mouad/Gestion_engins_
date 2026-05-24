@@ -1,7 +1,9 @@
 package ma.intersig.fleetcore.controller;
 
+import ma.intersig.fleetcore.dto.response.KpiCostHistoryDto;
 import ma.intersig.fleetcore.dto.response.KpiCoutsBreakdownDto;
 import ma.intersig.fleetcore.dto.response.KpiDto;
+import ma.intersig.fleetcore.dto.response.KpiInterventionByStatusDto;
 import ma.intersig.fleetcore.dto.response.KpiTimeseriesPointDto;
 import ma.intersig.fleetcore.service.KpiService;
 import io.swagger.v3.oas.annotations.Operation;
@@ -28,6 +30,7 @@ public class KpiController {
     public ResponseEntity<KpiDto> getKpis(HttpServletResponse response) {
         String lastRefresh = kpiService.getLastRefresh();
         response.setHeader("X-KPI-Last-Refresh", lastRefresh != null ? lastRefresh : "never");
+        response.setHeader("Cache-Control", "private, max-age=60");
         return ResponseEntity.ok(kpiService.getHeadline());
     }
 
@@ -38,6 +41,7 @@ public class KpiController {
             HttpServletResponse response) {
         String lastRefresh = kpiService.getLastRefresh();
         response.setHeader("X-KPI-Last-Refresh", lastRefresh != null ? lastRefresh : "never");
+        response.setHeader("Cache-Control", "private, max-age=60");
         return ResponseEntity.ok(kpiService.getTimeseries(mois));
     }
 
@@ -46,7 +50,25 @@ public class KpiController {
     public ResponseEntity<KpiCoutsBreakdownDto> getCoutsBreakdown(HttpServletResponse response) {
         String lastRefresh = kpiService.getLastRefresh();
         response.setHeader("X-KPI-Last-Refresh", lastRefresh != null ? lastRefresh : "never");
+        response.setHeader("Cache-Control", "private, max-age=60");
         return ResponseEntity.ok(kpiService.getCoutsBreakdown());
+    }
+
+    @Operation(summary = "Get maintenance cost history by month")
+    @GetMapping("/kpis/cost-history")
+    public ResponseEntity<List<KpiCostHistoryDto>> getCostHistory(
+            @RequestParam(defaultValue = "12") int months,
+            HttpServletResponse response) {
+        response.setHeader("Cache-Control", "private, max-age=60");
+        return ResponseEntity.ok(kpiService.getCostHistory(months));
+    }
+
+    @Operation(summary = "Get intervention count by status")
+    @GetMapping("/kpis/interventions-by-status")
+    public ResponseEntity<List<KpiInterventionByStatusDto>> getInterventionsByStatus(
+            HttpServletResponse response) {
+        response.setHeader("Cache-Control", "private, max-age=60");
+        return ResponseEntity.ok(kpiService.getInterventionsByStatus());
     }
 
     @Operation(summary = "Get KPIs for a specific vehicle")
@@ -55,6 +77,7 @@ public class KpiController {
                                                     HttpServletResponse response) {
         String lastRefresh = kpiService.getLastRefresh();
         response.setHeader("X-KPI-Last-Refresh", lastRefresh != null ? lastRefresh : "never");
+        response.setHeader("Cache-Control", "private, max-age=60");
         return ResponseEntity.ok(kpiService.getVehiculeKpis(id));
     }
 }
