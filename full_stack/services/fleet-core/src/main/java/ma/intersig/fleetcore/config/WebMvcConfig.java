@@ -3,6 +3,7 @@ package ma.intersig.fleetcore.config;
 import org.springframework.boot.web.servlet.FilterRegistrationBean;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.core.Ordered;
 import org.springframework.web.filter.ShallowEtagHeaderFilter;
 import org.springframework.web.method.support.HandlerMethodArgumentResolver;
 import org.springframework.web.servlet.config.annotation.WebMvcConfigurer;
@@ -23,6 +24,7 @@ public class WebMvcConfig implements WebMvcConfigurer {
         FilterRegistrationBean<ShallowEtagHeaderFilter> registration = new FilterRegistrationBean<>();
         registration.setFilter(new ShallowEtagHeaderFilter());
         registration.addUrlPatterns("/api/v1/*");
+        registration.setOrder(Ordered.LOWEST_PRECEDENCE - 10);
         return registration;
     }
 
