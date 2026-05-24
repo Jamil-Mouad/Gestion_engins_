@@ -23,7 +23,7 @@ export class InterventionService {
       if (params?.page !== undefined) httpParams = httpParams.set('page', String(params.page));
       if (params?.size !== undefined) httpParams = httpParams.set('size', String(params.size));
       this.listCache.set(key, this.http.get<Page<Intervention>>(this.API, { params: httpParams }).pipe(
-        shareReplay({ bufferSize: 1, refCount: true, windowTime: 60_000 }),
+        shareReplay({ bufferSize: 1, refCount: false }),
       ));
     }
     return this.listCache.get(key)!;

@@ -23,7 +23,7 @@ export class VehiculeService {
       if (params?.page !== undefined) httpParams = httpParams.set('page', String(params.page));
       if (params?.size !== undefined) httpParams = httpParams.set('size', String(params.size));
       this.listCache.set(key, this.http.get<Page<Vehicule>>(this.API, { params: httpParams }).pipe(
-        shareReplay({ bufferSize: 1, refCount: true, windowTime: 60_000 }),
+        shareReplay({ bufferSize: 1, refCount: false }),
       ));
     }
     return this.listCache.get(key)!;
@@ -37,7 +37,7 @@ export class VehiculeService {
   get(id: number): Observable<VehiculeDetail> {
     if (!this.detailCache.has(id)) {
       this.detailCache.set(id, this.http.get<VehiculeDetail>(`${this.API}/${id}`).pipe(
-        shareReplay({ bufferSize: 1, refCount: true, windowTime: 60_000 }),
+        shareReplay({ bufferSize: 1, refCount: false }),
       ));
     }
     return this.detailCache.get(id)!;
