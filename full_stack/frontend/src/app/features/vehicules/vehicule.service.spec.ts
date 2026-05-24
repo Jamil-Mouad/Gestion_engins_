@@ -79,6 +79,7 @@ describe('VehiculeService', () => {
     const mockDetail: VehiculeDetail = {
       ...mockVehicule,
       camionDetails: null,
+      currentAttelage: null,
     };
 
     service.get(1).subscribe((detail) => {
