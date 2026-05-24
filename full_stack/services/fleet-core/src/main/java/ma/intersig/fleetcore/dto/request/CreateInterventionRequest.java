@@ -6,7 +6,7 @@ import java.time.OffsetDateTime;
 
 public record CreateInterventionRequest(
         @NotNull Long vehiculeId,
-        @NotNull Short typeId,
+        @NotNull Short typeInterventionId,
         Long composantId,
         @NotNull String categorie,
         String partie,
