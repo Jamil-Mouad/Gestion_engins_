@@ -15,6 +15,7 @@ import ma.intersig.fleetcore.repository.UserRepository;
 import ma.intersig.fleetcore.repository.VehiculeRepository;
 import org.apache.poi.ss.usermodel.*;
 import org.apache.poi.xssf.usermodel.XSSFWorkbook;
+import org.springframework.cache.annotation.CacheEvict;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -68,6 +69,7 @@ public class ImportService {
     }
 
     @Transactional
+    @CacheEvict(value = {"vehicules-page", "composants-tree"}, allEntries = true)
     public ImportReportDto importGeneral(MultipartFile file, Map<Integer, String> mapping, String entite, Long userId) {
         List<ImportRowError> errors = new ArrayList<>();
         int total = 0;

@@ -33,7 +33,7 @@ public class VehiculeService {
     }
 
     @Transactional(readOnly = true)
-    @Cacheable(value = "vehicules-page", key = "#q + '-' + #type + '-' + #statut + '-' + #pageable.pageNumber + '-' + #pageable.pageSize")
+    @Cacheable(value = "vehicules-page", key = "#q + '-' + #type + '-' + #statut + '-' + #pageable.pageNumber + '-' + #pageable.pageSize + '-' + #pageable.sort")
     public PageResponse<VehiculeDto> list(String q, String type, String statut, Pageable pageable) {
         Page<Vehicule> page;
         String qNorm = (q != null && !q.isBlank()) ? q : null;
