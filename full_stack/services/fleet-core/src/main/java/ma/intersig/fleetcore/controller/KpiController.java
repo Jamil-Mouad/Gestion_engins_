@@ -1,5 +1,6 @@
 package ma.intersig.fleetcore.controller;
 
+import ma.intersig.fleetcore.dto.response.DashboardSnapshotDto;
 import ma.intersig.fleetcore.dto.response.KpiCostHistoryDto;
 import ma.intersig.fleetcore.dto.response.KpiCoutsBreakdownDto;
 import ma.intersig.fleetcore.dto.response.KpiDto;
@@ -13,6 +14,8 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.ExecutionException;
 
 @Tag(name = "KPIs", description = "Fleet key performance indicators")
 @RestController
@@ -79,5 +82,17 @@ public class KpiController {
         response.setHeader("X-KPI-Last-Refresh", lastRefresh != null ? lastRefresh : "never");
         response.setHeader("Cache-Control", "public, max-age=60");
         return ResponseEntity.ok(kpiService.getVehiculeKpis(id));
+    }
+
+    @Operation(summary = "Get full dashboard snapshot in one call")
+    @GetMapping("/dashboard/snapshot")
+    public ResponseEntity<DashboardSnapshotDto> getDashboardSnapshot(HttpServletResponse response)
+            throws ExecutionException, InterruptedException {
+        response.setHeader("Cache-Control", "public, max-age=60");
+        CompletableFuture<KpiDto> kpisFuture = CompletableFuture.supplyAsync(kpiService::getHeadline);
+        CompletableFuture<List<KpiCostHistoryDto>> histFuture = CompletableFuture.supplyAsync(() -> kpiService.getCostHistory(12));
+        CompletableFuture<List<KpiInterventionByStatusDto>> statusFuture = CompletableFuture.supplyAsync(kpiService::getInterventionsByStatus);
+        CompletableFuture.allOf(kpisFuture, histFuture, statusFuture).join();
+        return ResponseEntity.ok(new DashboardSnapshotDto(kpisFuture.get(), histFuture.get(), statusFuture.get()));
     }
 }
