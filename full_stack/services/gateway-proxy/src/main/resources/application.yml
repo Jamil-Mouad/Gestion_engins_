@@ -1,5 +1,7 @@
 server:
   port: 8080
+  http2:
+    enabled: true
   compression:
     enabled: true
     mime-types: application/json,application/xml,text/html,text/plain
@@ -8,11 +10,36 @@ server:
 spring:
   cloud:
     gateway:
+      filter:
+        local-response-cache:
+          enabled: true
+          time-to-live: 30s
+          size: 5MB
       routes:
         - id: gateway-auth
           uri: ${GATEWAY_AUTH_URI:http://localhost:8086}
           predicates:
             - Path=/api/v1/auth/**
+
+        # SSE route — no buffering, no cache
+        - id: fleet-core-sse
+          uri: ${FLEET_CORE_URI:http://localhost:8081}
+          predicates:
+            - Path=/api/v1/events/**
+
+        # Cacheable GET endpoints: vehicles, composants, KPIs
+        - id: fleet-core-cacheable
+          uri: ${FLEET_CORE_URI:http://localhost:8081}
+          predicates:
+            - Path=/api/v1/vehicules/**, /api/v1/composants/**, /api/v1/kpis/**, /api/v1/dashboard/**
+            - Method=GET
+          filters:
+            - name: LocalResponseCache
+              args:
+                timeToLive: 30s
+                size: 5MB
+
+        # All other fleet-core routes (mutations, etc.)
         - id: fleet-core
           uri: ${FLEET_CORE_URI:http://localhost:8081}
           predicates:
