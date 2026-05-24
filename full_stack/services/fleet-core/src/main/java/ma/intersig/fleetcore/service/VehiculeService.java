@@ -6,11 +6,13 @@ import ma.intersig.fleetcore.dto.response.PageResponse;
 import ma.intersig.fleetcore.dto.response.VehiculeDto;
 import ma.intersig.fleetcore.entity.Camion;
 import ma.intersig.fleetcore.entity.Vehicule;
+import ma.intersig.fleetcore.event.EntityChangedEvent;
 import ma.intersig.fleetcore.exception.BusinessException;
 import ma.intersig.fleetcore.exception.ResourceNotFoundException;
 import ma.intersig.fleetcore.repository.VehiculeRepository;
 import org.springframework.cache.annotation.CacheEvict;
 import org.springframework.cache.annotation.Cacheable;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
@@ -27,9 +29,11 @@ public class VehiculeService {
     );
 
     private final VehiculeRepository vehiculeRepository;
+    private final ApplicationEventPublisher eventPublisher;
 
-    public VehiculeService(VehiculeRepository vehiculeRepository) {
+    public VehiculeService(VehiculeRepository vehiculeRepository, ApplicationEventPublisher eventPublisher) {
         this.vehiculeRepository = vehiculeRepository;
+        this.eventPublisher = eventPublisher;
     }
 
     @Transactional(readOnly = true)
@@ -84,6 +88,7 @@ public class VehiculeService {
             vehicule = vehiculeRepository.save(vehicule);
         }
 
+        eventPublisher.publishEvent(new EntityChangedEvent(this, "vehicule", vehicule.getId(), "create"));
         return VehiculeDto.from(vehicule);
     }
 
@@ -115,6 +120,7 @@ public class VehiculeService {
         }
 
         vehicule = vehiculeRepository.save(vehicule);
+        eventPublisher.publishEvent(new EntityChangedEvent(this, "vehicule", vehicule.getId(), "update"));
         return VehiculeDto.from(vehicule);
     }
 
@@ -131,6 +137,7 @@ public class VehiculeService {
                 .orElseThrow(() -> new ResourceNotFoundException("Vehicle not found", "VEHICLE_NOT_FOUND"));
         vehicule.setStatut(statut);
         vehicule = vehiculeRepository.save(vehicule);
+        eventPublisher.publishEvent(new EntityChangedEvent(this, "vehicule", vehicule.getId(), "update"));
         return VehiculeDto.from(vehicule);
     }
 
@@ -140,6 +147,7 @@ public class VehiculeService {
                 .orElseThrow(() -> new ResourceNotFoundException("Vehicle not found", "VEHICLE_NOT_FOUND"));
         vehicule.setActif(false);
         vehiculeRepository.save(vehicule);
+        eventPublisher.publishEvent(new EntityChangedEvent(this, "vehicule", id, "delete"));
     }
 
     private void validateUniqueConstraints(String code, String matricule, String nChassis, Long excludeId) {
@@ -189,6 +197,7 @@ public class VehiculeService {
         if (nom != null) camion.setChauffeurNom(nom);
         if (prenom != null) camion.setChauffeurPrenom(prenom);
         vehiculeRepository.save(camion);
+        eventPublisher.publishEvent(new EntityChangedEvent(this, "vehicule", vehiculeId, "update"));
     }
 
     private void mapCamionDetails(ma.intersig.fleetcore.dto.request.CamionDetailsRequest details, Camion c) {
