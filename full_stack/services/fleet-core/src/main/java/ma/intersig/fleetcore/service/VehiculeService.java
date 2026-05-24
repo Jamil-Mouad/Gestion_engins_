@@ -9,6 +9,8 @@ import ma.intersig.fleetcore.entity.Vehicule;
 import ma.intersig.fleetcore.exception.BusinessException;
 import ma.intersig.fleetcore.exception.ResourceNotFoundException;
 import ma.intersig.fleetcore.repository.VehiculeRepository;
+import org.springframework.cache.annotation.CacheEvict;
+import org.springframework.cache.annotation.Cacheable;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
@@ -31,6 +33,7 @@ public class VehiculeService {
     }
 
     @Transactional(readOnly = true)
+    @Cacheable(value = "vehicules-page", key = "#q + '-' + #type + '-' + #statut + '-' + #pageable.pageNumber + '-' + #pageable.pageSize")
     public PageResponse<VehiculeDto> list(String q, String type, String statut, Pageable pageable) {
         Page<Vehicule> page;
         String qNorm = (q != null && !q.isBlank()) ? q : null;
@@ -49,6 +52,7 @@ public class VehiculeService {
         return VehiculeDto.from(v);
     }
 
+    @CacheEvict(value = "vehicules-page", allEntries = true)
     public VehiculeDto create(CreateVehiculeRequest req) {
         validateUniqueConstraints(req.code(), req.matricule(), req.nChassis(), null);
 
@@ -83,6 +87,7 @@ public class VehiculeService {
         return VehiculeDto.from(vehicule);
     }
 
+    @CacheEvict(value = "vehicules-page", allEntries = true)
     public VehiculeDto update(Long id, UpdateVehiculeRequest req) {
         Vehicule vehicule = vehiculeRepository.findById(id)
                 .orElseThrow(() -> new ResourceNotFoundException("Vehicle not found", "VEHICLE_NOT_FOUND"));
@@ -119,6 +124,7 @@ public class VehiculeService {
         }
     }
 
+    @CacheEvict(value = "vehicules-page", allEntries = true)
     public VehiculeDto patchStatut(Long id, String statut) {
         validateStatut(statut);
         Vehicule vehicule = vehiculeRepository.findById(id)
@@ -128,6 +134,7 @@ public class VehiculeService {
         return VehiculeDto.from(vehicule);
     }
 
+    @CacheEvict(value = "vehicules-page", allEntries = true)
     public void softDelete(Long id) {
         Vehicule vehicule = vehiculeRepository.findById(id)
                 .orElseThrow(() -> new ResourceNotFoundException("Vehicle not found", "VEHICLE_NOT_FOUND"));
@@ -172,6 +179,7 @@ public class VehiculeService {
         v.setPhotoUrl(req.photoUrl());
     }
 
+    @CacheEvict(value = "vehicules-page", allEntries = true)
     public void updateCamionChauffeur(Long vehiculeId, String nom, String prenom) {
         Vehicule v = vehiculeRepository.findById(vehiculeId)
                 .orElseThrow(() -> new ResourceNotFoundException("Vehicle not found", "VEHICLE_NOT_FOUND"));

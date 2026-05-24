@@ -7,6 +7,8 @@ import ma.intersig.fleetcore.exception.BusinessException;
 import ma.intersig.fleetcore.exception.ResourceNotFoundException;
 import ma.intersig.fleetcore.repository.ComposantRepository;
 import ma.intersig.fleetcore.repository.InterventionRepository;
+import org.springframework.cache.annotation.CacheEvict;
+import org.springframework.cache.annotation.Cacheable;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Sort;
 import org.springframework.stereotype.Service;
@@ -34,6 +36,7 @@ public class ComposantService {
     }
 
     @Transactional(readOnly = true)
+    @Cacheable("composants-tree")
     public List<ComposantDto> getTree() {
         List<Composant> roots = composantRepository.findByParentIsNull();
         Map<Long, ComposantDto> dtoMap = new LinkedHashMap<>();
@@ -77,6 +80,7 @@ public class ComposantService {
         return ComposantDto.from(c);
     }
 
+    @CacheEvict(value = "composants-tree", allEntries = true)
     public ComposantDto create(CreateComposantRequest req) {
         Composant c = new Composant();
         mapRequestToEntity(req, c);
@@ -84,6 +88,7 @@ public class ComposantService {
         return ComposantDto.from(c);
     }
 
+    @CacheEvict(value = "composants-tree", allEntries = true)
     public ComposantDto update(Long id, CreateComposantRequest req) {
         Composant c = composantRepository.findById(id)
                 .orElseThrow(() -> new ResourceNotFoundException("Composant not found", "COMPOSANT_NOT_FOUND"));
@@ -92,6 +97,7 @@ public class ComposantService {
         return ComposantDto.from(c);
     }
 
+    @CacheEvict(value = "composants-tree", allEntries = true)
     public void delete(Long id) {
         Composant c = composantRepository.findById(id)
                 .orElseThrow(() -> new ResourceNotFoundException("Composant not found", "COMPOSANT_NOT_FOUND"));
