@@ -12,22 +12,22 @@ spring:
     gateway:
       filter:
         local-response-cache:
-          enabled: true
-          time-to-live: 30s
-          size: 5MB
+          enabled: false  # disabled globally; per-route filters control caching explicitly
       routes:
         - id: gateway-auth
           uri: ${GATEWAY_AUTH_URI:http://localhost:8086}
           predicates:
             - Path=/api/v1/auth/**
 
-        # SSE route — no buffering, no cache
+        # SSE route — guard against global cache buffering the event stream
         - id: fleet-core-sse
           uri: ${FLEET_CORE_URI:http://localhost:8081}
           predicates:
             - Path=/api/v1/events/**
+          filters:
+            - AddResponseHeader=Cache-Control, no-store
 
-        # Cacheable GET endpoints: vehicles, composants, KPIs
+        # Cacheable GET endpoints: vehicles, composants, KPIs, dashboard
         - id: fleet-core-cacheable
           uri: ${FLEET_CORE_URI:http://localhost:8081}
           predicates:
@@ -39,7 +39,7 @@ spring:
                 timeToLive: 30s
                 size: 5MB
 
-        # All other fleet-core routes (mutations, etc.)
+        # All other fleet-core routes (mutations, non-cacheable reads)
         - id: fleet-core
           uri: ${FLEET_CORE_URI:http://localhost:8081}
           predicates:

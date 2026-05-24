@@ -30,7 +30,7 @@ public class KpiController {
     public ResponseEntity<KpiDto> getKpis(HttpServletResponse response) {
         String lastRefresh = kpiService.getLastRefresh();
         response.setHeader("X-KPI-Last-Refresh", lastRefresh != null ? lastRefresh : "never");
-        response.setHeader("Cache-Control", "private, max-age=60");
+        response.setHeader("Cache-Control", "public, max-age=60");
         return ResponseEntity.ok(kpiService.getHeadline());
     }
 
@@ -41,7 +41,7 @@ public class KpiController {
             HttpServletResponse response) {
         String lastRefresh = kpiService.getLastRefresh();
         response.setHeader("X-KPI-Last-Refresh", lastRefresh != null ? lastRefresh : "never");
-        response.setHeader("Cache-Control", "private, max-age=60");
+        response.setHeader("Cache-Control", "public, max-age=60");
         return ResponseEntity.ok(kpiService.getTimeseries(mois));
     }
 
@@ -50,7 +50,7 @@ public class KpiController {
     public ResponseEntity<KpiCoutsBreakdownDto> getCoutsBreakdown(HttpServletResponse response) {
         String lastRefresh = kpiService.getLastRefresh();
         response.setHeader("X-KPI-Last-Refresh", lastRefresh != null ? lastRefresh : "never");
-        response.setHeader("Cache-Control", "private, max-age=60");
+        response.setHeader("Cache-Control", "public, max-age=60");
         return ResponseEntity.ok(kpiService.getCoutsBreakdown());
     }
 
@@ -59,7 +59,7 @@ public class KpiController {
     public ResponseEntity<List<KpiCostHistoryDto>> getCostHistory(
             @RequestParam(defaultValue = "12") int months,
             HttpServletResponse response) {
-        response.setHeader("Cache-Control", "private, max-age=60");
+        response.setHeader("Cache-Control", "public, max-age=60");
         return ResponseEntity.ok(kpiService.getCostHistory(months));
     }
 
@@ -67,7 +67,7 @@ public class KpiController {
     @GetMapping("/kpis/interventions-by-status")
     public ResponseEntity<List<KpiInterventionByStatusDto>> getInterventionsByStatus(
             HttpServletResponse response) {
-        response.setHeader("Cache-Control", "private, max-age=60");
+        response.setHeader("Cache-Control", "public, max-age=60");
         return ResponseEntity.ok(kpiService.getInterventionsByStatus());
     }
 
@@ -77,7 +77,7 @@ public class KpiController {
                                                     HttpServletResponse response) {
         String lastRefresh = kpiService.getLastRefresh();
         response.setHeader("X-KPI-Last-Refresh", lastRefresh != null ? lastRefresh : "never");
-        response.setHeader("Cache-Control", "private, max-age=60");
+        response.setHeader("Cache-Control", "public, max-age=60");
         return ResponseEntity.ok(kpiService.getVehiculeKpis(id));
     }
 }

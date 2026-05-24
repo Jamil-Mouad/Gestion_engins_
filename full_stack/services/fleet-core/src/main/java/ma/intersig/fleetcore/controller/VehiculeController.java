@@ -35,7 +35,7 @@ public class VehiculeController {
             @RequestParam(required = false) String statut,
             @PageableDefault(size = 20) Pageable pageable,
             HttpServletResponse response) {
-        response.setHeader("Cache-Control", "private, max-age=15, must-revalidate");
+        response.setHeader("Cache-Control", "public, max-age=15, must-revalidate");
         return ResponseEntity.ok(vehiculeService.list(q, type, statut, pageable));
     }
 
