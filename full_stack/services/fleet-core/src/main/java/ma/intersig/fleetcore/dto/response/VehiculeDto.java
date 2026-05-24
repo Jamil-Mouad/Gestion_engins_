@@ -22,51 +22,30 @@ public record VehiculeDto(
         Boolean actif,
         OffsetDateTime createdAt,
         OffsetDateTime updatedAt,
-        CamionDetailsDto camionDetails
+        CamionDetailsDto camionDetails,
+        AttelageDto currentAttelage
 ) {
-    public static VehiculeDto from(Vehicule v) {
+    public static VehiculeDto from(Vehicule v, AttelageDto currentAttelage) {
         CamionDetailsDto details = null;
         if (v instanceof Camion c) {
             details = CamionDetailsDto.from(c);
         }
         return new VehiculeDto(
-                v.getId(),
-                v.getCode(),
-                v.getType(),
-                v.getMarque(),
-                v.getModele(),
-                v.getMatricule(),
-                v.getNChassis(),
-                v.getAnnee(),
-                v.getCarburant(),
-                v.getStatut(),
-                v.getDateMiseService(),
-                v.getPhotoUrl(),
-                v.getActif(),
-                v.getCreatedAt(),
-                v.getUpdatedAt(),
-                details
+                v.getId(), v.getCode(), v.getType(), v.getMarque(), v.getModele(),
+                v.getMatricule(), v.getNChassis(), v.getAnnee(), v.getCarburant(),
+                v.getStatut(), v.getDateMiseService(), v.getPhotoUrl(),
+                v.getActif(), v.getCreatedAt(), v.getUpdatedAt(),
+                details, currentAttelage
         );
     }
 
     public static VehiculeDto fromList(Vehicule v) {
         return new VehiculeDto(
-                v.getId(),
-                v.getCode(),
-                v.getType(),
-                v.getMarque(),
-                v.getModele(),
-                v.getMatricule(),
-                v.getNChassis(),
-                v.getAnnee(),
-                v.getCarburant(),
-                v.getStatut(),
-                v.getDateMiseService(),
-                v.getPhotoUrl(),
-                v.getActif(),
-                v.getCreatedAt(),
-                v.getUpdatedAt(),
-                null
+                v.getId(), v.getCode(), v.getType(), v.getMarque(), v.getModele(),
+                v.getMatricule(), v.getNChassis(), v.getAnnee(), v.getCarburant(),
+                v.getStatut(), v.getDateMiseService(), v.getPhotoUrl(),
+                v.getActif(), v.getCreatedAt(), v.getUpdatedAt(),
+                null, null
         );
     }
 }

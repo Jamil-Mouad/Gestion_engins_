@@ -2,6 +2,7 @@ package ma.intersig.fleetcore.service;
 
 import ma.intersig.fleetcore.dto.request.CreateVehiculeRequest;
 import ma.intersig.fleetcore.dto.request.UpdateVehiculeRequest;
+import ma.intersig.fleetcore.dto.response.AttelageDto;
 import ma.intersig.fleetcore.dto.response.PageResponse;
 import ma.intersig.fleetcore.dto.response.VehiculeDto;
 import ma.intersig.fleetcore.entity.Camion;
@@ -9,6 +10,7 @@ import ma.intersig.fleetcore.entity.Vehicule;
 import ma.intersig.fleetcore.event.EntityChangedEvent;
 import ma.intersig.fleetcore.exception.BusinessException;
 import ma.intersig.fleetcore.exception.ResourceNotFoundException;
+import ma.intersig.fleetcore.repository.TracteurSemiAssignmentRepository;
 import ma.intersig.fleetcore.repository.VehiculeRepository;
 import org.springframework.cache.annotation.CacheEvict;
 import org.springframework.cache.annotation.Cacheable;
@@ -30,10 +32,14 @@ public class VehiculeService {
 
     private final VehiculeRepository vehiculeRepository;
     private final ApplicationEventPublisher eventPublisher;
+    private final TracteurSemiAssignmentRepository attelageRepo;
 
-    public VehiculeService(VehiculeRepository vehiculeRepository, ApplicationEventPublisher eventPublisher) {
+    public VehiculeService(VehiculeRepository vehiculeRepository,
+                           ApplicationEventPublisher eventPublisher,
+                           TracteurSemiAssignmentRepository attelageRepo) {
         this.vehiculeRepository = vehiculeRepository;
         this.eventPublisher = eventPublisher;
+        this.attelageRepo = attelageRepo;
     }
 
     @Transactional(readOnly = true)
@@ -50,13 +56,28 @@ public class VehiculeService {
     }
 
     @Transactional(readOnly = true)
+    @Cacheable(value = "vehicules", key = "#id")
     public VehiculeDto getById(Long id) {
         Vehicule v = vehiculeRepository.findById(id)
                 .orElseThrow(() -> new ResourceNotFoundException("Vehicle not found", "VEHICLE_NOT_FOUND"));
-        return VehiculeDto.from(v);
+
+        AttelageDto currentAttelage = null;
+        if ("camion".equals(v.getType())) {
+            currentAttelage = attelageRepo
+                .findByTracteurIdAndDateFinIsNullAndActifTrue(id)
+                .map(AttelageDto::from)
+                .orElse(null);
+        } else if ("semi_remorque".equals(v.getType())) {
+            currentAttelage = attelageRepo
+                .findBySemiIdAndDateFinIsNullAndActifTrue(id)
+                .map(AttelageDto::from)
+                .orElse(null);
+        }
+
+        return VehiculeDto.from(v, currentAttelage);
     }
 
-    @CacheEvict(value = "vehicules-page", allEntries = true)
+    @CacheEvict(value = {"vehicules-page", "vehicules"}, allEntries = true)
     public VehiculeDto create(CreateVehiculeRequest req) {
         validateUniqueConstraints(req.code(), req.matricule(), req.nChassis(), null);
 
@@ -89,10 +110,10 @@ public class VehiculeService {
         }
 
         eventPublisher.publishEvent(new EntityChangedEvent(this, "vehicule", vehicule.getId(), "create"));
-        return VehiculeDto.from(vehicule);
+        return VehiculeDto.from(vehicule, null);
     }
 
-    @CacheEvict(value = "vehicules-page", allEntries = true)
+    @CacheEvict(value = {"vehicules-page", "vehicules"}, allEntries = true)
     public VehiculeDto update(Long id, UpdateVehiculeRequest req) {
         Vehicule vehicule = vehiculeRepository.findById(id)
                 .orElseThrow(() -> new ResourceNotFoundException("Vehicle not found", "VEHICLE_NOT_FOUND"));
@@ -121,7 +142,7 @@ public class VehiculeService {
 
         vehicule = vehiculeRepository.save(vehicule);
         eventPublisher.publishEvent(new EntityChangedEvent(this, "vehicule", vehicule.getId(), "update"));
-        return VehiculeDto.from(vehicule);
+        return VehiculeDto.from(vehicule, null);
     }
 
     private void validateStatut(String statut) {
@@ -130,7 +151,7 @@ public class VehiculeService {
         }
     }
 
-    @CacheEvict(value = "vehicules-page", allEntries = true)
+    @CacheEvict(value = {"vehicules-page", "vehicules"}, allEntries = true)
     public VehiculeDto patchStatut(Long id, String statut) {
         validateStatut(statut);
         Vehicule vehicule = vehiculeRepository.findById(id)
@@ -138,10 +159,10 @@ public class VehiculeService {
         vehicule.setStatut(statut);
         vehicule = vehiculeRepository.save(vehicule);
         eventPublisher.publishEvent(new EntityChangedEvent(this, "vehicule", vehicule.getId(), "update"));
-        return VehiculeDto.from(vehicule);
+        return VehiculeDto.from(vehicule, null);
     }
 
-    @CacheEvict(value = "vehicules-page", allEntries = true)
+    @CacheEvict(value = {"vehicules-page", "vehicules"}, allEntries = true)
     public void softDelete(Long id) {
         Vehicule vehicule = vehiculeRepository.findById(id)
                 .orElseThrow(() -> new ResourceNotFoundException("Vehicle not found", "VEHICLE_NOT_FOUND"));
@@ -187,7 +208,7 @@ public class VehiculeService {
         v.setPhotoUrl(req.photoUrl());
     }
 
-    @CacheEvict(value = "vehicules-page", allEntries = true)
+    @CacheEvict(value = {"vehicules-page", "vehicules"}, allEntries = true)
     public void updateCamionChauffeur(Long vehiculeId, String nom, String prenom) {
         Vehicule v = vehiculeRepository.findById(vehiculeId)
                 .orElseThrow(() -> new ResourceNotFoundException("Vehicle not found", "VEHICLE_NOT_FOUND"));
