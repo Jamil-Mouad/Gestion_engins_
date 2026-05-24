@@ -1,6 +1,7 @@
 import { Injectable, inject } from '@angular/core';
 import { HttpClient, HttpParams } from '@angular/common/http';
 import { Observable } from 'rxjs';
+import { shareReplay, tap } from 'rxjs/operators';
 
 import { Intervention, InterventionStatut, InterventionCategorie, TypeIntervention, NewInterventionForm } from '../../shared/models/intervention.model';
 import { Page } from '../../shared/models/pagination.model';
@@ -9,15 +10,27 @@ import { Page } from '../../shared/models/pagination.model';
 export class InterventionService {
   private readonly API = '/api/v1/interventions';
   private http = inject(HttpClient);
+  private listCache = new Map<string, Observable<Page<Intervention>>>();
 
-  list(params?: { categorie?: InterventionCategorie; vehiculeId?: number; statut?: string; page?: number; size?: number }): Observable<Page<Intervention>> {
-    let httpParams = new HttpParams();
-    if (params?.categorie) httpParams = httpParams.set('categorie', params.categorie);
-    if (params?.vehiculeId) httpParams = httpParams.set('vehicule_id', String(params.vehiculeId));
-    if (params?.statut) httpParams = httpParams.set('statut', params.statut);
-    if (params?.page !== undefined) httpParams = httpParams.set('page', String(params.page));
-    if (params?.size !== undefined) httpParams = httpParams.set('size', String(params.size));
-    return this.http.get<Page<Intervention>>(this.API, { params: httpParams });
+  list(params?: { categorie?: InterventionCategorie; vehiculeId?: number; statut?: string; q?: string; page?: number; size?: number }): Observable<Page<Intervention>> {
+    const key = JSON.stringify(params ?? {});
+    if (!this.listCache.has(key)) {
+      let httpParams = new HttpParams();
+      if (params?.categorie) httpParams = httpParams.set('categorie', params.categorie);
+      if (params?.vehiculeId) httpParams = httpParams.set('vehicule_id', String(params.vehiculeId));
+      if (params?.statut) httpParams = httpParams.set('statut', params.statut);
+      if (params?.q) httpParams = httpParams.set('q', params.q);
+      if (params?.page !== undefined) httpParams = httpParams.set('page', String(params.page));
+      if (params?.size !== undefined) httpParams = httpParams.set('size', String(params.size));
+      this.listCache.set(key, this.http.get<Page<Intervention>>(this.API, { params: httpParams }).pipe(
+        shareReplay({ bufferSize: 1, refCount: true, windowTime: 60_000 }),
+      ));
+    }
+    return this.listCache.get(key)!;
+  }
+
+  invalidate(): void {
+    this.listCache.clear();
   }
 
   get(id: number): Observable<Intervention> {
@@ -25,11 +38,11 @@ export class InterventionService {
   }
 
   create(form: NewInterventionForm): Observable<Intervention> {
-    return this.http.post<Intervention>(this.API, form);
+    return this.http.post<Intervention>(this.API, form).pipe(tap(() => this.invalidate()));
   }
 
   cloturer(id: number): Observable<Intervention> {
-    return this.http.patch<Intervention>(`${this.API}/${id}/cloturer`, {});
+    return this.http.patch<Intervention>(`${this.API}/${id}/cloturer`, {}).pipe(tap(() => this.invalidate()));
   }
 
   getTypes(): Observable<TypeIntervention[]> {
