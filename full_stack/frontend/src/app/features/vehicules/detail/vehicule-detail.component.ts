@@ -1,14 +1,15 @@
-import { Component, inject, signal, computed } from '@angular/core';
+import { Component, DestroyRef, inject, signal, computed, effect } from '@angular/core';
 import { UpperCasePipe, DecimalPipe } from '@angular/common';
 import { ActivatedRoute, Router, RouterLink } from '@angular/router';
-import { toSignal } from '@angular/core/rxjs-interop';
-import { tap, catchError, of } from 'rxjs';
+import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
+import { catchError, of } from 'rxjs';
 import { LucideAngularModule } from 'lucide-angular';
 import { VehiculeService } from '../vehicule.service';
 import { VehiculeDetail } from '../../../shared/models/vehicule.model';
 import { StatusBadgeComponent } from '../../../shared/ui/badge/badge.component';
 import { StatusLabelPipe } from '../../../shared/pipes/status-label.pipe';
 import { SkeletonComponent } from '../../../shared/ui/skeleton/skeleton.component';
+import { SpinnerOverlayComponent } from '../../../shared/ui/spinner/spinner-overlay.component';
 import { ConfirmDeleteModalComponent } from '../../../shared/ui/confirm-delete-modal/confirm-delete-modal.component';
 import { EmptyStateComponent } from '../../../shared/ui/empty-state/empty-state.component';
 import { BreadcrumbComponent } from '../../../shared/ui/breadcrumb/breadcrumb.component';
@@ -28,23 +29,22 @@ import { DocumentsTabComponent } from './tabs/documents-tab.component';
   imports: [
     UpperCasePipe, DecimalPipe, RouterLink,
     LucideAngularModule,
-    StatusBadgeComponent, StatusLabelPipe, SkeletonComponent,
+    StatusBadgeComponent, StatusLabelPipe, SkeletonComponent, SpinnerOverlayComponent,
     ConfirmDeleteModalComponent, EmptyStateComponent,
     BreadcrumbComponent, TabGroupComponent,
     InfosTabComponent, PneusTabComponent, InterventionsTabComponent, ComposantsTabComponent,
     VidangesTabComponent, HistoriqueTabComponent, KpisTabComponent, DocumentsTabComponent,
   ],
   template: `
+    <app-spinner-overlay [show]="showSpinner()" />
     <div class="veh-detail-page">
-      @if (loading()) {
-        <div style="padding:32px">
-          <app-skeleton [rows]="4" height="32px" />
-        </div>
-      } @else if (vehicule()) {
-        <!-- Breadcrumb -->
-        <app-breadcrumb [items]="[{label: 'Véhicules', route: '/vehicules'}, {label: vehicule()!.code}]" />
+      @if (!loading() && !vehicule()) {
+        <app-empty-state message="Véhicule introuvable" />
+      } @else {
+        <!-- Breadcrumb always visible immediately -->
+        <app-breadcrumb [items]="[{label: 'Véhicules', route: '/vehicules'}, {label: vehicule()?.code ?? ('#' + vehiculeId)}]" />
 
-        <!-- Header card -->
+        <!-- Header card always renders — skeleton only for data fields -->
         <div class="veh-detail-header">
           <div class="veh-detail-header__main">
             <div class="veh-photo-placeholder">
@@ -52,28 +52,36 @@ import { DocumentsTabComponent } from './tabs/documents-tab.component';
               <span>photo</span>
             </div>
             <div class="veh-detail-info">
-              <div class="veh-detail-info__meta">
-                <span class="veh-type-badge">{{ vehicule()!.type | uppercase }}</span>
-                <app-status-badge [status]="vehicule()!.statut" [label]="vehicule()!.statut | statusLabel" />
-              </div>
-              <div class="veh-detail-info__title">
-                <span class="veh-code">{{ vehicule()!.code }}</span>
-                <span class="veh-model">{{ vehicule()!.marque }} {{ vehicule()!.modele }}</span>
-              </div>
-              <div class="veh-detail-info__row">
-                @if (vehicule()!.matricule) {
-                  <span class="mono">{{ vehicule()!.matricule }}</span>
-                }
-                @if (vehicule()!.annee) {
-                  <span>{{ vehicule()!.annee }}</span>
-                }
-                @if (vehicule()!.camionDetails?.compteurKm != null) {
-                  <span class="mono">{{ vehicule()!.camionDetails!.compteurKm | number }} km</span>
-                }
-                @if (chauffeur()) {
-                  <span>Chauffeur : {{ chauffeur() }}</span>
-                }
-              </div>
+              @if (loading()) {
+                <div class="veh-skeleton-stack">
+                  <div class="veh-skel veh-skel--sm"></div>
+                  <div class="veh-skel veh-skel--lg"></div>
+                  <div class="veh-skel veh-skel--md"></div>
+                </div>
+              } @else {
+                <div class="veh-detail-info__meta">
+                  <span class="veh-type-badge">{{ vehicule()!.type | uppercase }}</span>
+                  <app-status-badge [status]="vehicule()!.statut" [label]="vehicule()!.statut | statusLabel" />
+                </div>
+                <div class="veh-detail-info__title">
+                  <span class="veh-code">{{ vehicule()!.code }}</span>
+                  <span class="veh-model">{{ vehicule()!.marque }} {{ vehicule()!.modele }}</span>
+                </div>
+                <div class="veh-detail-info__row">
+                  @if (vehicule()!.matricule) {
+                    <span class="mono">{{ vehicule()!.matricule }}</span>
+                  }
+                  @if (vehicule()!.annee) {
+                    <span>{{ vehicule()!.annee }}</span>
+                  }
+                  @if (vehicule()!.camionDetails?.compteurKm != null) {
+                    <span class="mono">{{ vehicule()!.camionDetails!.compteurKm | number }} km</span>
+                  }
+                  @if (chauffeur()) {
+                    <span>Chauffeur : {{ chauffeur() }}</span>
+                  }
+                </div>
+              }
             </div>
           </div>
           <div class="veh-detail-header__actions">
@@ -85,51 +93,63 @@ import { DocumentsTabComponent } from './tabs/documents-tab.component';
           </div>
         </div>
 
-        <!-- Tabs bar -->
-        <div class="veh-tabs-bar">
-          <app-tab-group [tabs]="tabDefs" [activeIndex]="activeTabIndex()" (tabChange)="setTab($event)" />
-        </div>
+        @if (vehicule()) {
+          <!-- Tabs bar -->
+          <div class="veh-tabs-bar veh-tabs-fadein">
+            <app-tab-group [tabs]="tabDefs()" [activeIndex]="activeTabIndex()" (tabChange)="setTab($event)" />
+          </div>
 
-        <!-- Tab content -->
-        <div class="veh-tab-content">
-          @switch (activeTab()) {
-            @case ('infos') {
+          <!-- Tab content — deferred on first activation, then kept mounted (hidden) to avoid refetch on switch -->
+          <div class="veh-tab-content veh-tabs-fadein">
+            <div [hidden]="activeTab() !== 'infos'">
               <app-infos-tab [vehicule]="vehicule()!" />
+            </div>
+            @defer (when isActivated('interventions')) {
+              <div [hidden]="activeTab() !== 'interventions'">
+                <app-interventions-tab />
+              </div>
             }
-            @case ('interventions') {
-              <app-interventions-tab />
+            @defer (when isActivated('pneus')) {
+              <div [hidden]="activeTab() !== 'pneus'">
+                <app-pneus-tab [vehiculeId]="vehicule()!.id" [configAxle]="vehicule()!.camionDetails?.configAxle ?? null" />
+              </div>
             }
-            @case ('pneus') {
-              <app-pneus-tab [vehiculeId]="vehicule()!.id" [configAxle]="vehicule()!.camionDetails?.configAxle ?? null" />
+            @defer (when isActivated('vidanges')) {
+              <div [hidden]="activeTab() !== 'vidanges'">
+                <app-vidanges-tab />
+              </div>
             }
-            @case ('vidanges') {
-              <app-vidanges-tab />
+            @defer (when isActivated('kpis')) {
+              <div [hidden]="activeTab() !== 'kpis'">
+                <app-kpis-tab />
+              </div>
             }
-            @case ('kpis') {
-              <app-kpis-tab />
+            @defer (when isActivated('historique')) {
+              <div [hidden]="activeTab() !== 'historique'">
+                <app-historique-tab />
+              </div>
             }
-            @case ('historique') {
-              <app-historique-tab />
+            @defer (when isActivated('composants')) {
+              <div [hidden]="activeTab() !== 'composants'">
+                <app-composants-tab />
+              </div>
             }
-            @case ('composants') {
-              <app-composants-tab />
+            @defer (when isActivated('documents')) {
+              <div [hidden]="activeTab() !== 'documents'">
+                <app-documents-tab />
+              </div>
             }
-            @case ('documents') {
-              <app-documents-tab />
-            }
-          }
-        </div>
+          </div>
 
-        @if (showDelete()) {
-          <app-confirm-delete-modal
-            confirmMessage="Êtes-vous sûr de vouloir supprimer ce véhicule ? Cette action est irréversible."
-            [itemLabel]="vehicule()!.code + ' — ' + vehicule()!.marque + ' ' + vehicule()!.modele"
-            [isDeleting]="deleting()"
-            (confirm)="onDelete()"
-            (cancel)="showDelete.set(false)" />
+          @if (showDelete()) {
+            <app-confirm-delete-modal
+              confirmMessage="Êtes-vous sûr de vouloir supprimer ce véhicule ? Cette action est irréversible."
+              [itemLabel]="vehicule()!.code + ' — ' + vehicule()!.marque + ' ' + vehicule()!.modele"
+              [isDeleting]="deleting()"
+              (confirm)="onDelete()"
+              (cancel)="showDelete.set(false)" />
+          }
         }
-      } @else {
-        <app-empty-state message="Véhicule introuvable" />
       }
     </div>
   `,
@@ -161,19 +181,62 @@ import { DocumentsTabComponent } from './tabs/documents-tab.component';
     /* Tabs + content */
     .veh-tabs-bar { background: white; border-bottom: 1px solid var(--color-border); padding: 0 32px; }
     .veh-tab-content { padding: 24px 32px 40px; }
+    @keyframes tabsFadeIn { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: translateY(0); } }
+    .veh-tabs-fadein { animation: tabsFadeIn 180ms ease-out; }
+
+    /* Inline skeleton bars for header fields */
+    @keyframes skelPulse { 0%,100% { opacity:1 } 50% { opacity:.45 } }
+    .veh-skeleton-stack { display: flex; flex-direction: column; gap: 8px; padding-top: 4px; }
+    .veh-skel { border-radius: 4px; background: #E5E7EB; animation: skelPulse 1.4s ease-in-out infinite; }
+    .veh-skel--sm  { height: 20px; width: 110px; }
+    .veh-skel--lg  { height: 28px; width: 200px; }
+    .veh-skel--md  { height: 16px; width: 130px; }
   `],
 })
 export class VehiculeDetailComponent {
   private route = inject(ActivatedRoute);
   private router = inject(Router);
   private vehiculeService = inject(VehiculeService);
+  private destroyRef = inject(DestroyRef);
 
-  activeTabIndex = signal(0);
+  readonly vehiculeId: number = (() => {
+    const p = this.route.snapshot.paramMap.get('id');
+    return p ? Number(p) : NaN;
+  })();
+
+  vehicule = signal<VehiculeDetail | null>(null);
   loading = signal(true);
+  activeTabIndex = signal(0);
   showDelete = signal(false);
   deleting = signal(false);
+  showSpinner = signal(false);
+  private _spinnerTimer: ReturnType<typeof setTimeout> | null = null;
+  private activated = signal(new Set<string>(['infos']));
 
-  tabDefs = [
+  constructor() {
+    effect(() => {
+      if (this.loading()) {
+        this._spinnerTimer = setTimeout(() => this.showSpinner.set(true), 250);
+      } else {
+        if (this._spinnerTimer) { clearTimeout(this._spinnerTimer); this._spinnerTimer = null; }
+        this.showSpinner.set(false);
+      }
+    });
+
+    if (isNaN(this.vehiculeId) || this.vehiculeId <= 0) {
+      this.loading.set(false);
+      return;
+    }
+    this.vehiculeService.get(this.vehiculeId).pipe(
+      takeUntilDestroyed(this.destroyRef),
+      catchError(() => of(null)),
+    ).subscribe(data => {
+      this.vehicule.set(data);
+      this.loading.set(false);
+    });
+  }
+
+  private readonly CAMION_TABS = [
     { label: 'Infos' },
     { label: 'Interventions' },
     { label: 'Gestion pneus' },
@@ -183,38 +246,33 @@ export class VehiculeDetailComponent {
     { label: 'Composants' },
     { label: 'Documents' },
   ];
+  private readonly CAMION_TAB_IDS = ['infos', 'interventions', 'pneus', 'vidanges', 'kpis', 'historique', 'composants', 'documents'];
 
-  tabIds = ['infos', 'interventions', 'pneus', 'vidanges', 'kpis', 'historique', 'composants', 'documents'];
+  private readonly NON_CAMION_TABS = [
+    { label: 'Infos' },
+    { label: 'Interventions' },
+    { label: 'Composants' },
+  ];
+  private readonly NON_CAMION_TAB_IDS = ['infos', 'interventions', 'composants'];
 
-  activeTab = computed(() => this.tabIds[this.activeTabIndex()]);
+  tabDefs = computed(() => this.vehicule()?.type === 'camion' ? this.CAMION_TABS : this.NON_CAMION_TABS);
+  tabIds = computed(() => this.vehicule()?.type === 'camion' ? this.CAMION_TAB_IDS : this.NON_CAMION_TAB_IDS);
 
-  setTab(i: number): void { this.activeTabIndex.set(i); }
+  activeTab = computed(() => this.tabIds()[this.activeTabIndex()]);
 
-  vehicule = toSignal<VehiculeDetail | null>(
-    (() => {
-      const idParam = this.route.snapshot.paramMap.get('id');
-      const vehiculeId = idParam ? Number(idParam) : NaN;
-      if (isNaN(vehiculeId) || vehiculeId <= 0) { this.loading.set(false); return of(null); }
-      return this.vehiculeService.get(vehiculeId).pipe(
-        tap({ next: () => this.loading.set(false), error: () => this.loading.set(false) }),
-        catchError(() => of(null)),
-      );
-    })(),
-    { initialValue: null },
-  );
+  isActivated(tabId: string): boolean { return this.activated().has(tabId); }
+
+  setTab(i: number): void {
+    this.activeTabIndex.set(i);
+    const tabId = this.tabIds()[i];
+    this.activated.update(s => { const ns = new Set(s); ns.add(tabId); return ns; });
+  }
 
   chauffeur = computed(() => {
     const cd = this.vehicule()?.camionDetails;
     if (!cd) return null;
     const parts = [cd.chauffeurPrenom, cd.chauffeurNom].filter(Boolean);
     return parts.length > 0 ? parts.join(' ') : null;
-  });
-
-  // Keep legacy tabs signal for any external references
-  tabs = computed(() => {
-    const v = this.vehicule();
-    if (!v) return this.tabDefs.map(t => t.label);
-    return this.tabDefs.map(t => t.label);
   });
 
   onDelete(): void {
