@@ -102,7 +102,7 @@ import { DocumentsTabComponent } from './tabs/documents-tab.component';
           <!-- Tab content — deferred on first activation, then kept mounted (hidden) to avoid refetch on switch -->
           <div class="veh-tab-content veh-tabs-fadein">
             <div [hidden]="activeTab() !== 'infos'">
-              <app-infos-tab [vehicule]="vehicule()!" />
+              <app-infos-tab [vehicule]="vehicule()!" (attelageChanged)="reloadVehicule()" />
             </div>
             @defer (when isActivated('interventions')) {
               <div [hidden]="activeTab() !== 'interventions'">
@@ -111,7 +111,11 @@ import { DocumentsTabComponent } from './tabs/documents-tab.component';
             }
             @defer (when isActivated('pneus')) {
               <div [hidden]="activeTab() !== 'pneus'">
-                <app-pneus-tab [vehiculeId]="vehicule()!.id" [configAxle]="vehicule()!.camionDetails?.configAxle ?? null" />
+                <app-pneus-tab
+                  [vehiculeId]="vehicule()!.id"
+                  [vehiculeType]="vehicule()!.type"
+                  [configAxle]="vehicule()!.camionDetails?.configAxle ?? null"
+                  [currentAttelage]="vehicule()!.currentAttelage ?? null" />
               </div>
             }
             @defer (when isActivated('vidanges')) {
@@ -274,6 +278,13 @@ export class VehiculeDetailComponent {
     const parts = [cd.chauffeurPrenom, cd.chauffeurNom].filter(Boolean);
     return parts.length > 0 ? parts.join(' ') : null;
   });
+
+  reloadVehicule(): void {
+    this.vehiculeService.get(this.vehiculeId).pipe(
+      takeUntilDestroyed(this.destroyRef),
+      catchError(() => of(null)),
+    ).subscribe(data => this.vehicule.set(data));
+  }
 
   onDelete(): void {
     const v = this.vehicule();
