@@ -2,7 +2,7 @@ import { Component, inject, signal, Output, EventEmitter } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { ReactiveFormsModule, FormBuilder, Validators } from '@angular/forms';
 import { VehiculeService } from '../vehicule.service';
-import { Vehicule, VehiculeType, VehiculeStatut } from '../../../shared/models/vehicule.model';
+import { Vehicule, VehiculeType, VehiculeStatut, isCamionType } from '../../../shared/models/vehicule.model';
 import { ModalShellComponent } from '../../../shared/ui/modal/modal-shell.component';
 import { DoubleClickGuardDirective } from '../../../shared/directives/double-click-guard.directive';
 
@@ -52,7 +52,7 @@ import { DoubleClickGuardDirective } from '../../../shared/directives/double-cli
           </select>
         </div>
 
-        @if (form.get('type')?.value === 'camion') {
+        @if (isCamionTypeSelected()) {
           <div class="camion-subform">
             <h3>Détails camion</h3>
             <div class="form-row">
@@ -110,6 +110,10 @@ export class NewVehiculeModalComponent {
   submitting = signal(false);
   errorMessage = signal('');
 
+  isCamionTypeSelected(): boolean {
+    return isCamionType(this.form.get('type')?.value ?? '');
+  }
+
   typeOptions: { value: VehiculeType; label: string }[] = [
     { value: 'camion',          label: 'Camion' },
     { value: 'camion_tracteur', label: 'Camion (Tracteur)' },
@@ -163,7 +167,7 @@ export class NewVehiculeModalComponent {
       dateMiseService: formValue.dateMiseService,
     };
 
-    if (formValue.type === 'camion' && (formValue.capaciteTonnes != null || formValue.configAxle != null)) {
+    if (isCamionType(formValue.type ?? '') && (formValue.capaciteTonnes != null || formValue.configAxle != null)) {
       newVehicule.camionDetails = {
         capaciteTonnes: formValue.capaciteTonnes,
         configAxle: formValue.configAxle,
