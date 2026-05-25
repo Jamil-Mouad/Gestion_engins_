@@ -1,16 +1,17 @@
-import { Component, Input, Output, EventEmitter } from '@angular/core';
+import { Component, Output, EventEmitter, ChangeDetectionStrategy, input } from '@angular/core';
 import { LucideAngularModule } from 'lucide-angular';
 
 @Component({
   selector: 'app-view-toggle',
   standalone: true,
+  changeDetection: ChangeDetectionStrategy.OnPush,
   imports: [LucideAngularModule],
   template: `
     <div class="vt-container">
       <button
         class="vt-btn"
-        [class.vt-btn--active]="view === 'table'"
-        [class.vt-btn--inactive]="view !== 'table'"
+        [class.vt-btn--active]="view() === 'table'"
+        [class.vt-btn--inactive]="view() !== 'table'"
         (click)="viewChange.emit('table')"
         type="button"
         title="Vue tableau">
@@ -19,8 +20,8 @@ import { LucideAngularModule } from 'lucide-angular';
       </button>
       <button
         class="vt-btn vt-btn--cards-side"
-        [class.vt-btn--active]="view === 'cards'"
-        [class.vt-btn--inactive]="view !== 'cards'"
+        [class.vt-btn--active]="view() === 'cards'"
+        [class.vt-btn--inactive]="view() !== 'cards'"
         (click)="viewChange.emit('cards')"
         type="button"
         title="Vue cartes">
@@ -62,6 +63,6 @@ import { LucideAngularModule } from 'lucide-angular';
   `],
 })
 export class ViewToggleComponent {
-  @Input() view: 'table' | 'cards' = 'table';
+  view = input<'table' | 'cards'>('table');
   @Output() viewChange = new EventEmitter<'table' | 'cards'>();
 }

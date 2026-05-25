@@ -26,7 +26,7 @@ describe('ViewToggleComponent', () => {
   });
 
   it('should show "Cartes" button as active when view=cards', () => {
-    component.view = 'cards';
+    fixture.componentRef.setInput('view', 'cards');
     fixture.detectChanges();
     const btns = fixture.nativeElement.querySelectorAll('.vt-btn');
     expect(btns[1].classList.contains('vt-btn--active')).toBeTrue();
@@ -41,7 +41,7 @@ describe('ViewToggleComponent', () => {
   });
 
   it('should emit "table" when tableau button is clicked', () => {
-    component.view = 'cards';
+    fixture.componentRef.setInput('view', 'cards');
     fixture.detectChanges();
     const spy = jasmine.createSpy('viewChange');
     component.viewChange.subscribe(spy);
