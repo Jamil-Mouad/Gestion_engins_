@@ -1,4 +1,4 @@
-import { Component, inject, signal, computed, DestroyRef, effect } from '@angular/core';
+import { Component, inject, signal, computed, DestroyRef, effect, ChangeDetectionStrategy } from '@angular/core';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { DecimalPipe } from '@angular/common';
 import { Router } from '@angular/router';
@@ -27,6 +27,7 @@ type StatutFilter = 'all' | VehiculeStatut;
 @Component({
   selector: 'app-vehicules-list',
   standalone: true,
+  changeDetection: ChangeDetectionStrategy.OnPush,
   imports: [
     DecimalPipe,
     LucideAngularModule,
@@ -56,20 +57,25 @@ type StatutFilter = 'all' | VehiculeStatut;
               placeholder="Rechercher par code, matricule, marque…"
               (input)="onSearchInput($any($event.target).value)" />
           </div>
-          <div class="filter-chips">
-            <span class="filter-label">Filtres :</span>
-            @for (f of typeFilters; track f.value) {
-              <app-filter-chip
-                [label]="f.label"
-                [active]="typeFilter() === f.value"
-                (clicked)="onTypeFilter(f.value)" />
-            }
-            @for (s of statutFilters; track s.value) {
-              <app-filter-chip
-                [label]="s.label"
-                [active]="statutFilter() === s.value"
-                (clicked)="onStatutFilter(s.value)" />
-            }
+          <div class="filter-chips-row">
+            <div class="filter-chips-group">
+              <span class="filter-label">Type :</span>
+              @for (f of typeFilters; track f.value) {
+                <app-filter-chip
+                  [label]="f.label"
+                  [active]="typeFilter() === f.value"
+                  (clicked)="onTypeFilter(f.value)" />
+              }
+            </div>
+            <div class="filter-chips-group filter-chips-group--statut">
+              <span class="filter-label">Statut :</span>
+              @for (s of statutFilters; track s.value) {
+                <app-filter-chip
+                  [label]="s.label"
+                  [active]="statutFilter() === s.value"
+                  (clicked)="onStatutFilter(s.value)" />
+              }
+            </div>
           </div>
         </div>
 
@@ -125,7 +131,7 @@ type StatutFilter = 'all' | VehiculeStatut;
                 Export Excel
               </button>
               <button class="btn-settings" type="button" (click)="showColManager.set(true)" title="Gérer les colonnes">
-                <lucide-icon name="settings-2" [size]="16" />
+                <lucide-icon name="settings" [size]="16" />
               </button>
             </div>
           </div>
@@ -189,7 +195,9 @@ type StatutFilter = 'all' | VehiculeStatut;
     .search-wrap { position: relative; display: flex; align-items: center; gap: 8px; height: 40px; padding: 0 14px; border: 1px solid var(--color-border); border-radius: 8px; background: white; box-shadow: 0 1px 2px rgba(17,24,39,.06); }
     .search-icon { flex-shrink: 0; color: #6B7280; }
     .search-input { flex: 1; border: none; outline: none; background: transparent; font-family: 'Open Sans', sans-serif; font-size: 14px; color: #111827; }
-    .filter-chips { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+    .filter-chips-row { display: flex; align-items: center; justify-content: space-between; gap: 16px; flex-wrap: wrap; }
+    .filter-chips-group { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+    .filter-chips-group--statut { border-left: 1px solid var(--color-border); padding-left: 16px; }
     .filter-label { font-family: 'Open Sans', sans-serif; font-size: 13px; color: #6B7280; }
 
     /* Table */
@@ -403,9 +411,10 @@ export class VehiculesListComponent {
   ];
 
   statutFilters: { label: string; value: StatutFilter }[] = [
-    { label: 'En service', value: 'in-service' },
-    { label: 'Atelier', value: 'workshop' },
-    { label: 'Maintenance', value: 'maintenance' },
+    { label: 'En service',  value: 'in-service'    },
+    { label: 'Atelier',     value: 'workshop'      },
+    { label: 'Maintenance', value: 'maintenance'   },
+    { label: 'Hors service', value: 'out-of-service' },
   ];
 
 }
