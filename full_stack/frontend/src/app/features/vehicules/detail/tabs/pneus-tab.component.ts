@@ -3,7 +3,7 @@ import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { CommonModule } from '@angular/common';
 import { PneuService } from '../../../pneus/pneu.service';
 import { Pneu } from '../../../../shared/models/pneu.model';
-import { Attelage, VehiculeType } from '../../../../shared/models/vehicule.model';
+import { Attelage, VehiculeType, isCamionType } from '../../../../shared/models/vehicule.model';
 import { StatusBadgeComponent } from '../../../../shared/ui/badge/badge.component';
 import { AxleSchemaComponent } from '../../../../shared/ui/axle-schema/axle-schema.component';
 import { TireCardComponent } from '../../../pneus/tire-card/tire-card.component';
@@ -94,7 +94,7 @@ export class PneusTabComponent implements OnChanges {
   selectedPneu = signal<Pneu | null>(null);
   activePartie = signal<'tracteur' | 'remorque'>('tracteur');
 
-  showToggle = computed(() => this.vehiculeType === 'camion' && this.currentAttelage !== null);
+  showToggle = computed(() => isCamionType(this.vehiculeType) && this.currentAttelage !== null);
 
   contextLabel = computed(() => {
     if (this.activePartie() === 'remorque' && this.currentAttelage) {

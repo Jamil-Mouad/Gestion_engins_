@@ -5,7 +5,7 @@ import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { catchError, of } from 'rxjs';
 import { LucideAngularModule } from 'lucide-angular';
 import { VehiculeService } from '../vehicule.service';
-import { VehiculeDetail } from '../../../shared/models/vehicule.model';
+import { VehiculeDetail, isCamionType } from '../../../shared/models/vehicule.model';
 import { StatusBadgeComponent } from '../../../shared/ui/badge/badge.component';
 import { StatusLabelPipe } from '../../../shared/pipes/status-label.pipe';
 import { SkeletonComponent } from '../../../shared/ui/skeleton/skeleton.component';
@@ -259,8 +259,8 @@ export class VehiculeDetailComponent {
   ];
   private readonly NON_CAMION_TAB_IDS = ['infos', 'interventions', 'composants'];
 
-  tabDefs = computed(() => this.vehicule()?.type === 'camion' ? this.CAMION_TABS : this.NON_CAMION_TABS);
-  tabIds = computed(() => this.vehicule()?.type === 'camion' ? this.CAMION_TAB_IDS : this.NON_CAMION_TAB_IDS);
+  tabDefs = computed(() => isCamionType(this.vehicule()?.type) ? this.CAMION_TABS : this.NON_CAMION_TABS);
+  tabIds  = computed(() => isCamionType(this.vehicule()?.type) ? this.CAMION_TAB_IDS : this.NON_CAMION_TAB_IDS);
 
   activeTab = computed(() => this.tabIds()[this.activeTabIndex()]);
 
