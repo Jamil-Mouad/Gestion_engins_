@@ -1,7 +1,7 @@
 import { Component, Input, Output, EventEmitter, inject, signal, computed, OnChanges, SimpleChanges, DestroyRef } from '@angular/core';
 import { DatePipe } from '@angular/common';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
-import { VehiculeDetail, Attelage } from '../../../../shared/models/vehicule.model';
+import { VehiculeDetail, Attelage, isCamionType } from '../../../../shared/models/vehicule.model';
 import { VehiculeService } from '../../vehicule.service';
 import { CardComponent } from '../../../../shared/ui/card/card.component';
 import { AssignSemiModalComponent } from '../assign-semi-modal.component';
@@ -25,16 +25,75 @@ interface ComplianceItem {
   template: `
     <div class="infos-page">
       <div [class]="isCamion() ? 'infos-grid' : 'infos-grid infos-grid--single'">
-        <app-card title="Informations techniques">
-          <div class="info-rows">
-            @for (row of infoRows(); track row.label) {
-              <div class="info-row">
-                <span class="info-row__label">{{ row.label }}</span>
-                <span class="info-row__value" [class.mono]="row.mono">{{ row.value || '—' }}</span>
-              </div>
-            }
-          </div>
-        </app-card>
+        <div class="left-col">
+          <app-card title="Informations techniques">
+            <div class="info-rows">
+              @for (row of infoRows(); track row.label) {
+                <div class="info-row">
+                  <span class="info-row__label">{{ row.label }}</span>
+                  <span class="info-row__value" [class.mono]="row.mono">{{ row.value || '—' }}</span>
+                </div>
+              }
+            </div>
+          </app-card>
+
+          @if (showAttelage()) {
+            <app-card title="Attelage">
+              @if (vehicule.currentAttelage) {
+                <div class="attelage-current">
+                  <div class="attelage-current__info">
+                    @if (isCamion()) {
+                      <span class="attelage-current__label">Semi-remorque attelée</span>
+                      <span class="attelage-current__code">{{ vehicule.currentAttelage.semiCode }}</span>
+                    } @else {
+                      <span class="attelage-current__label">Tracteur attelé</span>
+                      <span class="attelage-current__code">{{ vehicule.currentAttelage.tracteurCode }}</span>
+                    }
+                    <span class="attelage-current__since">
+                      Depuis le {{ vehicule.currentAttelage.dateDebut | date:'dd/MM/yyyy' }}
+                    </span>
+                  </div>
+                  @if (isCamion()) {
+                    <button class="btn-detach" type="button" (click)="detach()">Détacher</button>
+                  }
+                </div>
+              } @else if (isCamion()) {
+                <div class="attelage-empty">
+                  <span class="attelage-empty__text">Aucune semi-remorque attelée</span>
+                  <button class="btn-attach" type="button" (click)="showAssignModal.set(true)">+ Atteler</button>
+                </div>
+              } @else {
+                <div class="attelage-empty">
+                  <span class="attelage-empty__text">Aucun tracteur attelé</span>
+                </div>
+              }
+
+              @if (terminatedHistory().length > 0) {
+                <div class="attelage-history">
+                  <h4 class="attelage-history__title">Historique</h4>
+                  <table class="attelage-history__table">
+                    <thead>
+                      <tr>
+                        <th>Semi-remorque</th>
+                        <th>Début</th>
+                        <th>Fin</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      @for (a of terminatedHistory(); track a.id) {
+                        <tr>
+                          <td class="mono">{{ a.semiCode }}</td>
+                          <td>{{ a.dateDebut | date:'dd/MM/yyyy' }}</td>
+                          <td>{{ a.dateFin | date:'dd/MM/yyyy' }}</td>
+                        </tr>
+                      }
+                    </tbody>
+                  </table>
+                </div>
+              }
+            </app-card>
+          }
+        </div>
 
         @if (isCamion()) {
           <div class="right-col">
@@ -94,69 +153,12 @@ interface ComplianceItem {
         }
       </div>
 
-      @if (showAttelage()) {
-        <app-card title="Attelage">
-          @if (vehicule.currentAttelage) {
-            <div class="attelage-current">
-              <div class="attelage-current__info">
-                @if (isCamion()) {
-                  <span class="attelage-current__label">Semi-remorque attelée</span>
-                  <span class="attelage-current__code">{{ vehicule.currentAttelage.semiCode }}</span>
-                } @else {
-                  <span class="attelage-current__label">Tracteur attelé</span>
-                  <span class="attelage-current__code">{{ vehicule.currentAttelage.tracteurCode }}</span>
-                }
-                <span class="attelage-current__since">
-                  Depuis le {{ vehicule.currentAttelage.dateDebut | date:'dd/MM/yyyy' }}
-                </span>
-              </div>
-              @if (isCamion()) {
-                <button class="btn-detach" type="button" (click)="detach()">Détacher</button>
-              }
-            </div>
-          } @else if (isCamion()) {
-            <div class="attelage-empty">
-              <span class="attelage-empty__text">Aucune semi-remorque attelée</span>
-              <button class="btn-attach" type="button" (click)="showAssignModal.set(true)">+ Atteler</button>
-            </div>
-          } @else {
-            <div class="attelage-empty">
-              <span class="attelage-empty__text">Aucun tracteur attelé</span>
-            </div>
-          }
-
-          @if (terminatedHistory().length > 0) {
-            <div class="attelage-history">
-              <h4 class="attelage-history__title">Historique</h4>
-              <table class="attelage-history__table">
-                <thead>
-                  <tr>
-                    <th>Semi-remorque</th>
-                    <th>Début</th>
-                    <th>Fin</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  @for (a of terminatedHistory(); track a.id) {
-                    <tr>
-                      <td class="mono">{{ a.semiCode }}</td>
-                      <td>{{ a.dateDebut | date:'dd/MM/yyyy' }}</td>
-                      <td>{{ a.dateFin | date:'dd/MM/yyyy' }}</td>
-                    </tr>
-                  }
-                </tbody>
-              </table>
-            </div>
-          }
-        </app-card>
-
-        @if (showAssignModal()) {
-          <app-assign-semi-modal
-            [tracteurId]="vehicule.id"
-            (saved)="onAttelageSaved()"
-            (close)="showAssignModal.set(false)"
-          />
-        }
+      @if (showAssignModal()) {
+        <app-assign-semi-modal
+          [tracteurId]="vehicule.id"
+          (saved)="onAttelageSaved()"
+          (close)="showAssignModal.set(false)"
+        />
       }
     </div>
   `,
@@ -164,6 +166,7 @@ interface ComplianceItem {
     .infos-page { display: flex; flex-direction: column; gap: 20px; }
     .infos-grid { display: grid; grid-template-columns: 3fr 2fr; gap: 20px; }
     .infos-grid--single { grid-template-columns: 1fr; }
+    .left-col { display: flex; flex-direction: column; gap: 20px; }
     .right-col { display: flex; flex-direction: column; gap: 20px; }
 
     /* Info rows */
@@ -235,13 +238,13 @@ export class InfosTabComponent implements OnChanges {
   showAssignModal = signal(false);
   history = signal<Attelage[]>([]);
 
-  isCamion = computed(() => this.vehicule?.type === 'camion');
+  isCamion = computed(() => isCamionType(this.vehicule?.type));
   isSemiRemorque = computed(() => this.vehicule?.type === 'semi_remorque');
   showAttelage = computed(() => this.isCamion() || this.isSemiRemorque());
   terminatedHistory = computed(() => this.history().filter(a => a.dateFin !== null));
 
   ngOnChanges(changes: SimpleChanges): void {
-    if (changes['vehicule'] && this.vehicule?.id && this.isCamion()) {
+    if (changes['vehicule'] && this.vehicule?.id && isCamionType(this.vehicule?.type)) {
       this.vehiculeService.listAttelages(this.vehicule.id).pipe(
         takeUntilDestroyed(this.destroyRef),
       ).subscribe({
