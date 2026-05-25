@@ -106,8 +106,8 @@ type StatutFilter = 'all' | VehiculeStatut;
               }
             }
           </div>
-          @if (vehicles().length > 0) {
-            <div class="table-toolbar">
+          <div class="table-toolbar">
+            @if (vehicles().length > 0) {
               <div class="pagination-bar">
                 <span class="pagination-info">
                   Affichage 1–{{ vehicles().length }} sur {{ totalElements() ?? '…' }}
@@ -118,17 +118,17 @@ type StatutFilter = 'all' | VehiculeStatut;
                   </button>
                 }
               </div>
-              <div class="table-actions">
-                <button class="btn-export" type="button" (click)="exportCsv()">
-                  <lucide-icon name="download" [size]="14" />
-                  Export Excel
-                </button>
-                <button class="btn-settings" type="button" (click)="showColManager.set(true)" title="Gérer les colonnes">
-                  <lucide-icon name="settings-2" [size]="16" />
-                </button>
-              </div>
+            }
+            <div class="table-actions">
+              <button class="btn-export" type="button" (click)="exportCsv()">
+                <lucide-icon name="download" [size]="14" />
+                Export Excel
+              </button>
+              <button class="btn-settings" type="button" (click)="showColManager.set(true)" title="Gérer les colonnes">
+                <lucide-icon name="settings-2" [size]="16" />
+              </button>
             </div>
-          }
+          </div>
         }
 
         <!-- Cards view -->
@@ -205,7 +205,7 @@ type StatutFilter = 'all' | VehiculeStatut;
     .btn-charger-plus { height: 34px; padding: 0 16px; background: white; border: 1px solid var(--color-border); border-radius: 8px; font-family: 'Open Sans', sans-serif; font-size: 13px; color: #374151; cursor: pointer; transition: border-color 150ms; }
     .btn-charger-plus:hover:not(:disabled) { border-color: var(--color-primary); color: var(--color-primary); }
     .btn-charger-plus:disabled { opacity: 0.6; cursor: default; }
-    .table-actions { display: flex; gap: 8px; align-items: center; }
+    .table-actions { display: flex; gap: 8px; align-items: center; margin-left: auto; }
     .btn-export { height: 34px; padding: 0 14px; background: white; border: 1px solid var(--color-border); border-radius: 8px; font-family: 'Open Sans',sans-serif; font-size: 13px; color: #374151; cursor: pointer; display: flex; align-items: center; gap: 6px; }
     .btn-export:hover { border-color: var(--color-primary); color: var(--color-primary); }
     .btn-settings { width: 34px; height: 34px; background: white; border: 1px solid var(--color-border); border-radius: 8px; cursor: pointer; display: flex; align-items: center; justify-content: center; color: #374151; }
@@ -344,6 +344,7 @@ export class VehiculesListComponent {
     ).subscribe(q => {
       this.searchQuery = q;
       this.currentPage = 0;
+      this.vehicles.set([]);
       this.loading.set(true);
       this.fetchTrigger$.next({ page: 0, append: false });
     });
@@ -358,6 +359,7 @@ export class VehiculesListComponent {
   onTypeFilter(value: TypeFilter): void {
     this.typeFilter.set(this.typeFilter() === value ? 'all' : value);
     this.currentPage = 0;
+    this.vehicles.set([]);
     this.loading.set(true);
     this.fetchTrigger$.next({ page: 0, append: false });
   }
@@ -365,6 +367,7 @@ export class VehiculesListComponent {
   onStatutFilter(value: StatutFilter): void {
     this.statutFilter.set(this.statutFilter() === value ? 'all' : value);
     this.currentPage = 0;
+    this.vehicles.set([]);
     this.loading.set(true);
     this.fetchTrigger$.next({ page: 0, append: false });
   }
@@ -382,6 +385,7 @@ export class VehiculesListComponent {
   onVehiculeAdded(_v: Vehicule): void {
     this.vehiculeService.invalidate();
     this.currentPage = 0;
+    this.vehicles.set([]);
     this.loading.set(true);
     this.fetchTrigger$.next({ page: 0, append: false });
   }
