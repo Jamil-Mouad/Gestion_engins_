@@ -167,10 +167,10 @@ export class NewVehiculeModalComponent {
       dateMiseService: formValue.dateMiseService,
     };
 
-    if (isCamionType(formValue.type ?? '') && (formValue.capaciteTonnes != null || formValue.configAxle != null)) {
+    if (isCamionType(formValue.type ?? '')) {
       newVehicule.camionDetails = {
-        capaciteTonnes: formValue.capaciteTonnes,
-        configAxle: formValue.configAxle,
+        capaciteTonnes: formValue.capaciteTonnes ?? null,
+        configAxle: formValue.configAxle ?? null,
       };
     }
 
