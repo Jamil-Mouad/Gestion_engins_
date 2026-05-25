@@ -1,4 +1,4 @@
-import { Component, Input, Output, EventEmitter, signal, computed } from '@angular/core';
+import { Component, Input, Output, EventEmitter, signal, computed, ChangeDetectionStrategy } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { CdkDragDrop, DragDropModule, moveItemInArray } from '@angular/cdk/drag-drop';
 import { LucideAngularModule } from 'lucide-angular';
@@ -30,6 +30,7 @@ export const DEFAULT_VISIBLE_IDS = ['code', 'type', 'marque_modele', 'matricule'
 @Component({
   selector: 'app-column-manager-modal',
   standalone: true,
+  changeDetection: ChangeDetectionStrategy.OnPush,
   imports: [CommonModule, DragDropModule, LucideAngularModule, ModalShellComponent],
   template: `
     <app-modal-shell modalTitle="Gérer les colonnes" (onClose)="cancel.emit()">
