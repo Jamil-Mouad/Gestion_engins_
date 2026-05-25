@@ -18,6 +18,7 @@ import { DataTableHeaderComponent } from '../../../shared/ui/data-table/data-tab
 import { DataTableRowComponent } from '../../../shared/ui/data-table/data-table-row.component';
 import { NewVehiculeModalComponent } from './new-vehicule-modal.component';
 import { SpinnerOverlayComponent } from '../../../shared/ui/spinner/spinner-overlay.component';
+import { ColumnDef, ALL_COLUMN_DEFS, DEFAULT_VISIBLE_IDS, ColumnManagerModalComponent } from './column-manager-modal.component';
 
 type ViewMode = 'table' | 'cards';
 type TypeFilter = 'all' | VehiculeType;
@@ -32,7 +33,7 @@ type StatutFilter = 'all' | VehiculeStatut;
     StatusBadgeComponent, StatusLabelPipe, EmptyStateComponent, SkeletonComponent,
     PageHeaderComponent, ViewToggleComponent, FilterChipComponent,
     DataTableHeaderComponent, DataTableRowComponent,
-    NewVehiculeModalComponent, SpinnerOverlayComponent,
+    NewVehiculeModalComponent, SpinnerOverlayComponent, ColumnManagerModalComponent,
   ],
   template: `
     <app-spinner-overlay [show]="showSpinner()" />
@@ -75,7 +76,7 @@ type StatutFilter = 'all' | VehiculeStatut;
         <!-- Table view -->
         @if (viewMode() === 'table') {
           <div class="table-wrap">
-            <app-data-table-header [cols]="tableCols" />
+            <app-data-table-header [cols]="visibleCols()" />
             @if (loading() && vehicles().length === 0) {
               <app-skeleton [rows]="6" height="52px" />
             } @else if (vehicles().length === 0) {
@@ -83,33 +84,49 @@ type StatutFilter = 'all' | VehiculeStatut;
             } @else {
               @for (v of vehicles(); track v.id; let i = $index) {
                 <app-data-table-row [idx]="i" [clickable]="true" (rowClicked)="navigateToDetail(v.id)">
-                  <div class="td td--w03"><div class="row-check"></div></div>
-                  <div class="td td--w09"><span class="code-chip">{{ v.code }}</span></div>
-                  <div class="td td--w08">{{ v.type | statusLabel }}</div>
-                  <div class="td td--w2">{{ v.marque }} {{ v.modele }}</div>
-                  <div class="td td--w1 mono">{{ v.matricule || '—' }}</div>
-                  <div class="td td--w1 mono">—</div>
-                  <div class="td td--w1">
-                    <app-status-badge [status]="v.statut" [label]="v.statut | statusLabel" />
-                  </div>
-                  <div class="td td--w03">
-                    <lucide-icon name="more-horizontal" [size]="16" class="more-icon" />
-                  </div>
+                  @for (col of visibleCols(); track col.id) {
+                    <div class="td" [style.flex]="col.flex">
+                      @switch (col.id) {
+                        @case ('code')          { <span class="code-chip">{{ v.code }}</span> }
+                        @case ('type')          { {{ v.type | statusLabel }} }
+                        @case ('marque_modele') { {{ v.marque }} {{ v.modele }} }
+                        @case ('marque')        { {{ v.marque }} }
+                        @case ('modele')        { {{ v.modele }} }
+                        @case ('matricule')     { <span class="mono">{{ v.matricule || '—' }}</span> }
+                        @case ('compteur_km')   { <span class="mono">—</span> }
+                        @case ('compteur_h')    { <span class="mono">—</span> }
+                        @case ('annee')         { {{ v.annee || '—' }} }
+                        @case ('n_chassis')     { <span class="mono">{{ v.nChassis || '—' }}</span> }
+                        @case ('carburant')     { {{ v.carburant || '—' }} }
+                        @case ('statut')        { <app-status-badge [status]="v.statut" [label]="v.statut | statusLabel" /> }
+                      }
+                    </div>
+                  }
                 </app-data-table-row>
               }
             }
           </div>
-          <!-- Pagination bar -->
           @if (vehicles().length > 0) {
-            <div class="pagination-bar">
-              <span class="pagination-info">
-                Affichage 1–{{ vehicles().length }} sur {{ totalElements() ?? '…' }}
-              </span>
-              @if (hasMore()) {
-                <button class="btn-charger-plus" (click)="chargerPlus()" [disabled]="loadingMore()" type="button">
-                  {{ loadingMore() ? 'Chargement…' : 'Charger plus' }}
+            <div class="table-toolbar">
+              <div class="pagination-bar">
+                <span class="pagination-info">
+                  Affichage 1–{{ vehicles().length }} sur {{ totalElements() ?? '…' }}
+                </span>
+                @if (hasMore()) {
+                  <button class="btn-charger-plus" (click)="chargerPlus()" [disabled]="loadingMore()" type="button">
+                    {{ loadingMore() ? 'Chargement…' : 'Charger plus' }}
+                  </button>
+                }
+              </div>
+              <div class="table-actions">
+                <button class="btn-export" type="button" (click)="exportCsv()">
+                  <lucide-icon name="download" [size]="14" />
+                  Export Excel
                 </button>
-              }
+                <button class="btn-settings" type="button" (click)="showColManager.set(true)" title="Gérer les colonnes">
+                  <lucide-icon name="settings-2" [size]="16" />
+                </button>
+              </div>
             </div>
           }
         }
@@ -153,6 +170,14 @@ type StatutFilter = 'all' | VehiculeStatut;
           (close)="showAddModal.set(false)"
           (saved)="onVehiculeAdded($event)" />
       }
+
+      @if (showColManager()) {
+        <app-column-manager-modal
+          [currentVisible]="visibleColIds()"
+          (applied)="onColumnsApplied($event)"
+          (cancel)="showColManager.set(false)"
+        />
+      }
     </div>
   `,
   styles: [`
@@ -170,22 +195,21 @@ type StatutFilter = 'all' | VehiculeStatut;
     /* Table */
     .table-wrap { background: white; border-radius: 12px; border: 1px solid var(--color-border); box-shadow: 0 1px 2px rgba(17,24,39,.06); overflow: hidden; }
     .td { display: flex; align-items: center; height: 52px; padding: 0 16px; font-family: 'Open Sans', sans-serif; font-size: 13px; color: #374151; }
-    .td.mono { font-family: 'JetBrains Mono', monospace; }
-    .td--w03 { flex: 0.3; }
-    .td--w08 { flex: 0.8; }
-    .td--w09 { flex: 0.9; }
-    .td--w1 { flex: 1; }
-    .td--w2 { flex: 2; }
-    .row-check { width: 16px; height: 16px; border: 1.5px solid #D1D5DB; border-radius: 3px; background: white; }
-    .more-icon { color: #6B7280; }
     .code-chip { font-family: 'JetBrains Mono', monospace; font-size: 13px; font-weight: 600; background: #F5F5F5; padding: 2px 8px; border-radius: 4px; border: 1px solid #E5E5E5; }
+    .mono { font-family: 'JetBrains Mono', monospace; }
 
-    /* Pagination */
-    .pagination-bar { display: flex; align-items: center; gap: 16px; padding: 12px 0 0; }
+    /* Toolbar */
+    .table-toolbar { display: flex; align-items: center; justify-content: space-between; padding: 10px 0 0; }
+    .pagination-bar { display: flex; align-items: center; gap: 16px; }
     .pagination-info { font-family: 'Open Sans', sans-serif; font-size: 13px; color: #6B7280; }
     .btn-charger-plus { height: 34px; padding: 0 16px; background: white; border: 1px solid var(--color-border); border-radius: 8px; font-family: 'Open Sans', sans-serif; font-size: 13px; color: #374151; cursor: pointer; transition: border-color 150ms; }
     .btn-charger-plus:hover:not(:disabled) { border-color: var(--color-primary); color: var(--color-primary); }
     .btn-charger-plus:disabled { opacity: 0.6; cursor: default; }
+    .table-actions { display: flex; gap: 8px; align-items: center; }
+    .btn-export { height: 34px; padding: 0 14px; background: white; border: 1px solid var(--color-border); border-radius: 8px; font-family: 'Open Sans',sans-serif; font-size: 13px; color: #374151; cursor: pointer; display: flex; align-items: center; gap: 6px; }
+    .btn-export:hover { border-color: var(--color-primary); color: var(--color-primary); }
+    .btn-settings { width: 34px; height: 34px; background: white; border: 1px solid var(--color-border); border-radius: 8px; cursor: pointer; display: flex; align-items: center; justify-content: center; color: #374151; }
+    .btn-settings:hover { border-color: var(--color-primary); color: var(--color-primary); }
 
     /* Cards */
     .cards-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 16px; }
@@ -215,7 +239,59 @@ export class VehiculesListComponent {
   loading = signal(true);
   loadingMore = signal(false);
   showAddModal = signal(false);
+  showColManager = signal(false);
   showSpinner = signal(false);
+
+  private readonly LS_KEY = 'fleet.vehicules.columns';
+
+  private loadColConfig(): string[] {
+    try {
+      const raw = localStorage.getItem(this.LS_KEY);
+      if (raw) return JSON.parse(raw) as string[];
+    } catch { /* ignore */ }
+    return DEFAULT_VISIBLE_IDS;
+  }
+
+  visibleColIds = signal<string[]>(this.loadColConfig());
+
+  visibleCols = computed<ColumnDef[]>(() => {
+    const byId = new Map(ALL_COLUMN_DEFS.map(c => [c.id, c]));
+    return this.visibleColIds().map(id => byId.get(id)!).filter(Boolean);
+  });
+
+  onColumnsApplied(ids: string[]): void {
+    this.visibleColIds.set(ids);
+    localStorage.setItem(this.LS_KEY, JSON.stringify(ids));
+    this.showColManager.set(false);
+  }
+
+  exportCsv(): void {
+    const cols = this.visibleCols();
+    const header = cols.map(c => c.label).join(',');
+    const rows = this.vehicles().map(v =>
+      cols.map(c => {
+        switch (c.id) {
+          case 'code':          return v.code;
+          case 'type':          return v.type;
+          case 'marque_modele': return `${v.marque} ${v.modele}`;
+          case 'marque':        return v.marque;
+          case 'modele':        return v.modele;
+          case 'matricule':     return v.matricule ?? '';
+          case 'annee':         return v.annee?.toString() ?? '';
+          case 'n_chassis':     return (v as any).nChassis ?? '';
+          case 'carburant':     return (v as any).carburant ?? '';
+          case 'statut':        return v.statut;
+          default:              return '';
+        }
+      }).join(',')
+    );
+    const csv = [header, ...rows].join('\n');
+    const blob = new Blob(['﻿' + csv], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url; a.download = 'vehicules.csv'; a.click();
+    URL.revokeObjectURL(url);
+  }
   private _spinnerTimer: ReturnType<typeof setTimeout> | null = null;
   private _spinnerEff = effect(() => {
     if (this.loading()) {
@@ -328,14 +404,4 @@ export class VehiculesListComponent {
     { label: 'Maintenance', value: 'maintenance' },
   ];
 
-  tableCols = [
-    { label: '☐', flex: 0.3 },
-    { label: 'Code', flex: 0.9 },
-    { label: 'Type', flex: 0.8 },
-    { label: 'Marque / Modèle', flex: 2 },
-    { label: 'Matricule', flex: 1 },
-    { label: 'Compteur', flex: 1 },
-    { label: 'Statut', flex: 1 },
-    { label: '', flex: 0.3 },
-  ];
 }
