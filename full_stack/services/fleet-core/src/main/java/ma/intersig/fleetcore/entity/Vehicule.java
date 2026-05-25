@@ -1,12 +1,15 @@
 package ma.intersig.fleetcore.entity;
 
 import jakarta.persistence.*;
+import org.hibernate.annotations.DiscriminatorFormula;
 import java.time.LocalDate;
 import java.time.OffsetDateTime;
 
 @Entity
 @Table(name = "vehicules")
-@Inheritance(strategy = InheritanceType.JOINED)
+@Inheritance(strategy = InheritanceType.SINGLE_TABLE)
+@DiscriminatorFormula("CASE WHEN type IN ('camion', 'camion_tracteur') THEN 'camion' ELSE 'non_camion' END")
+@DiscriminatorValue("non_camion")
 public class Vehicule {
 
     @Id

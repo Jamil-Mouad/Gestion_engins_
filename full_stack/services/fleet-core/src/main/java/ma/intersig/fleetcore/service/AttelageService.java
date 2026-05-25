@@ -16,6 +16,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.util.List;
+import java.util.Set;
 
 @Service
 @Transactional(readOnly = true)
@@ -41,8 +42,8 @@ public class AttelageService {
         Vehicule semi = vehiculeRepo.findById(req.semiId())
             .orElseThrow(() -> new ResourceNotFoundException("Semi-remorque not found", "VEHICLE_NOT_FOUND"));
 
-        if (!"camion".equals(tracteur.getType()))
-            throw new BusinessException("Le véhicule tracteur doit être de type camion", "INVALID_VEHICLE_TYPE", 422);
+        if (!Set.of("camion", "camion_tracteur").contains(tracteur.getType()))
+            throw new BusinessException("Le véhicule tracteur doit être de type camion ou camion_tracteur", "INVALID_VEHICLE_TYPE", 422);
         if (!"semi_remorque".equals(semi.getType()))
             throw new BusinessException("Le véhicule semi doit être de type semi_remorque", "INVALID_VEHICLE_TYPE", 422);
         if (repo.existsByTracteurIdAndDateFinIsNullAndActifTrue(req.tracteurId()))

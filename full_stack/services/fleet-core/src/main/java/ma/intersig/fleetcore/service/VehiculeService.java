@@ -30,6 +30,10 @@ public class VehiculeService {
             "in-service", "workshop", "maintenance", "out-of-service"
     );
 
+    private static boolean isCamionType(String type) {
+        return "camion".equalsIgnoreCase(type) || "camion_tracteur".equalsIgnoreCase(type);
+    }
+
     private final VehiculeRepository vehiculeRepository;
     private final ApplicationEventPublisher eventPublisher;
     private final TracteurSemiAssignmentRepository attelageRepo;
@@ -62,7 +66,7 @@ public class VehiculeService {
                 .orElseThrow(() -> new ResourceNotFoundException("Vehicle not found", "VEHICLE_NOT_FOUND"));
 
         AttelageDto currentAttelage = null;
-        if ("camion".equals(v.getType())) {
+        if (isCamionType(v.getType())) {
             currentAttelage = attelageRepo
                 .findByTracteurIdAndDateFinIsNullAndActifTrue(id)
                 .map(AttelageDto::from)
@@ -81,14 +85,14 @@ public class VehiculeService {
     public VehiculeDto create(CreateVehiculeRequest req) {
         validateUniqueConstraints(req.code(), req.matricule(), req.nChassis(), null);
 
-        if ("camion".equalsIgnoreCase(req.type()) && req.camionDetails() == null) {
+        if (isCamionType(req.type()) && req.camionDetails() == null) {
             throw new BusinessException("camionDetails is required when type is camion", "CAMION_DETAILS_REQUIRED", 422);
         }
 
         Vehicule vehicule = new Vehicule();
         mapRequestToEntity(req, vehicule);
 
-        if ("camion".equalsIgnoreCase(req.type()) && req.camionDetails() != null) {
+        if (isCamionType(req.type()) && req.camionDetails() != null) {
             Camion camion = new Camion();
             mapBaseFields(req, camion);
             mapCamionDetails(req.camionDetails(), camion);
