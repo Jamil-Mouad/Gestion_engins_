@@ -111,9 +111,15 @@ export class NewVehiculeModalComponent {
   errorMessage = signal('');
 
   typeOptions: { value: VehiculeType; label: string }[] = [
-    { value: 'camion', label: 'Camion' },
-    { value: 'voiture', label: 'Voiture' },
-    { value: 'engin', label: 'Engin' },
+    { value: 'camion',          label: 'Camion' },
+    { value: 'camion_tracteur', label: 'Camion (Tracteur)' },
+    { value: 'voiture',         label: 'Voiture' },
+    { value: 'semi_remorque',   label: 'Semi-remorque' },
+    { value: 'chariot',         label: 'Chariot' },
+    { value: 'chargeur',        label: 'Chargeur' },
+    { value: 'bus',             label: 'Bus' },
+    { value: 'balayeuse',       label: 'Balayeuse' },
+    { value: 'pick_up',         label: 'Pick-up' },
   ];
 
   statutOptions: { value: VehiculeStatut; label: string }[] = [

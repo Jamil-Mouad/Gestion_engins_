@@ -1,4 +1,4 @@
-export type VehiculeType = 'camion' | 'voiture' | 'engin' | 'semi_remorque' | 'chariot' | 'chargeur' | 'bus' | 'balayeuse' | 'pick_up';
+export type VehiculeType = 'camion' | 'camion_tracteur' | 'voiture' | 'semi_remorque' | 'chariot' | 'chargeur' | 'bus' | 'balayeuse' | 'pick_up';
 
 export type VehiculeStatut =
   | 'in-service'
@@ -57,6 +57,10 @@ export interface CamionDetails {
 export interface VehiculeDetail extends Vehicule {
   camionDetails: CamionDetails | null;
   currentAttelage: Attelage | null;
+}
+
+export function isCamionType(type: string | null | undefined): boolean {
+  return type === 'camion' || type === 'camion_tracteur';
 }
 
 export interface NewVehiculeForm {

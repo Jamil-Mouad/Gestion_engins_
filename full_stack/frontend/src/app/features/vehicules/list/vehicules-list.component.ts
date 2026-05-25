@@ -1,12 +1,12 @@
-import { Component, inject, signal, computed } from '@angular/core';
-import { DecimalPipe, UpperCasePipe } from '@angular/common';
-import { RouterLink, Router } from '@angular/router';
-import { toSignal } from '@angular/core/rxjs-interop';
-import { tap } from 'rxjs';
+import { Component, inject, signal, computed, DestroyRef, effect } from '@angular/core';
+import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
+import { DecimalPipe } from '@angular/common';
+import { Router } from '@angular/router';
+import { Subject, EMPTY } from 'rxjs';
+import { switchMap, map, catchError, debounceTime } from 'rxjs/operators';
 import { LucideAngularModule } from 'lucide-angular';
 import { VehiculeService } from '../vehicule.service';
 import { Vehicule, VehiculeType, VehiculeStatut } from '../../../shared/models/vehicule.model';
-import { Page } from '../../../shared/models/pagination.model';
 import { StatusBadgeComponent } from '../../../shared/ui/badge/badge.component';
 import { StatusLabelPipe } from '../../../shared/pipes/status-label.pipe';
 import { EmptyStateComponent } from '../../../shared/ui/empty-state/empty-state.component';
@@ -17,6 +17,7 @@ import { FilterChipComponent } from '../../../shared/ui/filter-chip/filter-chip.
 import { DataTableHeaderComponent } from '../../../shared/ui/data-table/data-table-header.component';
 import { DataTableRowComponent } from '../../../shared/ui/data-table/data-table-row.component';
 import { NewVehiculeModalComponent } from './new-vehicule-modal.component';
+import { SpinnerOverlayComponent } from '../../../shared/ui/spinner/spinner-overlay.component';
 
 type ViewMode = 'table' | 'cards';
 type TypeFilter = 'all' | VehiculeType;
@@ -26,16 +27,17 @@ type StatutFilter = 'all' | VehiculeStatut;
   selector: 'app-vehicules-list',
   standalone: true,
   imports: [
-    DecimalPipe, UpperCasePipe, RouterLink,
+    DecimalPipe,
     LucideAngularModule,
     StatusBadgeComponent, StatusLabelPipe, EmptyStateComponent, SkeletonComponent,
     PageHeaderComponent, ViewToggleComponent, FilterChipComponent,
     DataTableHeaderComponent, DataTableRowComponent,
-    NewVehiculeModalComponent,
+    NewVehiculeModalComponent, SpinnerOverlayComponent,
   ],
   template: `
+    <app-spinner-overlay [show]="showSpinner()" />
     <div class="veh-list-page">
-      <app-page-header title="Véhicules" [count]="totalCount()">
+      <app-page-header title="Véhicules" [count]="totalElements() ?? undefined">
         <app-view-toggle [view]="viewMode()" (viewChange)="viewMode.set($event)" />
         <button class="btn-primary" (click)="showAddModal.set(true)" type="button">
           <lucide-icon name="plus" [size]="16" color="white" />
@@ -51,8 +53,7 @@ type StatutFilter = 'all' | VehiculeStatut;
             <input
               class="search-input"
               placeholder="Rechercher par code, matricule, marque…"
-              [value]="searchQuery()"
-              (input)="searchQuery.set($any($event.target).value)" />
+              (input)="onSearchInput($any($event.target).value)" />
           </div>
           <div class="filter-chips">
             <span class="filter-label">Filtres :</span>
@@ -60,13 +61,13 @@ type StatutFilter = 'all' | VehiculeStatut;
               <app-filter-chip
                 [label]="f.label"
                 [active]="typeFilter() === f.value"
-                (clicked)="typeFilter.set(typeFilter() === f.value ? 'all' : f.value)" />
+                (clicked)="onTypeFilter(f.value)" />
             }
             @for (s of statutFilters; track s.value) {
               <app-filter-chip
                 [label]="s.label"
                 [active]="statutFilter() === s.value"
-                (clicked)="statutFilter.set(statutFilter() === s.value ? 'all' : s.value)" />
+                (clicked)="onStatutFilter(s.value)" />
             }
           </div>
         </div>
@@ -75,21 +76,19 @@ type StatutFilter = 'all' | VehiculeStatut;
         @if (viewMode() === 'table') {
           <div class="table-wrap">
             <app-data-table-header [cols]="tableCols" />
-            @if (loading()) {
+            @if (loading() && vehicles().length === 0) {
               <app-skeleton [rows]="6" height="52px" />
-            } @else if (filteredVehicules().length === 0) {
+            } @else if (vehicles().length === 0) {
               <app-empty-state icon="🚛" message="Aucun véhicule trouvé — essayez de modifier vos filtres." />
             } @else {
-              @for (v of filteredVehicules(); track v.id; let i = $index) {
+              @for (v of vehicles(); track v.id; let i = $index) {
                 <app-data-table-row [idx]="i" [clickable]="true" (rowClicked)="navigateToDetail(v.id)">
                   <div class="td td--w03"><div class="row-check"></div></div>
                   <div class="td td--w09"><span class="code-chip">{{ v.code }}</span></div>
                   <div class="td td--w08">{{ v.type | statusLabel }}</div>
                   <div class="td td--w2">{{ v.marque }} {{ v.modele }}</div>
                   <div class="td td--w1 mono">{{ v.matricule || '—' }}</div>
-                  <div class="td td--w1 mono">
-                    {{ v.type === 'camion' ? '—' : '—' }}
-                  </div>
+                  <div class="td td--w1 mono">—</div>
                   <div class="td td--w1">
                     <app-status-badge [status]="v.statut" [label]="v.statut | statusLabel" />
                   </div>
@@ -101,24 +100,29 @@ type StatutFilter = 'all' | VehiculeStatut;
             }
           </div>
           <!-- Pagination bar -->
-          @if (!loading() && filteredVehicules().length > 0) {
+          @if (vehicles().length > 0) {
             <div class="pagination-bar">
               <span class="pagination-info">
-                Affichage 1–{{ filteredVehicules().length }} sur {{ totalCount() }}
+                Affichage 1–{{ vehicles().length }} sur {{ totalElements() ?? '…' }}
               </span>
+              @if (hasMore()) {
+                <button class="btn-charger-plus" (click)="chargerPlus()" [disabled]="loadingMore()" type="button">
+                  {{ loadingMore() ? 'Chargement…' : 'Charger plus' }}
+                </button>
+              }
             </div>
           }
         }
 
         <!-- Cards view -->
         @if (viewMode() === 'cards') {
-          @if (loading()) {
+          @if (loading() && vehicles().length === 0) {
             <app-skeleton [rows]="4" height="120px" />
-          } @else if (filteredVehicules().length === 0) {
+          } @else if (vehicles().length === 0) {
             <app-empty-state icon="🚛" message="Aucun véhicule trouvé — essayez de modifier vos filtres." />
           } @else {
             <div class="cards-grid">
-              @for (v of filteredVehicules(); track v.id) {
+              @for (v of vehicles(); track v.id) {
                 <div class="vehicle-card" (click)="navigateToDetail(v.id)">
                   <div class="vehicle-card__header">
                     <span class="code-chip">{{ v.code }}</span>
@@ -133,6 +137,13 @@ type StatutFilter = 'all' | VehiculeStatut;
                 </div>
               }
             </div>
+            @if (hasMore()) {
+              <div class="charger-plus-wrap">
+                <button class="btn-charger-plus" (click)="chargerPlus()" [disabled]="loadingMore()" type="button">
+                  {{ loadingMore() ? 'Chargement…' : 'Charger plus' }}
+                </button>
+              </div>
+            }
           }
         }
       </div>
@@ -170,8 +181,11 @@ type StatutFilter = 'all' | VehiculeStatut;
     .code-chip { font-family: 'JetBrains Mono', monospace; font-size: 13px; font-weight: 600; background: #F5F5F5; padding: 2px 8px; border-radius: 4px; border: 1px solid #E5E5E5; }
 
     /* Pagination */
-    .pagination-bar { display: flex; align-items: center; justify-content: flex-start; padding: 12px 0 0; }
+    .pagination-bar { display: flex; align-items: center; gap: 16px; padding: 12px 0 0; }
     .pagination-info { font-family: 'Open Sans', sans-serif; font-size: 13px; color: #6B7280; }
+    .btn-charger-plus { height: 34px; padding: 0 16px; background: white; border: 1px solid var(--color-border); border-radius: 8px; font-family: 'Open Sans', sans-serif; font-size: 13px; color: #374151; cursor: pointer; transition: border-color 150ms; }
+    .btn-charger-plus:hover:not(:disabled) { border-color: var(--color-primary); color: var(--color-primary); }
+    .btn-charger-plus:disabled { opacity: 0.6; cursor: default; }
 
     /* Cards */
     .cards-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 16px; }
@@ -182,6 +196,7 @@ type StatutFilter = 'all' | VehiculeStatut;
     .vehicle-card__type { font-family: 'Open Sans', sans-serif; font-size: 12px; color: #6B7280; margin-bottom: 4px; }
     .vehicle-card__marque { font-family: 'Open Sans', sans-serif; font-size: 13px; font-weight: 600; color: #111827; margin-bottom: 4px; }
     .vehicle-card__meta { font-family: 'JetBrains Mono', monospace; font-size: 12px; color: #6B7280; }
+    .charger-plus-wrap { display: flex; justify-content: center; margin-top: 16px; }
     .mono { font-family: 'JetBrains Mono', monospace; }
 
     /* Primary button */
@@ -192,42 +207,119 @@ type StatutFilter = 'all' | VehiculeStatut;
 export class VehiculesListComponent {
   private vehiculeService = inject(VehiculeService);
   private router = inject(Router);
+  private destroyRef = inject(DestroyRef);
 
   typeFilter = signal<TypeFilter>('all');
   statutFilter = signal<StatutFilter>('all');
   viewMode = signal<ViewMode>('table');
-  searchQuery = signal('');
   loading = signal(true);
+  loadingMore = signal(false);
   showAddModal = signal(false);
-
-  pageData = toSignal(
-    this.vehiculeService.list().pipe(
-      tap({ next: () => this.loading.set(false), error: () => this.loading.set(false) }),
-    ),
-    { initialValue: { content: [], page: 0, size: 20, totalElements: 0, totalPages: 0 } as Page<Vehicule> },
-  );
-
-  totalCount = computed(() => this.pageData().totalElements);
-
-  filteredVehicules = computed(() => {
-    const list = this.pageData().content;
-    const tf = this.typeFilter();
-    const sf = this.statutFilter();
-    const q = this.searchQuery().toLowerCase().trim();
-    return list.filter((v: Vehicule) =>
-      (tf === 'all' || v.type === tf) &&
-      (sf === 'all' || v.statut === sf) &&
-      (!q || v.code.toLowerCase().includes(q) ||
-        (v.matricule ?? '').toLowerCase().includes(q) ||
-        v.marque.toLowerCase().includes(q) ||
-        v.modele.toLowerCase().includes(q))
-    );
+  showSpinner = signal(false);
+  private _spinnerTimer: ReturnType<typeof setTimeout> | null = null;
+  private _spinnerEff = effect(() => {
+    if (this.loading()) {
+      this._spinnerTimer = setTimeout(() => this.showSpinner.set(true), 250);
+    } else {
+      if (this._spinnerTimer) { clearTimeout(this._spinnerTimer); this._spinnerTimer = null; }
+      this.showSpinner.set(false);
+    }
   });
+  vehicles = signal<Vehicule[]>([]);
+  totalElements = signal<number | null>(null);
+
+  private currentPage = 0;
+  private readonly PAGE_SIZE = 6;
+  private searchQuery = '';
+  private readonly searchRaw$ = new Subject<string>();
+  private readonly fetchTrigger$ = new Subject<{ page: number; append: boolean }>();
+
+  hasMore = computed(() => this.vehicles().length < (this.totalElements() ?? 0));
+
+  constructor() {
+    this.fetchTrigger$.pipe(
+      switchMap(({ page, append }) =>
+        this.vehiculeService.list({
+          page,
+          size: this.PAGE_SIZE,
+          q: this.searchQuery || undefined,
+          type: this.typeFilter() === 'all' ? undefined : this.typeFilter() as VehiculeType,
+          statut: this.statutFilter() === 'all' ? undefined : this.statutFilter() as VehiculeStatut,
+        }).pipe(
+          map(p => ({ p, append })),
+          catchError(() => {
+            this.loading.set(false);
+            this.loadingMore.set(false);
+            return EMPTY;
+          }),
+        )
+      ),
+      takeUntilDestroyed(this.destroyRef),
+    ).subscribe(({ p, append }) => {
+      this.vehicles.update(list => append ? [...list, ...p.content] : p.content);
+      this.totalElements.set(p.totalElements);
+      this.loading.set(false);
+      this.loadingMore.set(false);
+    });
+
+    this.searchRaw$.pipe(
+      debounceTime(250),
+      takeUntilDestroyed(this.destroyRef),
+    ).subscribe(q => {
+      this.searchQuery = q;
+      this.currentPage = 0;
+      this.loading.set(true);
+      this.fetchTrigger$.next({ page: 0, append: false });
+    });
+
+    this.fetchTrigger$.next({ page: 0, append: false });
+  }
+
+  onSearchInput(value: string): void {
+    this.searchRaw$.next(value);
+  }
+
+  onTypeFilter(value: TypeFilter): void {
+    this.typeFilter.set(this.typeFilter() === value ? 'all' : value);
+    this.currentPage = 0;
+    this.loading.set(true);
+    this.fetchTrigger$.next({ page: 0, append: false });
+  }
+
+  onStatutFilter(value: StatutFilter): void {
+    this.statutFilter.set(this.statutFilter() === value ? 'all' : value);
+    this.currentPage = 0;
+    this.loading.set(true);
+    this.fetchTrigger$.next({ page: 0, append: false });
+  }
+
+  chargerPlus(): void {
+    this.currentPage++;
+    this.loadingMore.set(true);
+    this.fetchTrigger$.next({ page: this.currentPage, append: true });
+  }
+
+  navigateToDetail(id: number): void {
+    this.router.navigate(['/vehicules', id]);
+  }
+
+  onVehiculeAdded(_v: Vehicule): void {
+    this.vehiculeService.invalidate();
+    this.currentPage = 0;
+    this.loading.set(true);
+    this.fetchTrigger$.next({ page: 0, append: false });
+  }
 
   typeFilters: { label: string; value: TypeFilter }[] = [
-    { label: 'Camion', value: 'camion' },
-    { label: 'Voiture', value: 'voiture' },
-    { label: 'Engin', value: 'engin' },
+    { label: 'Camion',            value: 'camion'          },
+    { label: 'Camion (Tracteur)', value: 'camion_tracteur'  },
+    { label: 'Semi-remorque',     value: 'semi_remorque'    },
+    { label: 'Voiture',           value: 'voiture'          },
+    { label: 'Chariot',           value: 'chariot'          },
+    { label: 'Chargeur',          value: 'chargeur'         },
+    { label: 'Bus',               value: 'bus'              },
+    { label: 'Balayeuse',         value: 'balayeuse'        },
+    { label: 'Pick-up',           value: 'pick_up'          },
   ];
 
   statutFilters: { label: string; value: StatutFilter }[] = [
@@ -246,22 +338,4 @@ export class VehiculesListComponent {
     { label: 'Statut', flex: 1 },
     { label: '', flex: 0.3 },
   ];
-
-  navigateToDetail(id: number): void {
-    this.router.navigate(['/vehicules', id]);
-  }
-
-  // Keep old method name as alias for compatibility
-  goToDetail(id: number): void {
-    this.navigateToDetail(id);
-  }
-
-  onVehiculeAdded(_v: Vehicule): void {
-    this.loading.set(true);
-    this.pageData;
-  }
-
-  toggleViewMode(): void {
-    this.viewMode.update(m => m === 'table' ? 'cards' : 'table');
-  }
 }
