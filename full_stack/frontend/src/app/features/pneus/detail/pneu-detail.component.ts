@@ -62,7 +62,7 @@ type TabId = 'overview' | 'activite' | 'inspections' | 'historique';
                 <app-sev-badge [type]="sevType()" />
               </div>
               <div class="pneu-detail__info-meta">
-                <span>Position {{ pneu()!.position }} · {{ pneu()!.vehicule.code }}</span>
+                <span>Position {{ pneu()!.position }} · {{ pneu()!.vehiculeCode ?? pneu()!.vehicule?.code ?? '—' }}</span>
                 <span class="pneu-detail__km-bold">{{ pneu()!.kmParcourus | number }} km parcourus</span>
                 @if (pneu()!.kmRestant != null) {
                   <span class="pneu-detail__km-restant">{{ pneu()!.kmRestant! | number }} km restants</span>
@@ -313,7 +313,7 @@ export class PneuDetailComponent {
     const p = this.pneu();
     return [
       { label: 'Véhicules', route: '/vehicules' },
-      ...(p ? [{ label: p.vehicule.code, route: `/vehicules/${p.vehicule.id}` }] : []),
+      ...(p ? [{ label: p.vehiculeCode ?? p.vehicule?.code ?? '—', route: `/vehicules/${p.vehiculeId ?? p.vehicule?.id}` }] : []),
       { label: 'Pneus' },
       ...(p ? [{ label: `P${p.position} — ${p.marque ?? p.nSerie ?? 'Pneu'}` }] : []),
     ];
@@ -333,7 +333,7 @@ export class PneuDetailComponent {
       { label: 'Marque',           value: p.marque ?? '—' },
       { label: 'N° Série',         value: p.nSerie ?? '—' },
       { label: 'Position',         value: `Position ${p.position}` },
-      { label: 'Véhicule',         value: p.vehicule.code },
+      { label: 'Véhicule',         value: p.vehiculeCode ?? p.vehicule?.code ?? '—' },
       { label: 'Date montage',     value: p.dateMontage ?? '—' },
       { label: 'KM au montage',    value: p.kmMontage != null ? `${p.kmMontage.toLocaleString()} km` : '—' },
       { label: 'Durée de vie',     value: `${p.expectedLifeKm.toLocaleString()} km` },

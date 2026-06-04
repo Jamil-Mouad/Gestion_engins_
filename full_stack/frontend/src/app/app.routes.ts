@@ -39,6 +39,11 @@ export const appRoutes: Routes = [
     loadComponent: () => import('./features/interventions/interventions.component').then(m => m.InterventionsComponent),
   },
   {
+    path: 'pneus',
+    canActivate: [authGuard],
+    loadComponent: () => import('./features/pneus/list/pneus-list.component').then(m => m.PneusListComponent),
+  },
+  {
     path: 'pneus/:id',
     canActivate: [authGuard],
     loadComponent: () => import('./features/pneus/detail/pneu-detail.component').then(m => m.PneuDetailComponent),
@@ -52,11 +57,6 @@ export const appRoutes: Routes = [
     path: 'vidanges',
     canActivate: [authGuard],
     loadComponent: () => import('./features/vidanges/vidanges.component').then(m => m.VidangesComponent),
-  },
-  {
-    path: 'historique',
-    canActivate: [authGuard],
-    loadComponent: () => import('./features/historique/historique.component').then(m => m.HistoriqueComponent),
   },
   {
     path: 'notifications',
@@ -82,11 +82,6 @@ export const appRoutes: Routes = [
     path: 'demandes-achat',
     canActivate: [authGuard],
     loadComponent: () => import('./features/demandes-achat/demandes-achat.component').then(m => m.DemandesAchatComponent),
-  },
-  {
-    path: 'demandes-intervention',
-    canActivate: [authGuard],
-    loadComponent: () => import('./features/demandes-intervention/demandes-intervention.component').then(m => m.DemandesInterventionComponent),
   },
   {
     path: 'chatbot',

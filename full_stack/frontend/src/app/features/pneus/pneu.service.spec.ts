@@ -12,6 +12,8 @@ describe('PneuService', () => {
 
   const mockPneu: Pneu = {
     id: 1,
+    vehiculeId: 1,
+    vehiculeCode: 'CAM-001',
     vehicule: { id: 1, code: 'CAM-001' },
     position: 1,
     composant: { id: 11, designation: 'Pneu avant gauche' },

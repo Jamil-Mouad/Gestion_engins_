@@ -1,16 +1,27 @@
 import { Injectable, inject } from '@angular/core';
 import { HttpClient } from '@angular/common/http';
 import { Observable } from 'rxjs';
+import { shareReplay, tap } from 'rxjs/operators';
 
-import { Pneu, PneuInspection, InspectionForm } from '../../shared/models/pneu.model';
+import { Pneu, PneuInspection, InspectionForm, CreatePneuForm, RemonterPneuForm } from '../../shared/models/pneu.model';
 
 @Injectable({ providedIn: 'root' })
 export class PneuService {
   private readonly API = '/api/v1/pneus';
   private http = inject(HttpClient);
+  private byVehiculeCache = new Map<number, Observable<Pneu[]>>();
 
   listByVehicule(vehiculeId: number): Observable<Pneu[]> {
-    return this.http.get<Pneu[]>(`/api/v1/vehicules/${vehiculeId}/pneus`);
+    if (!this.byVehiculeCache.has(vehiculeId)) {
+      this.byVehiculeCache.set(vehiculeId, this.http.get<Pneu[]>(`/api/v1/vehicules/${vehiculeId}/pneus`).pipe(
+        shareReplay({ bufferSize: 1, refCount: false }),
+      ));
+    }
+    return this.byVehiculeCache.get(vehiculeId)!;
+  }
+
+  invalidateByVehicule(vehiculeId: number): void {
+    this.byVehiculeCache.delete(vehiculeId);
   }
 
   get(id: number): Observable<Pneu> {
@@ -23,5 +34,47 @@ export class PneuService {
 
   createInspection(pneuId: number, form: InspectionForm): Observable<PneuInspection> {
     return this.http.post<PneuInspection>(`${this.API}/${pneuId}/inspections`, form);
+  }
+
+  permuter(pneuId: number, echangerAvecPosition: number): Observable<void> {
+    return this.http.patch<void>(`${this.API}/${pneuId}/permuter`, { echangerAvecPosition }).pipe(
+      tap(() => this.byVehiculeCache.clear())
+    );
+  }
+
+  remplacer(pneuId: number, body: { nSerie?: string; marque?: string; position: number }): Observable<void> {
+    return this.http.patch<void>(`${this.API}/${pneuId}/remplacer`, body).pipe(
+      tap(() => this.byVehiculeCache.clear())
+    );
+  }
+
+  assign(vehiculeId: number, form: CreatePneuForm): Observable<Pneu> {
+    return this.http.post<Pneu>(`/api/v1/vehicules/${vehiculeId}/pneus`, form).pipe(
+      tap(() => this.invalidateByVehicule(vehiculeId)),
+    );
+  }
+
+  delete(pneuId: number, vehiculeId: number): Observable<void> {
+    return this.http.delete<void>(`${this.API}/${pneuId}`).pipe(
+      tap(() => this.invalidateByVehicule(vehiculeId)),
+    );
+  }
+
+  getActivityLog(pneuId: number): Observable<any[]> {
+    return this.http.get<any[]>(`${this.API}/${pneuId}/activity-log`);
+  }
+
+  listAll(): Observable<Pneu[]> {
+    return this.http.get<Pneu[]>(`${this.API}`);
+  }
+
+  listAvailable(): Observable<Pneu[]> {
+    return this.http.get<Pneu[]>(`${this.API}/available`);
+  }
+
+  remonter(pneuId: number, vehiculeId: number, position: number): Observable<Pneu> {
+    return this.http.patch<Pneu>(`${this.API}/${pneuId}/remonter`, { vehiculeId, position }).pipe(
+      tap(() => this.byVehiculeCache.delete(vehiculeId)),
+    );
   }
 }
