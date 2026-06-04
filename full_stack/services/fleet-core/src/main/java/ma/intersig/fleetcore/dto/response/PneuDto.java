@@ -8,6 +8,7 @@ import java.time.LocalDate;
 public record PneuDto(
         Long id,
         Long vehiculeId,
+        String vehiculeCode,
         Short position,
         Long composantId,
         String nSerie,
@@ -26,6 +27,7 @@ public record PneuDto(
         return new PneuDto(
                 p.getId(),
                 p.getVehicule() != null ? p.getVehicule().getId() : null,
+                p.getVehicule() != null ? p.getVehicule().getCode() : null,
                 p.getPosition(),
                 p.getComposant() != null ? p.getComposant().getId() : null,
                 p.getNSerie(),

@@ -5,6 +5,7 @@ import ma.intersig.fleetcore.dto.request.CreateInspectionRequest;
 import ma.intersig.fleetcore.dto.request.CreatePneuRequest;
 import ma.intersig.fleetcore.dto.request.PermuterPneuRequest;
 import ma.intersig.fleetcore.dto.request.RemplacerPneuRequest;
+import ma.intersig.fleetcore.dto.request.RemonterPneuRequest;
 import ma.intersig.fleetcore.dto.response.PageResponse;
 import ma.intersig.fleetcore.dto.response.PneuDto;
 import ma.intersig.fleetcore.dto.response.PneuInspectionDto;
@@ -63,6 +64,61 @@ public class PneuService {
         return pneuRepository.findByVehiculeIdAndActifTrue(vehiculeId).stream()
                 .map(PneuDto::from)
                 .toList();
+    }
+
+    @Transactional(readOnly = true)
+    public List<PneuDto> listAll() {
+        return pneuRepository.findAllWithVehicule().stream()
+                .map(PneuDto::from)
+                .toList();
+    }
+
+    @Transactional(readOnly = true)
+    public List<PneuDto> listAvailable() {
+        return pneuRepository.findAllAvailable().stream()
+                .map(PneuDto::from)
+                .toList();
+    }
+
+    public PneuDto remonter(Long pneuId, RemonterPneuRequest req) {
+        Pneu pneu = pneuRepository.findById(pneuId)
+                .orElseThrow(() -> new ResourceNotFoundException("Pneu not found", "PNEU_NOT_FOUND"));
+
+        if (Boolean.TRUE.equals(pneu.getActif())) {
+            throw new BusinessException("Pneu is already active", "PNEU_ALREADY_ACTIVE", 422);
+        }
+
+        Vehicule vehicule = vehiculeRepository.findById(req.vehiculeId())
+                .orElseThrow(() -> new ResourceNotFoundException("Vehicle not found", "VEHICLE_NOT_FOUND"));
+
+        pneuRepository.findByVehiculeIdAndPositionAndActifTrue(req.vehiculeId(), req.position())
+                .ifPresent(existing -> {
+                    throw new BusinessException(
+                            "Position " + req.position() + " is already occupied", "POSITION_OCCUPIED", 422);
+                });
+
+        pneu.setVehicule(vehicule);
+        pneu.setPosition(req.position());
+        pneu.setActif(true);
+        pneu.setKmMontage(getVehiculeKm(vehicule));
+
+        // Set status based on current kmRestant (DB trigger won't fire for this update)
+        Integer kmRestant = pneu.getKmRestant();
+        if (kmRestant == null || kmRestant <= 0) {
+            pneu.setStatus("empty");
+        } else if (kmRestant <= 5000) {
+            pneu.setStatus("warn");
+        } else {
+            pneu.setStatus("ok");
+        }
+
+        pneu = pneuRepository.save(pneu);
+        createInspection(pneu, null, "Remounted", null);
+
+        entityManager.flush();
+        entityManager.refresh(pneu);
+
+        return PneuDto.from(pneu);
     }
 
     public PneuDto assign(Long vehiculeId, CreatePneuRequest req) {
@@ -223,6 +279,13 @@ public class PneuService {
         entityManager.refresh(pneu);
 
         return PneuDto.from(pneu);
+    }
+
+    public void softDelete(Long pneuId) {
+        Pneu pneu = pneuRepository.findById(pneuId)
+                .orElseThrow(() -> new ResourceNotFoundException("Pneu not found", "PNEU_NOT_FOUND"));
+        pneu.setActif(false);
+        pneuRepository.save(pneu);
     }
 
     private Integer getVehiculeKm(Vehicule vehicule) {

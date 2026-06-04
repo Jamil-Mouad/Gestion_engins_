@@ -25,6 +25,9 @@ public interface PneuRepository extends JpaRepository<Pneu, Long> {
     @Query("SELECT p FROM Pneu p LEFT JOIN FETCH p.vehicule")
     List<Pneu> findAllWithVehicule();
 
+    @Query("SELECT p FROM Pneu p LEFT JOIN FETCH p.vehicule WHERE p.actif = false ORDER BY p.id")
+    List<Pneu> findAllAvailable();
+
     @Query("SELECT p FROM Pneu p LEFT JOIN FETCH p.vehicule WHERE p.status IN :statuses ORDER BY p.id")
     List<Pneu> findByStatusInWithVehicule(@org.springframework.data.repository.query.Param("statuses") List<String> statuses);
 }

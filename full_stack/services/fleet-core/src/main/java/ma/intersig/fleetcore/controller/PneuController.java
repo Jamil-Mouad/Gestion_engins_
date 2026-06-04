@@ -5,6 +5,7 @@ import ma.intersig.fleetcore.dto.request.CreateInspectionRequest;
 import ma.intersig.fleetcore.dto.request.CreatePneuRequest;
 import ma.intersig.fleetcore.dto.request.PermuterPneuRequest;
 import ma.intersig.fleetcore.dto.request.RemplacerPneuRequest;
+import ma.intersig.fleetcore.dto.request.RemonterPneuRequest;
 import ma.intersig.fleetcore.dto.response.PageResponse;
 import ma.intersig.fleetcore.dto.response.PneuDto;
 import ma.intersig.fleetcore.dto.response.PneuInspectionDto;
@@ -39,6 +40,18 @@ public class PneuController {
         return ResponseEntity.status(HttpStatus.CREATED).body(pneuService.assign(id, req));
     }
 
+    @Operation(summary = "List all tires")
+    @GetMapping("/pneus")
+    public ResponseEntity<List<PneuDto>> listAll() {
+        return ResponseEntity.ok(pneuService.listAll());
+    }
+
+    @Operation(summary = "List tires available for remounting (soft-deleted)")
+    @GetMapping("/pneus/available")
+    public ResponseEntity<List<PneuDto>> listAvailable() {
+        return ResponseEntity.ok(pneuService.listAvailable());
+    }
+
     @Operation(summary = "Get tire by ID")
     @GetMapping("/pneus/{id}")
     public ResponseEntity<PneuDto> getById(@PathVariable Long id) {
@@ -63,6 +76,13 @@ public class PneuController {
     public ResponseEntity<PneuDto> remplacer(@PathVariable Long id,
                                              @Valid @RequestBody RemplacerPneuRequest req) {
         return ResponseEntity.ok(pneuService.remplacer(id, req));
+    }
+
+    @Operation(summary = "Remount a previously removed tire at a new position")
+    @PatchMapping("/pneus/{id}/remonter")
+    public ResponseEntity<PneuDto> remonter(@PathVariable Long id,
+                                             @Valid @RequestBody RemonterPneuRequest req) {
+        return ResponseEntity.ok(pneuService.remonter(id, req));
     }
 
     @Operation(summary = "List tires with wear alerts")
@@ -91,5 +111,12 @@ public class PneuController {
     @GetMapping("/pneus/{id}/activity-log")
     public ResponseEntity<List<PneuInspectionDto>> activityLog(@PathVariable Long id) {
         return ResponseEntity.ok(pneuService.listActivityLog(id));
+    }
+
+    @Operation(summary = "Soft-delete (deactivate) a tire")
+    @DeleteMapping("/pneus/{id}")
+    public ResponseEntity<Void> softDelete(@PathVariable Long id) {
+        pneuService.softDelete(id);
+        return ResponseEntity.noContent().build();
     }
 }
