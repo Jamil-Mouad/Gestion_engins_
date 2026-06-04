@@ -1,6 +1,8 @@
 import { Component, inject, signal, computed, Input, Output, EventEmitter, OnInit, ViewChild, ElementRef } from '@angular/core';
+import { toSignal } from '@angular/core/rxjs-interop';
 import { CommonModule } from '@angular/common';
 import { ReactiveFormsModule, FormBuilder, Validators } from '@angular/forms';
+import { startWith } from 'rxjs';
 import { VehiculeService } from '../vehicule.service';
 import { Vehicule, VehiculeDetail, VehiculeType, VehiculeStatut, isCamionType } from '../../../shared/models/vehicule.model';
 import { ModalShellComponent } from '../../../shared/ui/modal/modal-shell.component';
@@ -42,7 +44,7 @@ import { DoubleClickGuardDirective } from '../../../shared/directives/double-cli
             <input formControlName="type" readonly class="field-readonly" />
           </div>
 
-          @if (form.get('type')?.value === 'semi_remorque') {
+          @if (isSemiRemorqueSelected()) {
             <div class="form-group">
               <label>Config essieux (semi)</label>
               <select formControlName="configAxleSemi">
@@ -291,8 +293,6 @@ export class EditVehiculeModalComponent implements OnInit {
   uploadError = signal('');
   @ViewChild('fileInput') fileInputRef!: ElementRef<HTMLInputElement>;
 
-  isCamionTypeSelected = computed(() => isCamionType(this.form.get('type')?.value ?? ''));
-
   typeOptions: { value: VehiculeType; label: string }[] = [
     { value: 'camion',          label: 'Camion' },
     { value: 'camion_tracteur', label: 'Camion (Tracteur)' },
@@ -351,6 +351,15 @@ export class EditVehiculeModalComponent implements OnInit {
     batterieDateControle: [null as string | null],
     consoGasoilLitresMois: [null as number | null],
   });
+
+  // Reactive bridge: type field is readonly but may be patched; use toSignal so
+  // isCamionTypeSelected / isSemiRemorqueSelected stay correct even with OnPush.
+  private readonly typeValue = toSignal(
+    this.form.get('type')!.valueChanges.pipe(startWith(this.form.get('type')!.value)),
+    { initialValue: this.form.get('type')!.value as VehiculeType },
+  );
+  isCamionTypeSelected = computed(() => isCamionType(this.typeValue() ?? ''));
+  isSemiRemorqueSelected = computed(() => this.typeValue() === 'semi_remorque');
 
   ngOnInit(): void {
     const v = this.vehicule;
