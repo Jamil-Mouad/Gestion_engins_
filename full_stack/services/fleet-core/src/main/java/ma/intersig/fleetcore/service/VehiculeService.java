@@ -135,9 +135,7 @@ public class VehiculeService {
         vehicule.setStatut(req.statut());
         vehicule.setDateMiseService(req.dateMiseService());
         vehicule.setPhotoUrl(req.photoUrl());
-        if (req.configAxleSemi() != null) {
-            vehicule.setConfigAxleSemi(req.configAxleSemi());
-        }
+        vehicule.setConfigAxleSemi(req.configAxleSemi());
 
         if (vehicule instanceof Camion camion && req.camionDetails() != null) {
             mapCamionDetails(req.camionDetails(), camion);
