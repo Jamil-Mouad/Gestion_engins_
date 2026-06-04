@@ -97,16 +97,21 @@ public class PneuService {
                             "Position " + req.position() + " is already occupied", "POSITION_OCCUPIED", 422);
                 });
 
+        // Refuse to remount a tire that has exceeded its expected life
+        Integer kmRestant = pneu.getKmRestant();
+        if (kmRestant == null || kmRestant <= 0) {
+            throw new BusinessException(
+                "Pneu is exhausted (kmRestant=" + (kmRestant != null ? kmRestant : "null")
+                    + ") and cannot be remounted", "PNEU_EXHAUSTED", 422);
+        }
+
         pneu.setVehicule(vehicule);
         pneu.setPosition(req.position());
         pneu.setActif(true);
         pneu.setKmMontage(getVehiculeKm(vehicule));
 
-        // Set status based on current kmRestant (DB trigger won't fire for this update)
-        Integer kmRestant = pneu.getKmRestant();
-        if (kmRestant == null || kmRestant <= 0) {
-            pneu.setStatus("empty");
-        } else if (kmRestant <= 5000) {
+        // Pre-set status; the DB trigger (update_pneu_status) will override on save
+        if (kmRestant <= 5000) {
             pneu.setStatus("warn");
         } else {
             pneu.setStatus("ok");
