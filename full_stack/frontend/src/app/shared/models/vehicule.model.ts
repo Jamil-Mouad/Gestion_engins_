@@ -16,6 +16,7 @@ export interface Attelage {
   dateFin: string | null;
   actif: boolean;
   createdAt: string;
+  semiConfigAxle: string | null;
 }
 
 export interface Vehicule {
@@ -57,10 +58,15 @@ export interface CamionDetails {
 export interface VehiculeDetail extends Vehicule {
   camionDetails: CamionDetails | null;
   currentAttelage: Attelage | null;
+  configAxleSemi: 'plateau-2x2' | 'semi-2-essieux' | 'semi-3-essieux' | null;
 }
 
 export function isCamionType(type: string | null | undefined): boolean {
   return type === 'camion' || type === 'camion_tracteur';
+}
+
+export function isCamionTracteur(type: string | null | undefined): boolean {
+  return type === 'camion_tracteur';
 }
 
 export interface NewVehiculeForm {
@@ -74,5 +80,6 @@ export interface NewVehiculeForm {
   carburant: string | null;
   statut: VehiculeStatut;
   dateMiseService: string | null;
+  photoUrl?: string | null;
   camionDetails?: Partial<CamionDetails>;
 }

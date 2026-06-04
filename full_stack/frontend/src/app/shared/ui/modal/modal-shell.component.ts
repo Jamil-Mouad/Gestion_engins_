@@ -8,7 +8,7 @@ import { CommonModule } from '@angular/common';
   template: `
     @if (visible()) {
       <div class="modal-overlay" (click)="onOverlayClick()">
-        <div class="modal-dialog" (click)="$event.stopPropagation()">
+        <div class="modal-dialog" [style.maxWidth]="maxWidth()" (click)="$event.stopPropagation()">
           <div class="modal-header">
             <h2 class="modal-title">{{ title() }}</h2>
             <button class="modal-close" (click)="onClose.emit()" aria-label="Fermer">
@@ -39,7 +39,6 @@ import { CommonModule } from '@angular/common';
       border-radius: var(--radius-lg);
       box-shadow: 0 24px 60px rgba(17, 24, 39, 0.2);
       width: 90%;
-      max-width: 560px;
       max-height: 90vh;
       overflow-y: auto;
     }
@@ -75,8 +74,10 @@ import { CommonModule } from '@angular/common';
 export class ModalShellComponent implements OnInit, OnDestroy {
   title = signal('');
   visible = signal(true);
+  maxWidth = signal('560px');
   @Input() set modalTitle(v: string) { this.title.set(v); }
   @Input() set isVisible(v: boolean) { this.visible.set(v); }
+  @Input() set modalMaxWidth(v: string) { this.maxWidth.set(v); }
   @Output() onClose = new EventEmitter<void>();
 
   private historyStatePushed = false;

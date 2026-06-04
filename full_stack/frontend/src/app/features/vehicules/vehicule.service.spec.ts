@@ -20,7 +20,7 @@ describe('VehiculeService', () => {
     matricule: 'A-123-456',
     nChassis: 'WVOLVO123456',
     annee: 2022,
-    carburant: 'Diesel',
+    carburant: 'gasoil',
     statut: 'in-service',
     dateMiseService: '2022-01-15',
     photoUrl: null,
@@ -80,6 +80,7 @@ describe('VehiculeService', () => {
       ...mockVehicule,
       camionDetails: null,
       currentAttelage: null,
+      configAxleSemi: null,
     };
 
     service.get(1).subscribe((detail) => {
@@ -101,7 +102,7 @@ describe('VehiculeService', () => {
       matricule: 'B-456-789',
       nChassis: '',
       annee: null,
-      carburant: 'Diesel',
+      carburant: 'gasoil',
       statut: 'in-service' as VehiculeStatut,
       dateMiseService: null,
     };
@@ -163,7 +164,7 @@ describe('VehiculeService', () => {
       matricule: 'X',
       nChassis: '',
       annee: null,
-      carburant: 'Diesel',
+      carburant: 'gasoil',
       statut: 'in-service' as VehiculeStatut,
       dateMiseService: null,
     };
@@ -177,12 +178,12 @@ describe('VehiculeService', () => {
     expect(errored).toBeTrue();
   });
 
-  it('update() calls PATCH /api/v1/vehicules/:id', () => {
+  it('update() calls PUT /api/v1/vehicules/:id', () => {
     service.update(1, { marque: 'Iveco' }).subscribe((v) => {
       expect(v.marque).toBe('Iveco');
     });
     const req = httpMock.expectOne('/api/v1/vehicules/1');
-    expect(req.request.method).toBe('PATCH');
+    expect(req.request.method).toBe('PUT');
     expect(req.request.body).toEqual({ marque: 'Iveco' });
     req.flush({ ...mockVehicule, marque: 'Iveco' });
   });
