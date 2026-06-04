@@ -1,10 +1,12 @@
 import { Component, Input, Output, EventEmitter, inject, signal, computed, OnChanges, SimpleChanges, DestroyRef } from '@angular/core';
 import { DatePipe } from '@angular/common';
+import { RouterLink } from '@angular/router';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
-import { VehiculeDetail, Attelage, isCamionType } from '../../../../shared/models/vehicule.model';
+import { VehiculeDetail, Attelage, isCamionType, isCamionTracteur } from '../../../../shared/models/vehicule.model';
 import { VehiculeService } from '../../vehicule.service';
 import { CardComponent } from '../../../../shared/ui/card/card.component';
 import { AssignSemiModalComponent } from '../assign-semi-modal.component';
+import { ConfirmDeleteModalComponent } from '../../../../shared/ui/confirm-delete-modal/confirm-delete-modal.component';
 
 interface InfoRow {
   label: string;
@@ -21,7 +23,7 @@ interface ComplianceItem {
 @Component({
   selector: 'app-infos-tab',
   standalone: true,
-  imports: [CardComponent, DatePipe, AssignSemiModalComponent],
+  imports: [CardComponent, DatePipe, RouterLink, AssignSemiModalComponent, ConfirmDeleteModalComponent],
   template: `
     <div class="infos-page">
       <div [class]="isCamion() ? 'infos-grid' : 'infos-grid infos-grid--single'">
@@ -44,17 +46,23 @@ interface ComplianceItem {
                   <div class="attelage-current__info">
                     @if (isCamion()) {
                       <span class="attelage-current__label">Semi-remorque attelée</span>
-                      <span class="attelage-current__code">{{ vehicule.currentAttelage.semiCode }}</span>
+                      <a class="attelage-current__code attelage-current__code--link"
+                         [routerLink]="['/vehicules', vehicule.currentAttelage.semiId]">
+                        {{ vehicule.currentAttelage.semiCode }}
+                      </a>
                     } @else {
                       <span class="attelage-current__label">Tracteur attelé</span>
-                      <span class="attelage-current__code">{{ vehicule.currentAttelage.tracteurCode }}</span>
+                      <a class="attelage-current__code attelage-current__code--link"
+                         [routerLink]="['/vehicules', vehicule.currentAttelage.tracteurId]">
+                        {{ vehicule.currentAttelage.tracteurCode }}
+                      </a>
                     }
                     <span class="attelage-current__since">
                       Depuis le {{ vehicule.currentAttelage.dateDebut | date:'dd/MM/yyyy' }}
                     </span>
                   </div>
                   @if (isCamion()) {
-                    <button class="btn-detach" type="button" (click)="detach()">Détacher</button>
+                    <button class="btn-detach" type="button" (click)="showDetachConfirm.set(true)">Détacher</button>
                   }
                 </div>
               } @else if (isCamion()) {
@@ -82,7 +90,9 @@ interface ComplianceItem {
                     <tbody>
                       @for (a of terminatedHistory(); track a.id) {
                         <tr>
-                          <td class="mono">{{ a.semiCode }}</td>
+                          <td class="mono">
+                            <a class="attelage-history__link" [routerLink]="['/vehicules', a.semiId]">{{ a.semiCode }}</a>
+                          </td>
                           <td>{{ a.dateDebut | date:'dd/MM/yyyy' }}</td>
                           <td>{{ a.dateFin | date:'dd/MM/yyyy' }}</td>
                         </tr>
@@ -120,35 +130,6 @@ interface ComplianceItem {
                 }
               </div>
             </app-card>
-
-            <app-card title="KPIs véhicule">
-              <div class="kpi-grid">
-                <div class="kpi-tile">
-                  <div class="kpi-tile__label">MTBF</div>
-                  <div class="kpi-tile__value kpi-tile__value--green">— h</div>
-                </div>
-                <div class="kpi-tile">
-                  <div class="kpi-tile__label">VOYAGES / MOIS</div>
-                  <div class="kpi-tile__value kpi-tile__value--info">—</div>
-                </div>
-                <div class="kpi-tile">
-                  <div class="kpi-tile__label">DISPONIBILITÉ</div>
-                  <div class="kpi-tile__value kpi-tile__value--green">— %</div>
-                </div>
-                <div class="kpi-tile">
-                  <div class="kpi-tile__label">COÛT YTD</div>
-                  <div class="kpi-tile__value kpi-tile__value--warning">— MAD</div>
-                </div>
-                <div class="kpi-tile">
-                  <div class="kpi-tile__label">KM PARCOURUS</div>
-                  <div class="kpi-tile__value kpi-tile__value--info">— km</div>
-                </div>
-                <div class="kpi-tile">
-                  <div class="kpi-tile__label">% CONSO. (VS FLOTTE)</div>
-                  <div class="kpi-tile__value kpi-tile__value--warning">— %</div>
-                </div>
-              </div>
-            </app-card>
           </div>
         }
       </div>
@@ -159,6 +140,13 @@ interface ComplianceItem {
           (saved)="onAttelageSaved()"
           (close)="showAssignModal.set(false)"
         />
+      }
+
+      @if (showDetachConfirm()) {
+        <app-confirm-delete-modal
+          [confirmMessage]="detachConfirmMessage"
+          (confirm)="onDetachConfirmed()"
+          (cancel)="showDetachConfirm.set(false)" />
       }
     </div>
   `,
@@ -191,20 +179,13 @@ interface ComplianceItem {
     .dot--warn { background: #F59E0B; }
     .dot--late { background: #EF4444; }
 
-    /* KPI grid */
-    .kpi-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
-    .kpi-tile { background: #FAFAFA; border-radius: 8px; padding: 12px; border: 1px solid var(--color-border); }
-    .kpi-tile__label { font-family: 'Montserrat',sans-serif; font-size: 10px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.06em; color: #6B7280; margin-bottom: 4px; }
-    .kpi-tile__value { font-family: 'JetBrains Mono',monospace; font-size: 18px; font-weight: 700; }
-    .kpi-tile__value--green { color: #10B981; }
-    .kpi-tile__value--info { color: #0EA5E9; }
-    .kpi-tile__value--warning { color: #F59E0B; }
-
     /* Attelage card */
     .attelage-current { display: flex; align-items: center; justify-content: space-between; padding: 4px 0; }
     .attelage-current__info { display: flex; flex-direction: column; gap: 4px; }
     .attelage-current__label { font-family: 'Open Sans',sans-serif; font-size: 12px; color: #6B7280; }
     .attelage-current__code { font-family: 'JetBrains Mono',monospace; font-size: 16px; font-weight: 700; color: #111827; }
+    .attelage-current__code--link { text-decoration: none; color: var(--color-primary); cursor: pointer; }
+    .attelage-current__code--link:hover { text-decoration: underline; }
     .attelage-current__since { font-family: 'Open Sans',sans-serif; font-size: 12px; color: #6B7280; }
     .btn-detach { height: 34px; padding: 0 14px; border: 1px solid #FECACA; border-radius: 6px; background: #FEF2F2; color: #B91C1C; font-family: 'Montserrat',sans-serif; font-size: 13px; font-weight: 600; cursor: pointer; }
     .btn-detach:hover { background: #FEE2E2; }
@@ -221,6 +202,8 @@ interface ComplianceItem {
     .attelage-history__table td { padding: 8px 8px; border-bottom: 1px solid var(--color-border); color: #374151; }
     .attelage-history__table tr:last-child td { border-bottom: none; }
     .mono { font-family: 'JetBrains Mono',monospace; }
+    .attelage-history__link { text-decoration: none; color: var(--color-primary); font-family: 'JetBrains Mono', monospace; }
+    .attelage-history__link:hover { text-decoration: underline; }
 
     /* Responsive */
     @media (max-width: 900px) {
@@ -236,15 +219,17 @@ export class InfosTabComponent implements OnChanges {
   private destroyRef = inject(DestroyRef);
 
   showAssignModal = signal(false);
+  showDetachConfirm = signal(false);
   history = signal<Attelage[]>([]);
 
   isCamion = computed(() => isCamionType(this.vehicule?.type));
+  isCamionTracteurType = computed(() => isCamionTracteur(this.vehicule?.type));
   isSemiRemorque = computed(() => this.vehicule?.type === 'semi_remorque');
-  showAttelage = computed(() => this.isCamion() || this.isSemiRemorque());
+  showAttelage = computed(() => this.isCamionTracteurType() || this.isSemiRemorque());
   terminatedHistory = computed(() => this.history().filter(a => a.dateFin !== null));
 
   ngOnChanges(changes: SimpleChanges): void {
-    if (changes['vehicule'] && this.vehicule?.id && isCamionType(this.vehicule?.type)) {
+    if (changes['vehicule'] && this.vehicule?.id && (isCamionTracteur(this.vehicule?.type) || this.vehicule?.type === 'semi_remorque')) {
       this.vehiculeService.listAttelages(this.vehicule.id).pipe(
         takeUntilDestroyed(this.destroyRef),
       ).subscribe({
@@ -253,9 +238,16 @@ export class InfosTabComponent implements OnChanges {
     }
   }
 
-  detach(): void {
+  get detachConfirmMessage(): string {
+    const a = this.vehicule?.currentAttelage;
+    if (!a) return '';
+    return `Êtes-vous sûr de détacher ${a.semiCode} depuis le ${a.dateDebut} ?`;
+  }
+
+  onDetachConfirmed(): void {
     const attelage = this.vehicule?.currentAttelage;
     if (!attelage) return;
+    this.showDetachConfirm.set(false);
     const today = new Date().toISOString().split('T')[0];
     this.vehiculeService.terminateAttelage(
       attelage.id, today, attelage.tracteurId, attelage.semiId,
@@ -281,14 +273,12 @@ export class InfosTabComponent implements OnChanges {
       { label: 'Marque', value: v?.marque },
       { label: 'Modèle', value: v?.modele },
       { label: 'Année', value: v?.annee?.toString() },
-      { label: 'N° Chassis', value: v?.nChassis },
+      { label: 'N° Chassis', value: v?.nChassis, mono: true },
       { label: 'Capacité', value: cd?.capaciteTonnes != null ? `${cd.capaciteTonnes} t` : null },
       { label: 'Carburant', value: v?.carburant },
       { label: 'Chauffeur affecté', value: cd ? [cd.chauffeurPrenom, cd.chauffeurNom].filter(Boolean).join(' ') || null : null },
-      { label: 'Matricule', value: v?.matricule, mono: true },
-      { label: 'Compteur km', value: cd?.compteurKm != null ? `${cd.compteurKm} km` : null, mono: true },
-      { label: 'Compteur heures', value: cd?.compteurHeures != null ? `${cd.compteurHeures} h` : null, mono: true },
-      { label: 'Date mise en service', value: v?.dateMiseService },
+      { label: 'Carnet de circulation — expiration', value: cd?.carnetCirculationExpiration },
+      { label: 'Métrologie — expiration', value: cd?.metrologieExpiration },
     ].filter(r => r.value !== null && r.value !== undefined);
   });
 
@@ -297,21 +287,23 @@ export class InfosTabComponent implements OnChanges {
     if (!cd) return [];
 
     const today = new Date();
-    const getStatus = (dateStr: string | null | undefined): 'ok' | 'warn' | 'late' | 'neutral' => {
+
+    const getExpiryStatus = (dateStr: string | null | undefined): 'ok' | 'warn' | 'late' | 'neutral' => {
       if (!dateStr) return 'neutral';
       const exp = new Date(dateStr);
       const daysLeft = Math.floor((exp.getTime() - today.getTime()) / (1000 * 60 * 60 * 24));
       if (daysLeft < 0) return 'late';
-      if (daysLeft < 30) return 'warn';
+      if (daysLeft < 90) return 'warn';
       return 'ok';
     };
 
     return [
-      { label: 'Visite technique tracteur', value: cd.visiteTechTracteurExpiration, status: getStatus(cd.visiteTechTracteurExpiration) },
-      { label: 'Visite technique semi', value: cd.visiteTechSemiExpiration, status: getStatus(cd.visiteTechSemiExpiration) },
-      { label: 'Carnet de circulation', value: cd.carnetCirculationExpiration, status: getStatus(cd.carnetCirculationExpiration) },
-      { label: 'Métrologie', value: cd.metrologieExpiration, status: getStatus(cd.metrologieExpiration) },
-      { label: 'Extincteur', value: cd.extincteurExpiration, status: getStatus(cd.extincteurExpiration) },
+      { label: 'Batterie — Modèle', value: cd.batterieModele, status: 'neutral' },
+      { label: 'Batterie — Date d\'achat', value: cd.batterieDateAchat, status: 'neutral' },
+      { label: 'Dernier contrôle batterie', value: cd.batterieDateControle, status: cd.batterieDateControle ? 'ok' : 'neutral' },
+      { label: 'Extincteur — date d\'expiration', value: cd.extincteurExpiration, status: getExpiryStatus(cd.extincteurExpiration) },
+      { label: 'Visite technique — Tracteur', value: cd.visiteTechTracteurExpiration, status: getExpiryStatus(cd.visiteTechTracteurExpiration) },
+      { label: 'Visite technique — Semi-remorque', value: cd.visiteTechSemiExpiration, status: getExpiryStatus(cd.visiteTechSemiExpiration) },
     ];
   });
 }
