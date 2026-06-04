@@ -186,7 +186,7 @@ function totalPositionsForConfig(config: string): number {
   `],
 })
 export class AxleSchemaComponent implements OnChanges {
-  @Input() set axleConfig(v: '4x2' | '6x4' | 'plateau-2x2') { this.config.set(v); }
+  @Input() set axleConfig(v: '4x2' | '6x4' | 'plateau-2x2' | 'semi-2-essieux' | 'semi-3-essieux') { this.config.set(v); }
   @Input() tires: Pneu[] = [];
   @Output() tireClick = new EventEmitter<number>();
   @Input() selectedPosition: number | null = null;
@@ -201,7 +201,7 @@ export class AxleSchemaComponent implements OnChanges {
   readonly AXLE_LINE_X1 = CHASSIS_LEFT - CHASSIS_GAP - TIRE_W - PAIR_GAP - TIRE_W - 4;
   readonly AXLE_LINE_X2 = CHASSIS_RIGHT + CHASSIS_GAP + TIRE_W + PAIR_GAP + TIRE_W + 4;
 
-  config = signal<'4x2' | '6x4' | 'plateau-2x2'>('4x2');
+  config = signal<'4x2' | '6x4' | 'plateau-2x2' | 'semi-2-essieux' | 'semi-3-essieux'>('4x2');
 
   axleLayout = signal<AxleLayout[]>([]);
 
