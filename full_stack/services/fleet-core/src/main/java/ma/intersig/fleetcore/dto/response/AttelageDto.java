@@ -14,7 +14,8 @@ public record AttelageDto(
     LocalDate dateDebut,
     LocalDate dateFin,
     Boolean actif,
-    OffsetDateTime createdAt
+    OffsetDateTime createdAt,
+    String semiConfigAxle
 ) {
     public static AttelageDto from(TracteurSemiAssignment a) {
         return new AttelageDto(
@@ -26,7 +27,8 @@ public record AttelageDto(
             a.getDateDebut(),
             a.getDateFin(),
             a.getActif(),
-            a.getCreatedAt()
+            a.getCreatedAt(),
+            a.getSemi().getConfigAxleSemi()
         );
     }
 }

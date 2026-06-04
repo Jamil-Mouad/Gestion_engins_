@@ -49,6 +49,9 @@ public class Vehicule {
     @Column(name = "photo_url")
     private String photoUrl;
 
+    @Column(name = "config_axle_semi", length = 20)
+    private String configAxleSemi;
+
     @Column(nullable = false)
     private Boolean actif = true;
 
@@ -82,6 +85,8 @@ public class Vehicule {
     public void setDateMiseService(LocalDate dateMiseService) { this.dateMiseService = dateMiseService; }
     public String getPhotoUrl() { return photoUrl; }
     public void setPhotoUrl(String photoUrl) { this.photoUrl = photoUrl; }
+    public String getConfigAxleSemi() { return configAxleSemi; }
+    public void setConfigAxleSemi(String configAxleSemi) { this.configAxleSemi = configAxleSemi; }
     public Boolean getActif() { return actif; }
     public void setActif(Boolean actif) { this.actif = actif; }
     public OffsetDateTime getCreatedAt() { return createdAt; }

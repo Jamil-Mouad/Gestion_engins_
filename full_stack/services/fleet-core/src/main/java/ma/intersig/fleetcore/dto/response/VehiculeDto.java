@@ -23,7 +23,8 @@ public record VehiculeDto(
         OffsetDateTime createdAt,
         OffsetDateTime updatedAt,
         CamionDetailsDto camionDetails,
-        AttelageDto currentAttelage
+        AttelageDto currentAttelage,
+        String configAxleSemi
 ) {
     public static VehiculeDto from(Vehicule v, AttelageDto currentAttelage) {
         CamionDetailsDto details = null;
@@ -35,7 +36,7 @@ public record VehiculeDto(
                 v.getMatricule(), v.getNChassis(), v.getAnnee(), v.getCarburant(),
                 v.getStatut(), v.getDateMiseService(), v.getPhotoUrl(),
                 v.getActif(), v.getCreatedAt(), v.getUpdatedAt(),
-                details, currentAttelage
+                details, currentAttelage, v.getConfigAxleSemi()
         );
     }
 
@@ -45,7 +46,7 @@ public record VehiculeDto(
                 v.getMatricule(), v.getNChassis(), v.getAnnee(), v.getCarburant(),
                 v.getStatut(), v.getDateMiseService(), v.getPhotoUrl(),
                 v.getActif(), v.getCreatedAt(), v.getUpdatedAt(),
-                null, null
+                null, null, v.getConfigAxleSemi()
         );
     }
 }

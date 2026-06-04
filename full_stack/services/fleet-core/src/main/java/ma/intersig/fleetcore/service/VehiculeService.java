@@ -51,8 +51,10 @@ public class VehiculeService {
     public PageResponse<VehiculeDto> list(String q, String type, String statut, Pageable pageable) {
         Page<Vehicule> page;
         String qNorm = (q != null && !q.isBlank()) ? q : null;
-        if (qNorm != null || type != null || statut != null) {
+        if (qNorm != null) {
             page = vehiculeRepository.searchWithFilters(qNorm, type, statut, pageable);
+        } else if (type != null || statut != null) {
+            page = vehiculeRepository.findByTypeAndStatutOptional(type, statut, pageable);
         } else {
             page = vehiculeRepository.findByActifTrue(pageable);
         }
@@ -125,7 +127,7 @@ public class VehiculeService {
         validateStatut(req.statut());
         validateUniqueConstraints(null, req.matricule(), req.nChassis(), id);
         vehicule.setMarque(req.marque());
-        vehicule.setModele(req.modele());
+        vehicule.setModele(req.modele() != null ? req.modele() : "");
         vehicule.setMatricule(req.matricule());
         vehicule.setNChassis(req.nChassis());
         vehicule.setAnnee(req.annee());
@@ -133,6 +135,9 @@ public class VehiculeService {
         vehicule.setStatut(req.statut());
         vehicule.setDateMiseService(req.dateMiseService());
         vehicule.setPhotoUrl(req.photoUrl());
+        if (req.configAxleSemi() != null) {
+            vehicule.setConfigAxleSemi(req.configAxleSemi());
+        }
 
         if (vehicule instanceof Camion camion && req.camionDetails() != null) {
             mapCamionDetails(req.camionDetails(), camion);
@@ -202,7 +207,7 @@ public class VehiculeService {
         v.setCode(req.code());
         v.setType(req.type());
         v.setMarque(req.marque());
-        v.setModele(req.modele());
+        v.setModele(req.modele() != null ? req.modele() : "");
         v.setMatricule(req.matricule());
         v.setNChassis(req.nChassis());
         v.setAnnee(req.annee());
@@ -210,6 +215,9 @@ public class VehiculeService {
         v.setStatut(req.statut());
         v.setDateMiseService(req.dateMiseService());
         v.setPhotoUrl(req.photoUrl());
+        if (req.configAxleSemi() != null) {
+            v.setConfigAxleSemi(req.configAxleSemi());
+        }
     }
 
     @CacheEvict(value = {"vehicules-page", "vehicules"}, allEntries = true)
