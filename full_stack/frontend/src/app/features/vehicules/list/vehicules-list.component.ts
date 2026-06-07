@@ -105,6 +105,13 @@ type StatutFilter = 'all' | VehiculeStatut;
                         @case ('n_chassis')     { <span class="mono">{{ v.nChassis || '—' }}</span> }
                         @case ('carburant')     { {{ v.carburant || '—' }} }
                         @case ('statut')        { <app-status-badge [status]="v.statut" [label]="v.statut | statusLabel" /> }
+                        @case ('photo') {
+                          @if (v.photoUrl) {
+                            <img [src]="v.photoUrl" alt="" style="height:36px;width:52px;object-fit:cover;border-radius:4px;display:block;" />
+                          } @else {
+                            <lucide-icon name="truck" [size]="20" />
+                          }
+                        }
                       }
                     </div>
                   }
@@ -152,7 +159,11 @@ type StatutFilter = 'all' | VehiculeStatut;
                     <app-status-badge [status]="v.statut" [label]="v.statut | statusLabel" />
                   </div>
                   <div class="vehicle-card__img-placeholder">
-                    <lucide-icon name="truck" [size]="32" />
+                    @if (v.photoUrl) {
+                      <img [src]="v.photoUrl" alt="" style="width:100%;height:80px;object-fit:cover;border-radius:8px;display:block;" />
+                    } @else {
+                      <lucide-icon name="truck" [size]="32" />
+                    }
                   </div>
                   <div class="vehicle-card__type">{{ v.type | statusLabel }}{{ v.annee ? ' · ' + v.annee : '' }}</div>
                   <div class="vehicle-card__marque">{{ v.marque }} {{ v.modele }}</div>
@@ -316,20 +327,20 @@ export class VehiculesListComponent {
   private readonly PAGE_SIZE = 6;
   private searchQuery = '';
   private readonly searchRaw$ = new Subject<string>();
-  private readonly fetchTrigger$ = new Subject<{ page: number; append: boolean }>();
+  private readonly fetchTrigger$ = new Subject<{ page: number; append: boolean; force?: boolean }>();
 
   hasMore = computed(() => this.vehicles().length < (this.totalElements() ?? 0));
 
   constructor() {
     this.fetchTrigger$.pipe(
-      switchMap(({ page, append }) =>
+      switchMap(({ page, append, force }) =>
         this.vehiculeService.list({
           page,
           size: this.PAGE_SIZE,
           q: this.searchQuery || undefined,
           type: this.typeFilter() === 'all' ? undefined : this.typeFilter() as VehiculeType,
           statut: this.statutFilter() === 'all' ? undefined : this.statutFilter() as VehiculeStatut,
-        }).pipe(
+        }, force ?? false).pipe(
           map(p => ({ p, append })),
           catchError(() => {
             this.loading.set(false);
@@ -357,7 +368,7 @@ export class VehiculesListComponent {
       this.fetchTrigger$.next({ page: 0, append: false });
     });
 
-    this.fetchTrigger$.next({ page: 0, append: false });
+    this.fetchTrigger$.next({ page: 0, append: false, force: true });
   }
 
   onSearchInput(value: string): void {
