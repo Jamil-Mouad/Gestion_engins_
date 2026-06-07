@@ -30,14 +30,16 @@ public class ExportController {
     @GetMapping("/excel")
     public ResponseEntity<byte[]> exportExcel(
             @RequestParam(value = "entites", required = false) List<String> entites,
-            @RequestParam(value = "periode", required = false) String periode) {
+            @RequestParam(value = "periode", required = false) String periode,
+            @RequestParam(value = "vehiculeId", required = false) Long vehiculeId,
+            @RequestParam(value = "vehiculeType", required = false) String vehiculeType) {
         List<String> filtered = entites == null ? List.of()
                 : entites.stream().filter(e -> e != null && !e.isBlank()).toList();
         if (filtered.isEmpty()) {
             return ResponseEntity.badRequest().build();
         }
         try {
-            byte[] data = exportService.exportExcel(filtered, periode);
+            byte[] data = exportService.exportExcel(filtered, periode, vehiculeId, vehiculeType);
             return ResponseEntity.ok()
                     .contentType(MediaType.parseMediaType("application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"))
                     .header(HttpHeaders.CONTENT_DISPOSITION, "attachment; filename=\"fleettracker-export.xlsx\"")

@@ -24,8 +24,31 @@ public interface InterventionRepository extends JpaRepository<Intervention, Long
     @Query("SELECT i FROM Intervention i WHERE i.dateFin IS NOT NULL")
     Page<Intervention> findByDateFinIsNotNull(Pageable pageable);
 
-    @Query("SELECT i FROM Intervention i WHERE (:vehiculeId IS NULL OR i.vehicule.id = :vehiculeId) AND (:categorie IS NULL OR i.categorie = :categorie) AND (:statut IS NULL OR (:statut = 'open' AND i.dateFin IS NULL) OR (:statut = 'closed' AND i.dateFin IS NOT NULL)) AND (CAST(:dateFrom AS java.time.OffsetDateTime) IS NULL OR i.dateDebut >= :dateFrom) AND (CAST(:dateTo AS java.time.OffsetDateTime) IS NULL OR i.dateDebut <= :dateTo)")
-    Page<Intervention> findByFilters(@Param("vehiculeId") Long vehiculeId,
+    @Query(value = "SELECT i FROM Intervention i " +
+           "LEFT JOIN FETCH i.vehicule v " +
+           "LEFT JOIN FETCH i.typeIntervention t " +
+           "LEFT JOIN FETCH i.composant c " +
+           "WHERE (:vehiculeId IS NULL OR v.id = :vehiculeId) " +
+           "AND (:categorie IS NULL OR i.categorie = :categorie) " +
+           "AND (:statut IS NULL OR (:statut = 'open' AND i.dateFin IS NULL) OR (:statut = 'closed' AND i.dateFin IS NOT NULL)) " +
+           "AND (CAST(:dateFrom AS java.time.OffsetDateTime) IS NULL OR i.dateDebut >= :dateFrom) " +
+           "AND (CAST(:dateTo AS java.time.OffsetDateTime) IS NULL OR i.dateDebut <= :dateTo) " +
+           "AND (CAST(:q AS string) IS NULL OR LOWER(v.code) LIKE LOWER(CONCAT('%', CAST(:q AS string), '%')) " +
+           "  OR LOWER(COALESCE(i.nBs, '')) LIKE LOWER(CONCAT('%', CAST(:q AS string), '%')) " +
+           "  OR LOWER(COALESCE(c.designation, '')) LIKE LOWER(CONCAT('%', CAST(:q AS string), '%')))",
+           countQuery = "SELECT COUNT(i) FROM Intervention i " +
+           "LEFT JOIN i.vehicule v " +
+           "LEFT JOIN i.composant c " +
+           "WHERE (:vehiculeId IS NULL OR v.id = :vehiculeId) " +
+           "AND (:categorie IS NULL OR i.categorie = :categorie) " +
+           "AND (:statut IS NULL OR (:statut = 'open' AND i.dateFin IS NULL) OR (:statut = 'closed' AND i.dateFin IS NOT NULL)) " +
+           "AND (CAST(:dateFrom AS java.time.OffsetDateTime) IS NULL OR i.dateDebut >= :dateFrom) " +
+           "AND (CAST(:dateTo AS java.time.OffsetDateTime) IS NULL OR i.dateDebut <= :dateTo) " +
+           "AND (CAST(:q AS string) IS NULL OR LOWER(v.code) LIKE LOWER(CONCAT('%', CAST(:q AS string), '%')) " +
+           "  OR LOWER(COALESCE(i.nBs, '')) LIKE LOWER(CONCAT('%', CAST(:q AS string), '%')) " +
+           "  OR LOWER(COALESCE(c.designation, '')) LIKE LOWER(CONCAT('%', CAST(:q AS string), '%')))")
+    Page<Intervention> findByFilters(@Param("q") String q,
+                                     @Param("vehiculeId") Long vehiculeId,
                                      @Param("categorie") String categorie,
                                      @Param("statut") String statut,
                                      @Param("dateFrom") OffsetDateTime dateFrom,
@@ -39,7 +62,14 @@ public interface InterventionRepository extends JpaRepository<Intervention, Long
     @Query("SELECT i FROM Intervention i LEFT JOIN FETCH i.vehicule")
     List<Intervention> findAllWithVehicule();
 
+    @Query(value = "SELECT i FROM Intervention i LEFT JOIN FETCH i.vehicule LEFT JOIN FETCH i.typeIntervention LEFT JOIN FETCH i.composant",
+           countQuery = "SELECT COUNT(i) FROM Intervention i")
+    Page<Intervention> findAllWithRelations(Pageable pageable);
+
     @Query("SELECT i FROM Intervention i LEFT JOIN FETCH i.vehicule WHERE i.dateDebut >= :from AND i.dateDebut <= :to")
     List<Intervention> findAllWithVehiculeInRange(@Param("from") java.time.OffsetDateTime from,
                                                   @Param("to") java.time.OffsetDateTime to);
+
+    @Query("SELECT i FROM Intervention i LEFT JOIN FETCH i.vehicule LEFT JOIN FETCH i.typeIntervention LEFT JOIN FETCH i.composant WHERE i.vehicule.id = :vehiculeId")
+    List<Intervention> findAllWithVehiculeByVehiculeId(@Param("vehiculeId") Long vehiculeId);
 }

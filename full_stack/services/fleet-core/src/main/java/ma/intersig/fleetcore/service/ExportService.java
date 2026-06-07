@@ -25,20 +25,30 @@ public class ExportService {
     private final PneuRepository pneuRepository;
     private final SuiviVidangeRepository suiviVidangeRepository;
     private final ReleveCompteurRepository releveCompteurRepository;
+    private final ComposantRepository composantRepository;
+    private final DemandeAchatRepository demandeAchatRepository;
 
     public ExportService(VehiculeRepository vehiculeRepository,
                          InterventionRepository interventionRepository,
                          PneuRepository pneuRepository,
                          SuiviVidangeRepository suiviVidangeRepository,
-                         ReleveCompteurRepository releveCompteurRepository) {
+                         ReleveCompteurRepository releveCompteurRepository,
+                         ComposantRepository composantRepository,
+                         DemandeAchatRepository demandeAchatRepository) {
         this.vehiculeRepository = vehiculeRepository;
         this.interventionRepository = interventionRepository;
         this.pneuRepository = pneuRepository;
         this.suiviVidangeRepository = suiviVidangeRepository;
         this.releveCompteurRepository = releveCompteurRepository;
+        this.composantRepository = composantRepository;
+        this.demandeAchatRepository = demandeAchatRepository;
     }
 
     public byte[] exportExcel(List<String> entites, String periode) throws IOException {
+        return exportExcel(entites, periode, null, null);
+    }
+
+    public byte[] exportExcel(List<String> entites, String periode, Long vehiculeId, String vehiculeType) throws IOException {
         if (entites == null) {
             throw new IllegalArgumentException("entites must not be null");
         }
@@ -51,7 +61,7 @@ public class ExportService {
                 writeVehiculesSheet(workbook);
             }
             if (entites.contains("interventions")) {
-                writeInterventionsSheet(workbook, range);
+                writeInterventionsSheet(workbook, range, vehiculeId);
             }
             if (entites.contains("pneus")) {
                 writePneusSheet(workbook);
@@ -61,6 +71,12 @@ public class ExportService {
             }
             if (entites.contains("releves")) {
                 writeRelevesSheet(workbook, range);
+            }
+            if (entites.contains("composants")) {
+                writeComposantsSheet(workbook, vehiculeType);
+            }
+            if (entites.contains("demandesAchat")) {
+                writeDemandesAchatSheet(workbook);
             }
 
             workbook.write(out);
@@ -102,28 +118,39 @@ public class ExportService {
         }
     }
 
-    private void writeInterventionsSheet(XSSFWorkbook workbook, OffsetDateTime[] range) {
+    private void writeInterventionsSheet(XSSFWorkbook workbook, OffsetDateTime[] range, Long vehiculeId) {
         Sheet sheet = workbook.createSheet("Interventions");
         Row header = sheet.createRow(0);
-        String[] cols = {"id", "vehicule_id", "categorie", "partie", "date_debut", "date_fin", "cout_total", "statut"};
+        String[] cols = {"N°BS", "Date", "Véhicule", "Type", "Composant", "Coût total (MAD)", "Statut"};
         for (int i = 0; i < cols.length; i++) {
             header.createCell(i).setCellValue(cols[i]);
         }
-        List<Intervention> interventions = range != null
-                ? interventionRepository.findAllWithVehiculeInRange(range[0], range[1])
-                : interventionRepository.findAllWithVehicule();
+
+        List<Intervention> interventions;
+        if (vehiculeId != null) {
+            interventions = interventionRepository.findAllWithVehiculeByVehiculeId(vehiculeId);
+        } else if (range != null) {
+            interventions = interventionRepository.findAllWithVehiculeInRange(range[0], range[1]);
+        } else {
+            interventions = interventionRepository.findAllWithVehicule();
+        }
+
         int rowIdx = 1;
         for (Intervention i : interventions) {
             Row row = sheet.createRow(rowIdx++);
-            row.createCell(0).setCellValue(i.getId());
-            row.createCell(1).setCellValue(i.getVehicule() != null ? i.getVehicule().getId() : 0);
-            row.createCell(2).setCellValue(i.getCategorie());
-            row.createCell(3).setCellValue(i.getPartie());
-            row.createCell(4).setCellValue(i.getDateDebut() != null ? i.getDateDebut().toString() : "");
-            row.createCell(5).setCellValue(i.getDateFin() != null ? i.getDateFin().toString() : "");
-            row.createCell(6).setCellValue(i.getCoutTotal() != null ? i.getCoutTotal().doubleValue() : 0);
-            row.createCell(7).setCellValue(i.getDateFin() == null ? "En cours" : "Terminée");
+            row.createCell(0).setCellValue(i.getNBs() != null ? i.getNBs() : "");
+            row.createCell(1).setCellValue(i.getDateDebut() != null ? i.getDateDebut().toLocalDate().toString() : "");
+            row.createCell(2).setCellValue(i.getVehicule() != null ? i.getVehicule().getCode() : "");
+            row.createCell(3).setCellValue(i.getTypeIntervention() != null ? i.getTypeIntervention().getLibelle() : "");
+            row.createCell(4).setCellValue(i.getComposant() != null ? i.getComposant().getDesignation() : "");
+            row.createCell(5).setCellValue(i.getCoutTotal() != null ? i.getCoutTotal().doubleValue() : 0);
+            row.createCell(6).setCellValue(mapInterventionStatut(i));
         }
+    }
+
+    private String mapInterventionStatut(Intervention i) {
+        // Intervention has no dedicated statut field; status is derived from dateFin
+        return i.getDateFin() == null ? "En cours" : "Terminée";
     }
 
     private void writePneusSheet(XSSFWorkbook workbook) {
@@ -187,6 +214,54 @@ public class ExportService {
             row.createCell(3).setCellValue(r.getCompteurKm() != null ? r.getCompteurKm() : 0);
             row.createCell(4).setCellValue(r.getCompteurHeures() != null ? r.getCompteurHeures() : 0);
             row.createCell(5).setCellValue(r.getSource() != null ? r.getSource() : "");
+        }
+    }
+
+    private void writeComposantsSheet(XSSFWorkbook workbook, String vehiculeType) {
+        Sheet sheet = workbook.createSheet("Composants");
+        Row header = sheet.createRow(0);
+        String[] cols = {"Référence", "Désignation", "Partie", "Unité", "Stock"};
+        for (int i = 0; i < cols.length; i++) {
+            header.createCell(i).setCellValue(cols[i]);
+        }
+
+        List<Composant> composants = vehiculeType != null && !vehiculeType.isBlank()
+                ? composantRepository.findRootsByType(vehiculeType)
+                : composantRepository.findByParentIsNull();
+
+        int rowIdx = 1;
+        for (Composant c : composants) {
+            Row row = sheet.createRow(rowIdx++);
+            row.createCell(0).setCellValue(c.getReference() != null ? c.getReference() : "");
+            row.createCell(1).setCellValue(c.getDesignation());
+            row.createCell(2).setCellValue(c.getCategorie() != null ? c.getCategorie() : "");
+            row.createCell(3).setCellValue(c.getUnite() != null ? c.getUnite() : "");
+            row.createCell(4).setCellValue(c.getStock() != null ? c.getStock() : 0);
+        }
+    }
+
+    private void writeDemandesAchatSheet(XSSFWorkbook workbook) {
+        Sheet sheet = workbook.createSheet("Demandes d'achat");
+        Row header = sheet.createRow(0);
+        String[] cols = {"ID", "Date", "Demandeur", "Désignation", "Référence", "Qté", "Statut"};
+        for (int i = 0; i < cols.length; i++) {
+            header.createCell(i).setCellValue(cols[i]);
+        }
+        List<DemandeAchat> demandes = demandeAchatRepository.findAll();
+        int rowIdx = 1;
+        for (DemandeAchat d : demandes) {
+            Row row = sheet.createRow(rowIdx++);
+            row.createCell(0).setCellValue(d.getId() != null ? d.getId() : 0);
+            row.createCell(1).setCellValue(d.getDateDemande() != null ? d.getDateDemande().toLocalDate().toString() : "");
+            // demandeurNom is a free-text name; fall back to demandeur relationship if available
+            String demandeurLabel = d.getDemandeurNom() != null ? d.getDemandeurNom() : "";
+            row.createCell(2).setCellValue(demandeurLabel);
+            row.createCell(3).setCellValue(d.getComposant() != null ? d.getComposant().getDesignation() :
+                    (d.getPieceLibre() != null ? d.getPieceLibre() : ""));
+            row.createCell(4).setCellValue(d.getReference() != null ? d.getReference() :
+                    (d.getComposant() != null && d.getComposant().getReference() != null ? d.getComposant().getReference() : ""));
+            row.createCell(5).setCellValue(d.getQuantite() != null ? d.getQuantite() : 0);
+            row.createCell(6).setCellValue(d.getStatut() != null ? d.getStatut() : "");
         }
     }
 }
