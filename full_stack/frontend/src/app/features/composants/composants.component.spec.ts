@@ -2,7 +2,12 @@ import { TestBed } from '@angular/core/testing';
 import { provideHttpClient } from '@angular/common/http';
 import { provideHttpClientTesting, HttpTestingController } from '@angular/common/http/testing';
 import { provideRouter } from '@angular/router';
-import { LucideAngularModule, Search, MoreHorizontal } from 'lucide-angular';
+import { provideAnimations } from '@angular/platform-browser/animations';
+import { provideToastr } from 'ngx-toastr';
+import {
+  LucideAngularModule, Search, Image,
+  ChevronDown, ChevronRight, Pencil, Plus, Trash2, Download, Settings, GripVertical,
+} from 'lucide-angular';
 
 import { ComposantsComponent } from './composants.component';
 import { ComposantNode } from '../../shared/models/composant.model';
@@ -34,11 +39,16 @@ describe('ComposantsComponent', () => {
 
   beforeEach(() => {
     TestBed.configureTestingModule({
-      imports: [LucideAngularModule.pick({ Search, MoreHorizontal })],
+      imports: [LucideAngularModule.pick({
+        Search, Image,
+        ChevronDown, ChevronRight, Pencil, Plus, Trash2, Download, Settings, GripVertical,
+      })],
       providers: [
         provideHttpClient(),
         provideHttpClientTesting(),
         provideRouter([]),
+        provideAnimations(),
+        provideToastr(),
       ],
     });
     httpMock = TestBed.inject(HttpTestingController);

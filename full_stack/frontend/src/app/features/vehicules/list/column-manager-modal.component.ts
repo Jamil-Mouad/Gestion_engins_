@@ -23,6 +23,7 @@ export const ALL_COLUMN_DEFS: ColumnDef[] = [
   { id: 'n_chassis',     label: 'N° Chassis',      flex: 1.2 },
   { id: 'carburant',     label: 'Carburant',       flex: 0.8 },
   { id: 'compteur_h',    label: 'Compteur heures', flex: 1   },
+  { id: 'photo',         label: 'Photo',           flex: 0.6 },
 ];
 
 export const DEFAULT_VISIBLE_IDS = ['code', 'type', 'marque_modele', 'matricule', 'compteur_km', 'statut'];
@@ -112,8 +113,13 @@ export const DEFAULT_VISIBLE_IDS = ['code', 'type', 'marque_modele', 'matricule'
   `],
 })
 export class ColumnManagerModalComponent {
+  /** Pass a custom column set; falls back to the vehicule ALL_COLUMN_DEFS. */
+  @Input() allColumnDefs: ColumnDef[] = ALL_COLUMN_DEFS;
+  /** Pass custom default ids; falls back to vehicule DEFAULT_VISIBLE_IDS. */
+  @Input() defaultVisibleIds: string[] = DEFAULT_VISIBLE_IDS;
+
   @Input({ required: true }) set currentVisible(ids: string[]) {
-    const byId = new Map(ALL_COLUMN_DEFS.map(c => [c.id, c]));
+    const byId = new Map(this.allColumnDefs.map(c => [c.id, c]));
     this._visible.set(ids.map(id => byId.get(id)!).filter(Boolean));
   }
   @Output() applied = new EventEmitter<string[]>();
@@ -123,7 +129,7 @@ export class ColumnManagerModalComponent {
   searchQuery = signal('');
 
   available = computed(() =>
-    ALL_COLUMN_DEFS.filter(c => !this._visible().some(v => v.id === c.id))
+    this.allColumnDefs.filter(c => !this._visible().some(v => v.id === c.id))
   );
   filteredAvailable = computed(() => {
     const q = this.searchQuery().toLowerCase();
@@ -145,8 +151,8 @@ export class ColumnManagerModalComponent {
   }
 
   restoreDefaults(): void {
-    const byId = new Map(ALL_COLUMN_DEFS.map(c => [c.id, c]));
-    this._visible.set(DEFAULT_VISIBLE_IDS.map(id => byId.get(id)!));
+    const byId = new Map(this.allColumnDefs.map(c => [c.id, c]));
+    this._visible.set(this.defaultVisibleIds.map(id => byId.get(id)!).filter(Boolean));
   }
 
   apply(): void {

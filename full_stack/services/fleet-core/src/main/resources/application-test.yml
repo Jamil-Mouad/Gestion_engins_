@@ -12,4 +12,7 @@ spring:
   flyway:
     enabled: true
     baseline-on-migrate: true
-    locations: classpath:db/migrations
+    table: flyway_schema_history_fleet_core
+    locations:
+      - classpath:db/migrations-shared
+      - classpath:db/migrations

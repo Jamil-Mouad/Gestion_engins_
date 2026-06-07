@@ -4,7 +4,6 @@ import { provideHttpClientTesting, HttpTestingController } from '@angular/common
 import { provideRouter } from '@angular/router';
 import {
   LucideAngularModule,
-  Download,
   CircleAlert,
   CloudUpload,
   CircleCheck,
@@ -54,7 +53,7 @@ describe('ImportExportComponent', () => {
   beforeEach(() => {
     TestBed.configureTestingModule({
       imports: [
-        LucideAngularModule.pick({ Download, CircleAlert, CloudUpload, CircleCheck, TriangleAlert }),
+        LucideAngularModule.pick({ CircleAlert, CloudUpload, CircleCheck, TriangleAlert }),
       ],
       providers: [
         provideHttpClient(),
@@ -88,14 +87,14 @@ describe('ImportExportComponent', () => {
     expect(component.loadingHistorique()).toBe(false);
   });
 
-  it('renders page header with title "Import / Export"', () => {
+  it('renders page header with title "Import"', () => {
     const fixture = TestBed.createComponent(ImportExportComponent);
     const req = httpMock.expectOne((r) => r.url === '/api/v1/import/historique');
     req.flush(mockPage);
     fixture.detectChanges();
 
     const nativeEl = fixture.nativeElement as HTMLElement;
-    expect(nativeEl.textContent).toContain('Import / Export');
+    expect(nativeEl.textContent).toContain('Import');
   });
 
   it('renders import card with dropzone', () => {
@@ -109,17 +108,14 @@ describe('ImportExportComponent', () => {
     expect(nativeEl.querySelector('app-dropzone')).toBeTruthy();
   });
 
-  it('renders export section with entity checkboxes', () => {
+  it('does not render export card', () => {
     const fixture = TestBed.createComponent(ImportExportComponent);
     const req = httpMock.expectOne((r) => r.url === '/api/v1/import/historique');
     req.flush(mockPage);
     fixture.detectChanges();
 
     const nativeEl = fixture.nativeElement as HTMLElement;
-    expect(nativeEl.textContent).toContain('Export données');
-    expect(nativeEl.textContent).toContain('Véhicules');
-    const checkboxes = nativeEl.querySelectorAll('.ie-checkbox');
-    expect(checkboxes.length).toBe(6);
+    expect(nativeEl.textContent).not.toContain('Export données');
   });
 
   it('renders historique section with table', () => {
@@ -205,40 +201,6 @@ describe('ImportExportComponent', () => {
     expect(component.uploadError()).toContain('Erreur');
   });
 
-  it('exportVehicules calls GET /api/v1/export/vehicules', () => {
-    const fixture = TestBed.createComponent(ImportExportComponent);
-
-    const initReq = httpMock.expectOne((r) => r.url === '/api/v1/import/historique');
-    initReq.flush(mockPage);
-
-    fixture.componentInstance.exportVehicules();
-
-    const exportReq = httpMock.expectOne((r) => r.url === '/api/v1/export/vehicules');
-    expect(exportReq.request.method).toBe('GET');
-    exportReq.flush(
-      new Blob(['data'], {
-        type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
-      }),
-    );
-  });
-
-  it('exportInterventions calls GET /api/v1/export/interventions', () => {
-    const fixture = TestBed.createComponent(ImportExportComponent);
-
-    const initReq = httpMock.expectOne((r) => r.url === '/api/v1/import/historique');
-    initReq.flush(mockPage);
-
-    fixture.componentInstance.exportInterventions();
-
-    const exportReq = httpMock.expectOne((r) => r.url === '/api/v1/export/interventions');
-    expect(exportReq.request.method).toBe('GET');
-    exportReq.flush(
-      new Blob(['data'], {
-        type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
-      }),
-    );
-  });
-
   it('shows uploading indicator while in progress', () => {
     const fixture = TestBed.createComponent(ImportExportComponent);
     const component = fixture.componentInstance;
@@ -288,18 +250,5 @@ describe('ImportExportComponent', () => {
 
     const nativeEl = fixture.nativeElement as HTMLElement;
     expect(nativeEl.querySelector('.ie-status--error')?.textContent).toContain('Erreur');
-  });
-
-  it('toggleExport flips the checkbox state', () => {
-    const fixture = TestBed.createComponent(ImportExportComponent);
-    const component = fixture.componentInstance;
-    const req = httpMock.expectOne((r) => r.url === '/api/v1/import/historique');
-    req.flush(mockPage);
-
-    const initialVal = component.exportChecks()[0];
-    component.toggleExport(0);
-    expect(component.exportChecks()[0]).toBe(!initialVal);
-    component.toggleExport(0);
-    expect(component.exportChecks()[0]).toBe(initialVal);
   });
 });

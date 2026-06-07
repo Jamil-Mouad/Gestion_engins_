@@ -14,8 +14,9 @@ export class VehiculeService {
   private listCache = new Map<string, Observable<Page<Vehicule>>>();
   private detailCache = new Map<number, Observable<VehiculeDetail>>();
 
-  list(params?: { type?: VehiculeType; statut?: VehiculeStatut; q?: string; page?: number; size?: number }): Observable<Page<Vehicule>> {
+  list(params?: { type?: VehiculeType; statut?: VehiculeStatut; q?: string; page?: number; size?: number }, force = false): Observable<Page<Vehicule>> {
     const key = JSON.stringify(params ?? {});
+    if (force) this.listCache.delete(key);
     if (!this.listCache.has(key)) {
       let httpParams = new HttpParams();
       if (params?.type) httpParams = httpParams.set('type', params.type);
@@ -23,6 +24,7 @@ export class VehiculeService {
       if (params?.q) httpParams = httpParams.set('q', params.q);
       if (params?.page !== undefined) httpParams = httpParams.set('page', String(params.page));
       if (params?.size !== undefined) httpParams = httpParams.set('size', String(params.size));
+      if (force) httpParams = httpParams.set('_', Date.now().toString());
       this.listCache.set(key, this.http.get<Page<Vehicule>>(this.API, { params: httpParams }).pipe(
         tap({ error: () => this.listCache.delete(key) }),
         shareReplay({ bufferSize: 1, refCount: false }),
@@ -36,9 +38,11 @@ export class VehiculeService {
     this.detailCache.clear();
   }
 
-  get(id: number): Observable<VehiculeDetail> {
+  get(id: number, force = false): Observable<VehiculeDetail> {
+    if (force) this.detailCache.delete(id);
     if (!this.detailCache.has(id)) {
-      this.detailCache.set(id, this.http.get<VehiculeDetail>(`${this.API}/${id}`).pipe(
+      const httpParams = force ? new HttpParams().set('_', Date.now().toString()) : undefined;
+      this.detailCache.set(id, this.http.get<VehiculeDetail>(`${this.API}/${id}`, httpParams ? { params: httpParams } : {}).pipe(
         tap({ error: () => this.detailCache.delete(id) }),
         shareReplay({ bufferSize: 1, refCount: false }),
       ));
@@ -55,7 +59,13 @@ export class VehiculeService {
   }
 
   update(id: number, form: Partial<NewVehiculeForm>): Observable<Vehicule> {
-    return this.http.patch<Vehicule>(`${this.API}/${id}`, form).pipe(tap(() => this.invalidate()));
+    return this.http.put<Vehicule>(`${this.API}/${id}`, form).pipe(tap(() => this.invalidate()));
+  }
+
+  uploadPhoto(file: File): Observable<{ url: string; filename: string }> {
+    const formData = new FormData();
+    formData.append('file', file);
+    return this.http.post<{ url: string; filename: string }>('/api/v1/files/vehicule-photos', formData);
   }
 
   softDelete(id: number): Observable<void> {

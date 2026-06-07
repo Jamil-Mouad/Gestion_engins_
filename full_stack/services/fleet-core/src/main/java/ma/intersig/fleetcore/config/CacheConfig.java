@@ -16,6 +16,8 @@ public class CacheConfig {
         CaffeineCacheManager manager = new CaffeineCacheManager();
         manager.registerCustomCache("vehicules-page",
                 Caffeine.newBuilder().maximumSize(200).expireAfterWrite(60, TimeUnit.SECONDS).build());
+        manager.registerCustomCache("vehicules",
+                Caffeine.newBuilder().maximumSize(500).expireAfterWrite(60, TimeUnit.SECONDS).build());
         manager.registerCustomCache("composants-tree",
                 Caffeine.newBuilder().maximumSize(50).expireAfterWrite(10, TimeUnit.MINUTES).build());
         manager.registerCustomCache("kpis",

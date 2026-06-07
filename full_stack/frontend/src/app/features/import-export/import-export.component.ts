@@ -1,8 +1,7 @@
 import { Component, inject, signal, viewChild } from '@angular/core';
+import { FormsModule } from '@angular/forms';
 import { LucideAngularModule } from 'lucide-angular';
 import { ImportService } from './import.service';
-import { ExportService } from './export.service';
-import { ImportType } from '../../shared/models/import.model';
 import { ImportsHistorique } from '../../shared/models/import.model';
 import { DropzoneComponent } from './dropzone.component';
 import { HistoriqueImportsTableComponent } from './historique-imports-table.component';
@@ -14,6 +13,7 @@ import { CardComponent } from '../../shared/ui/card/card.component';
   selector: 'app-import-export',
   standalone: true,
   imports: [
+    FormsModule,
     LucideAngularModule,
     DropzoneComponent,
     HistoriqueImportsTableComponent,
@@ -24,12 +24,20 @@ import { CardComponent } from '../../shared/ui/card/card.component';
   template: `
     <div class="ie-page" style="animation: screenEnter 400ms ease both">
 
-      <app-page-header title="Import / Export" />
+      <app-page-header title="Import" />
 
       <div class="ie-content">
 
         <!-- ── Import card ────────────────────────────────── -->
         <app-card title="Import Excel">
+          <div class="ie-import-type">
+            <label class="ie-import-type-label" for="importEntiteSelect">Type de données</label>
+            <select id="importEntiteSelect" class="ie-select" [ngModel]="importEntite()" (ngModelChange)="importEntite.set($event)">
+              <option value="vehicules">Véhicules</option>
+              <option value="composants">Composants</option>
+            </select>
+          </div>
+
           <app-dropzone #dropzone (fileSelected)="onFileSelected($event)" />
 
           @if (uploading()) {
@@ -45,36 +53,6 @@ import { CardComponent } from '../../shared/ui/card/card.component';
               <span>{{ uploadError() }}</span>
             </div>
           }
-        </app-card>
-
-        <!-- ── Export card ────────────────────────────────── -->
-        <app-card title="Export données">
-          <div class="ie-export-section">
-            <div class="ie-export-label">Entités à exporter</div>
-            @for (item of exportItems; track item.key; let i = $index) {
-              <div class="ie-export-row" (click)="toggleExport(i)">
-                <div class="ie-checkbox" [class.ie-checkbox--checked]="exportChecks()[i]">
-                  @if (exportChecks()[i]) {
-                    <svg width="10" height="8" viewBox="0 0 10 8">
-                      <path d="M1 4L3.5 6.5L9 1" stroke="white" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
-                    </svg>
-                  }
-                </div>
-                <span class="ie-export-item-label">{{ item.label }}</span>
-              </div>
-            }
-          </div>
-
-          <div class="ie-export-actions">
-            <button class="btn-secondary" type="button" (click)="exportVehicules()">
-              <lucide-icon name="download" [size]="14" />
-              Exporter Excel
-            </button>
-            <button class="btn-primary" type="button" (click)="exportInterventions()">
-              <lucide-icon name="download" [size]="14" />
-              Exporter PDF
-            </button>
-          </div>
         </app-card>
 
         <!-- ── Historique ────────────────────────────────── -->
@@ -109,57 +87,35 @@ import { CardComponent } from '../../shared/ui/card/card.component';
     .ie-content {
       padding: 24px 32px 32px;
       display: grid;
-      grid-template-columns: 1fr 1fr;
+      grid-template-columns: 1fr;
       gap: 24px;
     }
 
-    /* ── Export ──────────────────────────── */
-    .ie-export-section {
-      margin-bottom: 20px;
+    /* ── Import type select ──────────────────────────── */
+    .ie-import-type {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      margin-bottom: 14px;
     }
-    .ie-export-label {
+    .ie-import-type-label {
       font-family: 'Montserrat', sans-serif;
       font-size: 11px;
       font-weight: 600;
       color: var(--color-text-muted, #6b7280);
       text-transform: uppercase;
       letter-spacing: 0.06em;
-      margin-bottom: 10px;
+      white-space: nowrap;
     }
-    .ie-export-row {
-      display: flex;
-      align-items: center;
-      gap: 12px;
-      padding: 9px 0;
-      border-bottom: 1px solid var(--color-border);
-      cursor: pointer;
-    }
-    .ie-export-row:hover { background: #f9fafb; }
-    .ie-checkbox {
-      width: 20px;
-      height: 20px;
-      border: 2px solid var(--color-border);
-      border-radius: 4px;
-      background: white;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      flex-shrink: 0;
-      transition: background 150ms, border-color 150ms;
-    }
-    .ie-checkbox--checked {
-      background: var(--color-primary);
-      border-color: var(--color-primary);
-    }
-    .ie-export-item-label {
+    .ie-select {
       font-family: 'Open Sans', sans-serif;
-      font-size: 14px;
-      color: #1f2937;
-    }
-    .ie-export-actions {
-      display: flex;
-      gap: 10px;
-      margin-top: 16px;
+      font-size: 13px;
+      padding: 6px 10px;
+      border-radius: 6px;
+      border: 1px solid var(--color-border);
+      background: var(--color-surface, #fff);
+      color: var(--color-text, #111);
+      cursor: pointer;
     }
 
     /* ── Historique ────────────────────────── */
@@ -208,49 +164,13 @@ import { CardComponent } from '../../shared/ui/card/card.component';
       flex-shrink: 0;
     }
 
-    /* ── Buttons ─────────────────────────────── */
-    .btn-primary {
-      display: inline-flex;
-      align-items: center;
-      gap: 6px;
-      font-family: 'Montserrat', sans-serif;
-      font-size: 13px;
-      font-weight: 600;
-      padding: 8px 18px;
-      border-radius: 8px;
-      border: 1px solid var(--color-primary);
-      background: var(--color-primary);
-      color: #fff;
-      cursor: pointer;
-      transition: opacity 0.15s;
-    }
-    .btn-primary:hover { opacity: 0.9; }
-    .btn-secondary {
-      display: inline-flex;
-      align-items: center;
-      gap: 6px;
-      font-family: 'Montserrat', sans-serif;
-      font-size: 13px;
-      font-weight: 600;
-      padding: 8px 18px;
-      border-radius: 8px;
-      border: 1px solid var(--color-border);
-      background: var(--color-surface, #fff);
-      color: var(--color-text, #111);
-      cursor: pointer;
-      transition: background 0.15s;
-    }
-    .btn-secondary:hover { background: #f5f5f5; }
-
     @media (max-width: 768px) {
-      .ie-content { grid-template-columns: 1fr; }
       .ie-hist-wrap { grid-column: auto; }
     }
   `],
 })
 export class ImportExportComponent {
   private importService = inject(ImportService);
-  private exportService = inject(ExportService);
 
   dropzone = viewChild<DropzoneComponent>('dropzone');
 
@@ -259,22 +179,10 @@ export class ImportExportComponent {
   uploading = signal(false);
   uploadError = signal('');
 
-  exportItems = [
-    { key: 'vehicules', label: 'Véhicules' },
-    { key: 'interventions', label: 'Interventions' },
-    { key: 'composants', label: 'Composants' },
-    { key: 'pneus', label: 'Pneus' },
-    { key: 'vidanges', label: 'Vidanges' },
-    { key: 'kpis', label: 'KPIs' },
-  ];
-  exportChecks = signal<boolean[]>([true, true, false, false, true, false]);
+  importEntite = signal<'vehicules' | 'composants'>('vehicules');
 
   constructor() {
     this.loadHistorique();
-  }
-
-  toggleExport(index: number): void {
-    this.exportChecks.update(checks => checks.map((v, i) => (i === index ? !v : v)));
   }
 
   loadHistorique(): void {
@@ -291,7 +199,7 @@ export class ImportExportComponent {
   onFileSelected(file: File): void {
     this.uploading.set(true);
     this.uploadError.set('');
-    this.importService.uploadExcel(file, 'excel_general' as ImportType).subscribe({
+    this.importService.uploadExcel(file, this.importEntite()).subscribe({
       next: (preview) => {
         this.uploading.set(false);
         this.dropzone()?.showPreview(preview);
@@ -305,34 +213,4 @@ export class ImportExportComponent {
     });
   }
 
-  exportVehicules(): void {
-    this.exportService.exportVehicules({}).subscribe({
-      next: (blob) => this.downloadBlob(blob, 'vehicules.xlsx'),
-      error: () => {
-        this.uploadError.set("Erreur lors de l'export des véhicules.");
-      },
-    });
-  }
-
-  exportInterventions(): void {
-    this.exportService.exportInterventions({}).subscribe({
-      next: (blob) => this.downloadBlob(blob, 'interventions.xlsx'),
-      error: () => {
-        this.uploadError.set("Erreur lors de l'export des interventions.");
-      },
-    });
-  }
-
-  private downloadBlob(blob: Blob, filename: string): void {
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = filename;
-    document.body.appendChild(a);
-    a.click();
-    setTimeout(() => {
-      a.remove();
-      URL.revokeObjectURL(url);
-    }, 0);
-  }
 }

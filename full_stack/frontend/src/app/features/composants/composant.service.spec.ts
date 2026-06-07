@@ -42,6 +42,7 @@ describe('ComposantService', () => {
     prixUnitaire: 5000,
     stock: 10,
     actif: true,
+    imageUrl: null,
     creePar: { id: 1, prenom: 'Admin', nom: 'System' },
   };
 

@@ -1,6 +1,9 @@
-import { Component, Input, inject, signal, ChangeDetectionStrategy, DestroyRef, OnChanges } from '@angular/core';
+import { Component, Input, inject, signal, ChangeDetectionStrategy, OnChanges } from '@angular/core';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { CommonModule } from '@angular/common';
+import { Subject } from 'rxjs';
+import { switchMap, catchError } from 'rxjs/operators';
+import { of } from 'rxjs';
 import { PneuService } from '../../pneu.service';
 import { PneuInspection } from '../../../../shared/models/pneu.model';
 import { DateFrPipe } from '../../../../shared/pipes/date-fr.pipe';
@@ -46,15 +49,20 @@ import { EmptyStateComponent } from '../../../../shared/ui/empty-state/empty-sta
 })
 export class PneuHistoriqueTabComponent implements OnChanges {
   private pneuService = inject(PneuService);
-  private destroyRef = inject(DestroyRef);
 
   @Input({ required: true }) pneuId!: number;
   inspections = signal<PneuInspection[]>([]);
 
+  private pneuId$ = new Subject<number>();
+
+  constructor() {
+    this.pneuId$.pipe(
+      switchMap(id => this.pneuService.getInspections(id).pipe(catchError(() => of([])))),
+      takeUntilDestroyed(),
+    ).subscribe(data => this.inspections.set(data));
+  }
+
   ngOnChanges(): void {
-    this.pneuService.getInspections(this.pneuId).pipe(takeUntilDestroyed(this.destroyRef)).subscribe({
-      next: (data) => this.inspections.set(data),
-      error: () => this.inspections.set([]),
-    });
+    this.pneuId$.next(this.pneuId);
   }
 }

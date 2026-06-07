@@ -6,6 +6,8 @@ import org.slf4j.LoggerFactory;
 import org.springframework.mail.MailException;
 import org.springframework.mail.SimpleMailMessage;
 import org.springframework.mail.javamail.JavaMailSender;
+
+import java.time.OffsetDateTime;
 import org.springframework.stereotype.Component;
 import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
@@ -37,6 +39,7 @@ public class NotificationEmailListener {
             notificationRepository.findById(event.notificationId())
                     .ifPresent(n -> {
                         n.setEmailEnvoye(true);
+                        n.setEmailSentAt(OffsetDateTime.now());
                         notificationRepository.save(n);
                     });
         } catch (MailException e) {

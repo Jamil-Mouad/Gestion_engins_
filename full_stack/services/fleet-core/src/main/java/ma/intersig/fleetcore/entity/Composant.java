@@ -34,6 +34,13 @@ public class Composant {
     @Column(name = "prix_unitaire", precision = 10, scale = 2)
     private BigDecimal prixUnitaire;
 
+    @Column(name = "image_url", length = 500)
+    private String imageUrl;
+
+    // NULL = shared baseline (visible for all types); a value scopes the node to that vehicle type.
+    @Column(name = "vehicule_type", length = 30)
+    private String vehiculeType;
+
     @Column(columnDefinition = "INTEGER DEFAULT 0")
     private Integer stock;
 
@@ -72,6 +79,10 @@ public class Composant {
     public void setMarque(String marque) { this.marque = marque; }
     public BigDecimal getPrixUnitaire() { return prixUnitaire; }
     public void setPrixUnitaire(BigDecimal prixUnitaire) { this.prixUnitaire = prixUnitaire; }
+    public String getImageUrl() { return imageUrl; }
+    public void setImageUrl(String imageUrl) { this.imageUrl = imageUrl; }
+    public String getVehiculeType() { return vehiculeType; }
+    public void setVehiculeType(String vehiculeType) { this.vehiculeType = vehiculeType; }
     public Integer getStock() { return stock; }
     public void setStock(Integer stock) { this.stock = stock; }
     public Boolean getActif() { return actif; }

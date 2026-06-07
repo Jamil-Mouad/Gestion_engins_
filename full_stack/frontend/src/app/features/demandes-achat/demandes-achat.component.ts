@@ -1,125 +1,221 @@
 import { Component, inject, signal, computed } from '@angular/core';
+import { LucideAngularModule } from 'lucide-angular';
 import { DemandeAchatService } from './demande-achat.service';
 import { DemandeAchat, DemandeStatut } from '../../shared/models/demande-achat.model';
+import { ColumnDef, ColumnManagerModalComponent } from '../vehicules/list/column-manager-modal.component';
 import {
   PageHeaderComponent,
   FilterChipComponent,
   DataTableHeaderComponent,
   DataTableRowComponent,
   RequestStatusBadgeComponent,
-  UrgencyBadgeComponent,
   SkeletonComponent,
   EmptyStateComponent,
+  ImageLightboxComponent,
+  ExportExcelModalComponent,
 } from '../../shared/ui';
+import { NewDemandeModalComponent } from './new-demande-modal.component';
+import { exportToXlsx } from '../../shared/utils/export-xlsx';
+
+// ── Column configuration ──────────────────────────────────────────────────────
+
+const DA_COL_DEFS: ColumnDef[] = [
+  { id: 'id',        label: 'ID',        flex: 1   },
+  { id: 'date',      label: 'Date',      flex: 0.9 },
+  { id: 'demandeur', label: 'Demandeur', flex: 1.3 },
+  { id: 'piece',     label: 'Pièce',     flex: 2   },
+  { id: 'reference', label: 'Réf.',      flex: 1   },
+  { id: 'quantite',  label: 'Qté',       flex: 0.6 },
+  { id: 'photo',     label: 'Image',     flex: 0.6 },
+  { id: 'statut',    label: 'Statut',    flex: 1   },
+];
+/** Actions column is always pinned — never shown in the column manager. */
+const DA_ACTION_COL: ColumnDef = { id: 'action', label: 'Actions', flex: 1.2 };
+const DA_DEFAULT_COL_IDS = ['id', 'date', 'demandeur', 'piece', 'reference', 'quantite', 'photo', 'statut'];
+const DA_LS_KEY = 'fleet.demandes-achat.columns';
+
+function loadDaColIds(): string[] {
+  try {
+    const v = localStorage.getItem(DA_LS_KEY);
+    return v ? JSON.parse(v) : DA_DEFAULT_COL_IDS;
+  } catch {
+    return DA_DEFAULT_COL_IDS;
+  }
+}
 
 @Component({
   selector: 'app-demandes-achat',
   standalone: true,
   imports: [
+    LucideAngularModule,
     PageHeaderComponent,
     FilterChipComponent,
     DataTableHeaderComponent,
     DataTableRowComponent,
     RequestStatusBadgeComponent,
-    UrgencyBadgeComponent,
     SkeletonComponent,
     EmptyStateComponent,
+    NewDemandeModalComponent,
+    ColumnManagerModalComponent,
+    ImageLightboxComponent,
+    ExportExcelModalComponent,
   ],
   template: `
-    <div class="page">
+    <div class="da-page">
       <!-- Page header -->
       <app-page-header title="Demandes d'achat" [count]="nouvelles()">
-        <button class="da-btn-primary" (click)="showNewDemande.set(true)">
+        <button class="btn-primary" (click)="showNewDemande.set(true)" type="button">
           + Nouvelle demande
         </button>
       </app-page-header>
 
       @if (actionError()) {
-        <div class="demandes__error">{{ actionError() }}</div>
+        <div class="da-error">{{ actionError() }}</div>
       }
 
-      <!-- Toolbar: filter chips + search -->
-      <div class="da-toolbar">
-        <div class="da-filter-row">
-          <span class="da-filter-label">Statut :</span>
-          @for (tab of tabs; track tab.value) {
-            <app-filter-chip
-              class="demandes__tab"
-              [label]="tab.label"
-              [active]="activeTab() === tab.value"
-              (clicked)="filterByTab(tab.value)" />
-          }
-        </div>
-        <input
-          class="da-search"
-          type="search"
-          placeholder="Rechercher une demande…"
-          [value]="searchQuery()"
-          (input)="searchQuery.set($any($event.target).value)" />
-      </div>
+      <div class="da-content">
 
-      <!-- Table area -->
-      <div class="da-table-wrap">
-        <div class="da-table-card">
-          <app-data-table-header [cols]="tableCols" />
+        <!-- Filter card: search + status chips -->
+        <div class="filter-card">
+          <div class="filter-row">
+            <div class="search-wrap">
+              <lucide-icon name="search" class="search-icon" [size]="15" />
+              <input
+                class="search-input"
+                placeholder="Rechercher une demande…"
+                [value]="searchQuery()"
+                (input)="searchQuery.set($any($event.target).value)" />
+            </div>
+            <span class="filter-label">Statut :</span>
+            @for (tab of tabs; track tab.value) {
+              <app-filter-chip
+                [label]="tab.label"
+                [active]="activeTab() === tab.value"
+                (clicked)="filterByTab(tab.value)" />
+            }
+          </div>
+        </div>
+
+        <!-- Table -->
+        <div class="table-wrap">
+          <app-data-table-header [cols]="visibleCols()" />
 
           @if (loading()) {
             <app-skeleton [rows]="5" height="52px" />
           } @else if (filteredDemandes().length === 0) {
-            <div class="demandes__empty">Aucune demande d'achat trouvée.</div>
+            <app-empty-state icon="🛒" message="Aucune demande d'achat trouvée." />
           } @else {
             @for (d of filteredDemandes(); track d.id; let i = $index) {
               <app-data-table-row [idx]="i" [clickable]="false">
+                @for (col of visibleCols(); track col.id) {
+                  @switch (col.id) {
 
-                <!-- N° Demande -->
-                <div class="dtr-cell" style="flex:1">
-                  <span class="da-code-chip">{{ d.code }}</span>
-                </div>
+                    @case ('id') {
+                      <div class="td" [style.flex]="col.flex">
+                        <span class="da-code-chip">{{ d.code }}</span>
+                      </div>
+                    }
 
-                <!-- Désignation article -->
-                <div class="dtr-cell" style="flex:2">
-                  {{ d.composant?.designation ?? d.pieceLibre ?? '—' }}
-                </div>
+                    @case ('date') {
+                      <div class="td td--mono" [style.flex]="col.flex">
+                        {{ formatDate(d.dateDemande) }}
+                      </div>
+                    }
 
-                <!-- Quantité -->
-                <div class="dtr-cell dtr-cell--mono dtr-cell--sm" style="flex:0.6">
-                  {{ d.quantite }}
-                </div>
+                    @case ('demandeur') {
+                      <div class="td" [style.flex]="col.flex">
+                        {{ d.demandeurNom ?? (d.demandeur.prenom + ' ' + d.demandeur.nom) }}
+                      </div>
+                    }
 
-                <!-- Date demande -->
-                <div class="dtr-cell dtr-cell--mono dtr-cell--sm da-cell-muted" style="flex:0.9">
-                  {{ formatDate(d.dateDemande) }}
-                </div>
+                    @case ('piece') {
+                      <div class="td" [style.flex]="col.flex">
+                        {{ d.composant?.designation ?? d.pieceLibre ?? '—' }}
+                      </div>
+                    }
 
-                <!-- Urgence -->
-                <div class="dtr-cell" style="flex:0.8">
-                  <app-urgency-badge [level]="toUrgencyLevel(d.urgence)" />
-                </div>
+                    @case ('reference') {
+                      <div class="td td--mono" [style.flex]="col.flex">
+                        {{ d.reference ?? '—' }}
+                      </div>
+                    }
 
-                <!-- Statut -->
-                <div class="dtr-cell" style="flex:1">
-                  <app-request-status-badge [status]="toRequestStatus(d.statut)" />
-                </div>
+                    @case ('quantite') {
+                      <div class="td td--mono" [style.flex]="col.flex">
+                        {{ d.quantite }}
+                      </div>
+                    }
 
-                <!-- Actions -->
-                <div class="dtr-cell demandes__actions" style="flex:1.2">
-                  @if (d.statut === 'Nouvelle') {
-                    <button class="demandes__action-btn demandes__action-btn--approve" (click)="approuver(d.id)">Approuver</button>
-                    <button class="demandes__action-btn demandes__action-btn--reject" (click)="rejeter(d.id)">Rejeter</button>
+                    @case ('photo') {
+                      <div class="td td--photo" [style.flex]="col.flex">
+                        <app-image-lightbox [src]="d.photoUrl" />
+                      </div>
+                    }
+
+                    @case ('statut') {
+                      <div class="td" [style.flex]="col.flex">
+                        <app-request-status-badge [status]="toRequestStatus(d.statut)" />
+                      </div>
+                    }
+
+                    @case ('action') {
+                      <div class="td da-actions" [style.flex]="col.flex">
+                        @if (d.statut === 'Nouvelle') {
+                          <button class="da-btn da-btn--approve" (click)="approuver(d.id)">Approuver</button>
+                          <button class="da-btn da-btn--reject"  (click)="rejeter(d.id)">Rejeter</button>
+                        }
+                        @if (d.statut === 'Approuvée') {
+                          <button class="da-btn da-btn--close" (click)="cloturer(d.id)">Clôturer</button>
+                        }
+                        @if (d.statut !== 'Nouvelle' && d.statut !== 'Approuvée') {
+                          <span class="da-no-action">—</span>
+                        }
+                      </div>
+                    }
+
                   }
-                  @if (d.statut === 'Approuvée') {
-                    <button class="demandes__action-btn demandes__action-btn--close" (click)="cloturer(d.id)">Clôturer</button>
-                  }
-                  @if (d.statut !== 'Nouvelle' && d.statut !== 'Approuvée') {
-                    <span class="da-no-action">—</span>
-                  }
-                </div>
-
+                }
               </app-data-table-row>
             }
           }
         </div>
+
+        <!-- Footer toolbar -->
+        <div class="table-footer">
+          <div class="table-actions">
+            <button class="btn-export" (click)="openExportModal()" type="button" title="Exporter en Excel">
+              <lucide-icon name="download" [size]="14" />
+              Export Excel
+            </button>
+            <button class="btn-settings" type="button" title="Gérer les colonnes" (click)="showColManager.set(true)">
+              <lucide-icon name="settings" [size]="15" />
+            </button>
+          </div>
+        </div>
+
       </div>
+
+      @if (showColManager()) {
+        <app-column-manager-modal
+          [allColumnDefs]="daColumnDefs"
+          [defaultVisibleIds]="daDefaultColIds"
+          [currentVisible]="visibleColIds()"
+          (applied)="onColumnsApplied($event)"
+          (cancel)="showColManager.set(false)" />
+      }
+
+      @if (showNewDemande()) {
+        <app-new-demande-modal (saved)="onDemandeCreated()" (close)="showNewDemande.set(false)" />
+      }
+
+      @if (showExportModal()) {
+        <app-export-excel-modal
+          [allColumns]="daColumnDefs"
+          [initialVisible]="visibleColIds()"
+          [filterSummary]="exportFilterSummary()"
+          (exported)="onExportConfirmed($event)"
+          (cancel)="showExportModal.set(false)" />
+      }
     </div>
   `,
   styles: [`
@@ -128,97 +224,121 @@ import {
       to   { opacity: 1; transform: translateY(0); }
     }
 
-    .page {
+    .da-page {
       min-height: calc(100vh - 72px);
       background: #F5F5F5;
       animation: screenEnter 260ms ease-out both;
     }
 
-    /* Toolbar */
-    .da-toolbar {
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-      padding: 12px 32px;
-      background: var(--color-surface);
-      border-bottom: 1px solid var(--color-border);
-      gap: 16px;
-      flex-wrap: wrap;
+    .da-content { padding: 20px 32px 32px; }
+
+    /* Error banner */
+    .da-error {
+      font-family: 'Open Sans', sans-serif;
+      font-size: 13px;
+      color: var(--color-danger, #EF4444);
+      background: rgba(239,68,68,0.08);
+      border-radius: var(--radius-sm, 6px);
+      padding: 8px 16px;
+      margin: 12px 32px 0;
     }
 
-    /* Filter row */
-    .da-filter-row {
+    /* Primary button */
+    .btn-primary {
+      height: 36px;
+      padding: 0 16px;
+      border-radius: 8px;
+      border: none;
+      background: var(--color-primary, #E87722);
+      color: #fff;
+      font-family: 'Open Sans', sans-serif;
+      font-size: 13px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: opacity 0.15s;
+      white-space: nowrap;
+    }
+    .btn-primary:hover { opacity: 0.9; }
+
+    /* Filter card */
+    .filter-card {
+      background: white;
+      border-radius: 12px;
+      border: 1px solid var(--color-border);
+      margin-bottom: 20px;
+      overflow: hidden;
+    }
+    .filter-row {
       display: flex;
       align-items: center;
       gap: 10px;
       flex-wrap: wrap;
+      padding: 14px 20px;
     }
-    .da-filter-label {
+    .filter-label {
       font-family: 'Open Sans', sans-serif;
       font-size: 13px;
-      font-weight: 600;
-      color: var(--color-text-muted);
+      color: #6B7280;
       flex-shrink: 0;
     }
 
-    /* Search input */
-    .da-search {
-      font-family: 'Open Sans', sans-serif;
-      font-size: 13px;
-      padding: 7px 12px;
+    /* Search */
+    .search-wrap { position: relative; display: inline-flex; align-items: center; }
+    .search-icon { position: absolute; left: 10px; color: #9CA3AF; pointer-events: none; }
+    .search-input {
+      height: 36px;
+      padding: 0 12px 0 36px;
       border: 1px solid var(--color-border);
       border-radius: 8px;
-      background: #FAFAFA;
-      color: var(--color-text);
-      outline: none;
-      min-width: 220px;
-      transition: border-color 0.15s;
-    }
-    .da-search:focus { border-color: var(--color-primary); }
-
-    /* Table container */
-    .da-table-wrap {
-      padding: 24px 32px 32px;
-    }
-    .da-table-card {
-      background: var(--color-surface);
-      border-radius: 12px;
-      border: 1px solid var(--color-border);
-      box-shadow: 0 1px 4px rgba(0,0,0,0.06);
-      overflow: hidden;
-    }
-
-    /* Primary button */
-    .da-btn-primary {
       font-family: 'Open Sans', sans-serif;
       font-size: 13px;
-      font-weight: 600;
-      padding: 8px 20px;
-      border-radius: var(--radius-sm);
-      border: none;
-      background: var(--color-primary);
-      color: #fff;
-      cursor: pointer;
-      transition: opacity 0.15s;
+      color: var(--color-text);
+      background: var(--color-surface);
+      outline: none;
+      min-width: 220px;
     }
-    .da-btn-primary:hover { opacity: 0.9; }
+    .search-input:focus { border-color: var(--color-primary); }
 
-    /* Code chip */
+    /* Table */
+    .table-wrap {
+      background: white;
+      border-radius: 12px;
+      border: 1px solid var(--color-border);
+      box-shadow: 0 1px 2px rgba(17,24,39,.06);
+      overflow: hidden;
+      margin-bottom: 16px;
+    }
+
+    /* Table cells */
+    .td {
+      display: flex;
+      align-items: center;
+      height: 52px;
+      padding: 0 16px;
+      font-family: 'Open Sans', sans-serif;
+      font-size: 13px;
+      color: #374151;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+    .td--mono { font-family: 'JetBrains Mono', monospace; font-size: 12px; color: #6B7280; }
+    .td--photo { overflow: visible; }
+
+    /* Code chip (ID column) */
     .da-code-chip {
       font-family: 'JetBrains Mono', monospace;
       font-size: 12px;
       font-weight: 700;
       color: var(--color-primary);
-      background: rgba(var(--color-primary-rgb, 37,99,235), 0.08);
+      background: rgba(232,119,34, 0.10);
       padding: 2px 8px;
       border-radius: 6px;
     }
 
-    .da-cell-muted { color: var(--color-text-muted); }
-
-    /* Actions */
-    .demandes__actions { display: flex; gap: 6px; align-items: center; }
-    .demandes__action-btn {
+    /* Actions cell */
+    .da-actions { display: flex; gap: 6px; align-items: center; }
+    .da-btn {
       font-family: 'Open Sans', sans-serif;
       font-size: 11px;
       font-weight: 700;
@@ -227,45 +347,92 @@ import {
       border: none;
       cursor: pointer;
       transition: opacity 0.15s;
+      white-space: nowrap;
     }
-    .demandes__action-btn--approve { background: #D1FAE5; color: #065F46; }
-    .demandes__action-btn--reject  { background: #FEE2E2; color: #991B1B; }
-    .demandes__action-btn--close   { background: #E0F2FE; color: #0369A1; }
-    .demandes__action-btn:hover { opacity: 0.8; }
-    .da-no-action { font-family: 'Open Sans', sans-serif; font-size: 12px; color: var(--color-text-muted); font-style: italic; }
-
-    /* Empty state */
-    .demandes__empty {
+    .da-btn--approve { background: #D1FAE5; color: #065F46; }
+    .da-btn--reject  { background: #FEE2E2; color: #991B1B; }
+    .da-btn--close   { background: #E0F2FE; color: #0369A1; }
+    .da-btn:hover { opacity: 0.8; }
+    .da-no-action {
       font-family: 'Open Sans', sans-serif;
-      font-size: 14px;
-      color: var(--color-text-muted);
-      text-align: center;
-      padding: 48px 0;
+      font-size: 12px;
+      color: #9CA3AF;
     }
 
-    /* Error banner */
-    .demandes__error {
-      font-family: 'Open Sans', sans-serif;
+    /* Footer toolbar */
+    .table-footer {
+      display: flex;
+      align-items: center;
+      justify-content: flex-end;
+      padding: 4px 0;
+    }
+    .table-actions { display: flex; align-items: center; gap: 8px; }
+    .btn-export {
+      height: 34px;
+      padding: 0 14px;
+      background: white;
+      border: 1px solid var(--color-border);
+      border-radius: 8px;
+      font-family: 'Montserrat', sans-serif;
       font-size: 13px;
-      color: var(--color-danger);
-      background: rgba(239,68,68,0.08);
-      border-radius: var(--radius-sm);
-      padding: 8px 16px;
-      margin: 12px 32px 0;
+      font-weight: 600;
+      color: #374151;
+      cursor: pointer;
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
     }
+    .btn-export:hover { border-color: var(--color-primary); color: var(--color-primary); }
+    .btn-settings {
+      height: 34px;
+      padding: 0 10px;
+      border: 1px solid var(--color-border);
+      border-radius: 8px;
+      background: var(--color-surface);
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      color: var(--color-text-muted);
+    }
+    .btn-settings:hover { background: #F9FAFB; color: var(--color-text); }
   `],
 })
 export class DemandesAchatComponent {
   private demandeService = inject(DemandeAchatService);
 
+  // ── Data signals ──────────────────────────────────────────────────────────
   demandes = signal<DemandeAchat[]>([]);
-  loading = signal(true);
-  activeTab = signal<DemandeStatut | 'all'>('all');
-  statusFilter = signal('all');
-  searchQuery = signal('');
-  showNewDemande = signal(false);
+  loading  = signal(true);
   actionError = signal<string | null>(null);
 
+  // ── Filter signals ────────────────────────────────────────────────────────
+  activeTab   = signal<DemandeStatut | 'all'>('all');
+  searchQuery = signal('');
+
+  // ── Modals ────────────────────────────────────────────────────────────────
+  showNewDemande = signal(false);
+
+  // ── Dynamic columns ───────────────────────────────────────────────────────
+  readonly daColumnDefs    = DA_COL_DEFS;
+  readonly daDefaultColIds = DA_DEFAULT_COL_IDS;
+  visibleColIds = signal<string[]>(loadDaColIds());
+  /** Always appends the pinned action column at the end. */
+  visibleCols = computed<ColumnDef[]>(() => {
+    const byId = new Map(DA_COL_DEFS.map(c => [c.id, c]));
+    const cols = this.visibleColIds().map(id => byId.get(id)!).filter(Boolean);
+    return [...cols, DA_ACTION_COL];
+  });
+  showColManager = signal(false);
+  showExportModal = signal(false);
+
+  exportFilterSummary = computed(() => {
+    const parts: string[] = [];
+    if (this.activeTab() !== 'all') parts.push(`Statut: ${this.activeTab()}`);
+    if (this.searchQuery().trim()) parts.push(`Recherche: "${this.searchQuery().trim()}"`);
+    return parts.length ? parts.join(' | ') : 'Aucun filtre actif';
+  });
+
+  // ── Derived ───────────────────────────────────────────────────────────────
   nouvelles = computed(() => this.demandes().filter(d => d.statut === 'Nouvelle').length);
 
   filteredDemandes = computed(() => {
@@ -276,20 +443,11 @@ export class DemandesAchatComponent {
       return (
         d.code.toLowerCase().includes(q) ||
         designation.toLowerCase().includes(q) ||
-        `${d.demandeur.prenom} ${d.demandeur.nom}`.toLowerCase().includes(q)
+        `${d.demandeur.prenom} ${d.demandeur.nom}`.toLowerCase().includes(q) ||
+        (d.demandeurNom ?? '').toLowerCase().includes(q)
       );
     });
   });
-
-  tableCols = [
-    { label: 'N° Demande',        flex: 1   },
-    { label: 'Désignation article', flex: 2  },
-    { label: 'Quantité',           flex: 0.6 },
-    { label: 'Date demande',       flex: 0.9 },
-    { label: 'Urgence',            flex: 0.8 },
-    { label: 'Statut',             flex: 1   },
-    { label: 'Actions',            flex: 1.2 },
-  ];
 
   tabs = [
     { label: 'Toutes',     value: 'all'        as const },
@@ -303,6 +461,7 @@ export class DemandesAchatComponent {
     this.loadDemandes();
   }
 
+  // ── Data loading ──────────────────────────────────────────────────────────
   loadDemandes(): void {
     this.loading.set(true);
     const params = this.activeTab() !== 'all' ? { statut: this.activeTab() as DemandeStatut } : {};
@@ -317,6 +476,7 @@ export class DemandesAchatComponent {
     this.loadDemandes();
   }
 
+  // ── Actions ───────────────────────────────────────────────────────────────
   approuver(id: number): void {
     this.demandeService.approuver(id).subscribe({
       next: () => { this.actionError.set(null); this.loadDemandes(); },
@@ -339,34 +499,48 @@ export class DemandesAchatComponent {
     });
   }
 
-  // Kept for backward-compat with existing specs
-  getUrgenceVariant(urgence: string | null): string {
-    switch (urgence) {
-      case 'Haute':   return 'danger';
-      case 'Moyenne': return 'warning';
-      case 'Basse':   return 'info';
-      default:        return 'neutral';
-    }
+  onDemandeCreated(): void {
+    this.showNewDemande.set(false);
+    this.loadDemandes();
   }
 
-  getStatutVariant(statut: string): string {
-    switch (statut) {
-      case 'Nouvelle':  return 'info';
-      case 'Approuvée': return 'success';
-      case 'Rejetée':   return 'danger';
-      case 'Clôturée':  return 'neutral';
-      default:          return 'neutral';
-    }
+  // ── Column management ─────────────────────────────────────────────────────
+  onColumnsApplied(ids: string[]): void {
+    this.visibleColIds.set(ids);
+    try { localStorage.setItem(DA_LS_KEY, JSON.stringify(ids)); } catch {}
+    this.showColManager.set(false);
   }
 
-  toUrgencyLevel(urgence: string | null): 'haute' | 'moyenne' | 'basse' {
-    switch (urgence) {
-      case 'Haute':   return 'haute';
-      case 'Moyenne': return 'moyenne';
-      default:        return 'basse';
-    }
+  // ── Export ────────────────────────────────────────────────────────────────
+  openExportModal(): void {
+    this.showExportModal.set(true);
   }
 
+  onExportConfirmed(colIds: string[]): void {
+    this.showExportModal.set(false);
+    const colDefs = colIds
+      .map(id => DA_COL_DEFS.find(c => c.id === id))
+      .filter((c): c is ColumnDef => !!c && c.id !== 'photo');
+
+    const rows = this.filteredDemandes().map(d => {
+      const row: Record<string, unknown> = {};
+      for (const col of colDefs) {
+        switch (col.id) {
+          case 'id':        row[col.id] = d.code; break;
+          case 'date':      row[col.id] = this.formatDate(d.dateDemande); break;
+          case 'demandeur': row[col.id] = d.demandeurNom ?? `${d.demandeur.prenom} ${d.demandeur.nom}`; break;
+          case 'piece':     row[col.id] = d.composant?.designation ?? d.pieceLibre ?? ''; break;
+          case 'reference': row[col.id] = d.reference ?? ''; break;
+          case 'quantite':  row[col.id] = d.quantite; break;
+          case 'statut':    row[col.id] = d.statut; break;
+        }
+      }
+      return row;
+    });
+    exportToXlsx(rows, colDefs, 'demandes-achat.xlsx');
+  }
+
+  // ── Helpers ───────────────────────────────────────────────────────────────
   toRequestStatus(statut: string): 'nouvelle' | 'approuvee' | 'rejetee' | 'cloturee' {
     switch (statut) {
       case 'Nouvelle':  return 'nouvelle';
@@ -379,7 +553,8 @@ export class DemandesAchatComponent {
 
   formatDate(dateStr: string): string {
     if (!dateStr) return '—';
-    const parts = dateStr.split('-');
+    const datePart = dateStr.slice(0, 10);
+    const parts = datePart.split('-');
     if (parts.length === 3) return `${parts[2]}/${parts[1]}/${parts[0]}`;
     return dateStr;
   }

@@ -32,7 +32,7 @@ public class DemandeAchatController {
             @RequestParam(required = false) String statut,
             @RequestParam(required = false) String urgence,
             @RequestParam(required = false) String q,
-            @PageableDefault(size = 20) Pageable pageable) {
+            @PageableDefault(size = 20, sort = "dateDemande", direction = org.springframework.data.domain.Sort.Direction.DESC) Pageable pageable) {
         return ResponseEntity.ok(demandeAchatService.list(statut, urgence, q, pageable));
     }
 

@@ -54,7 +54,7 @@ class InterventionControllerTest {
         Long vehiculeId = createTestVehicule();
         Map<String, Object> body = Map.of(
                 "vehiculeId", vehiculeId,
-                "typeId", 1,
+                "typeInterventionId", 1,
                 "categorie", "corrective",
                 "dateDebut", "2026-05-05T08:00:00Z",
                 "coutPieces", 1500.00,
@@ -80,7 +80,7 @@ class InterventionControllerTest {
         Long vehiculeId = createTestVehicule();
         Map<String, Object> body = Map.of(
                 "vehiculeId", vehiculeId,
-                "typeId", 1,
+                "typeInterventionId", 1,
                 "categorie", "preventive",
                 "dateDebut", "2026-05-01T08:00:00Z",
                 "coutPieces", 500.00,
@@ -115,7 +115,7 @@ class InterventionControllerTest {
 
         Map<String, Object> corrective = Map.of(
                 "vehiculeId", vehiculeId,
-                "typeId", 1,
+                "typeInterventionId", 1,
                 "categorie", "corrective",
                 "dateDebut", "2026-05-01T08:00:00Z",
                 "coutPieces", 100.00,
@@ -125,7 +125,7 @@ class InterventionControllerTest {
 
         Map<String, Object> preventive = Map.of(
                 "vehiculeId", vehiculeId,
-                "typeId", 1,
+                "typeInterventionId", 1,
                 "categorie", "preventive",
                 "dateDebut", "2026-05-02T08:00:00Z",
                 "coutPieces", 200.00,

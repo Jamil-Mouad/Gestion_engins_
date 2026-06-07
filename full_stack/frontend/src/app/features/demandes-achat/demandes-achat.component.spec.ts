@@ -2,6 +2,7 @@ import { TestBed } from '@angular/core/testing';
 import { provideHttpClient } from '@angular/common/http';
 import { provideHttpClientTesting, HttpTestingController } from '@angular/common/http/testing';
 import { provideRouter } from '@angular/router';
+import { LucideAngularModule, Search, Download, Settings, GripVertical } from 'lucide-angular';
 
 import { DemandesAchatComponent } from './demandes-achat.component';
 import { DemandeAchat, DemandeStatut } from '../../shared/models/demande-achat.model';
@@ -22,7 +23,6 @@ describe('DemandesAchatComponent', () => {
       quantite: 5,
       motif: 'Stock bas',
       urgence: 'Haute',
-      fournisseur: null,
       statut: 'Nouvelle',
       approbateur: null,
       dateApprobation: null,
@@ -30,6 +30,8 @@ describe('DemandesAchatComponent', () => {
       bonCommandeUrl: null,
       createdAt: '2026-05-10T08:00:00Z',
       updatedAt: '2026-05-10T08:00:00Z',
+      demandeurNom: null,
+      photoUrl: null,
     },
     {
       id: 2,
@@ -42,7 +44,6 @@ describe('DemandesAchatComponent', () => {
       quantite: 20,
       motif: 'Remplacement',
       urgence: 'Moyenne',
-      fournisseur: null,
       statut: 'Approuvée',
       approbateur: { id: 3, prenom: 'Admin', nom: 'System' },
       dateApprobation: '2026-05-12T10:00:00Z',
@@ -50,6 +51,8 @@ describe('DemandesAchatComponent', () => {
       bonCommandeUrl: null,
       createdAt: '2026-05-11T09:00:00Z',
       updatedAt: '2026-05-12T10:00:00Z',
+      demandeurNom: null,
+      photoUrl: null,
     },
     {
       id: 3,
@@ -62,7 +65,6 @@ describe('DemandesAchatComponent', () => {
       quantite: 3,
       motif: 'Usure',
       urgence: 'Basse',
-      fournisseur: null,
       statut: 'Rejetée',
       approbateur: null,
       dateApprobation: null,
@@ -70,6 +72,8 @@ describe('DemandesAchatComponent', () => {
       bonCommandeUrl: null,
       createdAt: '2026-05-12T08:00:00Z',
       updatedAt: '2026-05-13T08:00:00Z',
+      demandeurNom: null,
+      photoUrl: null,
     },
     {
       id: 4,
@@ -82,7 +86,6 @@ describe('DemandesAchatComponent', () => {
       quantite: 1,
       motif: 'Test',
       urgence: null,
-      fournisseur: null,
       statut: 'Clôturée',
       approbateur: null,
       dateApprobation: null,
@@ -90,6 +93,8 @@ describe('DemandesAchatComponent', () => {
       bonCommandeUrl: null,
       createdAt: '2026-05-13T08:00:00Z',
       updatedAt: '2026-05-14T08:00:00Z',
+      demandeurNom: null,
+      photoUrl: null,
     },
   ];
 
@@ -103,6 +108,9 @@ describe('DemandesAchatComponent', () => {
 
   beforeEach(() => {
     TestBed.configureTestingModule({
+      imports: [
+        LucideAngularModule.pick({ Search, Download, Settings, GripVertical }),
+      ],
       providers: [
         provideHttpClient(),
         provideHttpClientTesting(),
@@ -143,8 +151,7 @@ describe('DemandesAchatComponent', () => {
 
     const nativeEl = fixture.nativeElement as HTMLElement;
     expect(nativeEl.textContent).toContain('DA-001');
-    // S19 prototype columns: N° Demande, Désignation article, Quantité, Date demande, Urgence, Statut
-    // Demandeur column not shown in new design — check designation instead
+    // Columns: ID, Date, Demandeur, Pièce, Réf., Qté, Statut, Actions
     expect(nativeEl.textContent).toContain('Filtre à huile');
   });
 
@@ -166,7 +173,8 @@ describe('DemandesAchatComponent', () => {
     fixture.detectChanges();
 
     const nativeEl = fixture.nativeElement as HTMLElement;
-    expect(nativeEl.querySelector('.demandes__empty')?.textContent).toContain('Aucune demande d\'achat trouvée');
+    // Empty state is rendered by app-empty-state component
+    expect(nativeEl.querySelector('app-empty-state')).toBeTruthy();
   });
 
   it('renders tab buttons', () => {
@@ -177,7 +185,7 @@ describe('DemandesAchatComponent', () => {
 
     const nativeEl = fixture.nativeElement as HTMLElement;
     // Filter chips rendered as app-filter-chip elements (one per tab: Toutes, Nouvelles, Approuvées, Rejetées, Clôturées)
-    const tabs = nativeEl.querySelectorAll('.demandes__tab');
+    const tabs = nativeEl.querySelectorAll('app-filter-chip');
     expect(tabs.length).toBe(5);
   });
 
@@ -245,32 +253,18 @@ describe('DemandesAchatComponent', () => {
     reloadReq.flush(mockPage);
   });
 
-  it('getUrgenceVariant maps urgences correctly', () => {
+  it('toRequestStatus maps statuts correctly', () => {
     const fixture = TestBed.createComponent(DemandesAchatComponent);
     const component = fixture.componentInstance;
 
     const initReq = httpMock.expectOne('/api/v1/demandes-achat');
     initReq.flush(mockPage);
 
-    expect(component.getUrgenceVariant('Haute')).toBe('danger');
-    expect(component.getUrgenceVariant('Moyenne')).toBe('warning');
-    expect(component.getUrgenceVariant('Basse')).toBe('info');
-    expect(component.getUrgenceVariant(null)).toBe('neutral');
-    expect(component.getUrgenceVariant('other')).toBe('neutral');
-  });
-
-  it('getStatutVariant maps statuts correctly', () => {
-    const fixture = TestBed.createComponent(DemandesAchatComponent);
-    const component = fixture.componentInstance;
-
-    const initReq = httpMock.expectOne('/api/v1/demandes-achat');
-    initReq.flush(mockPage);
-
-    expect(component.getStatutVariant('Nouvelle')).toBe('info');
-    expect(component.getStatutVariant('Approuvée')).toBe('success');
-    expect(component.getStatutVariant('Rejetée')).toBe('danger');
-    expect(component.getStatutVariant('Clôturée')).toBe('neutral');
-    expect(component.getStatutVariant('other')).toBe('neutral');
+    expect(component.toRequestStatus('Nouvelle')).toBe('nouvelle');
+    expect(component.toRequestStatus('Approuvée')).toBe('approuvee');
+    expect(component.toRequestStatus('Rejetée')).toBe('rejetee');
+    expect(component.toRequestStatus('Clôturée')).toBe('cloturee');
+    expect(component.toRequestStatus('other')).toBe('nouvelle');
   });
 
   it('shows skeleton while loading', () => {
@@ -309,10 +303,10 @@ describe('DemandesAchatComponent', () => {
     req.flush(noItemPage);
     fixture.detectChanges();
 
-    // The new design uses flexbox rows (dtr-cell divs) instead of table td elements.
-    // The designation column is the 2nd dtr-cell (index 1) inside the data-table-row.
+    // The dynamic-column table renders cells with class "td".
+    // Column order: 0=ID, 1=Date, 2=Demandeur, 3=Pièce, 4=Réf., 5=Qté, 6=Statut, 7=Actions (pinned)
     const nativeEl = fixture.nativeElement as HTMLElement;
-    const cells = nativeEl.querySelectorAll('app-data-table-row .dtr-cell');
-    expect(cells[1]?.textContent?.trim()).toContain('—');
+    const cells = nativeEl.querySelectorAll('app-data-table-row .td');
+    expect(cells[3]?.textContent?.trim()).toContain('—');
   });
 });

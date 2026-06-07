@@ -64,15 +64,15 @@ describe('LoginComponent', () => {
     expect(authServiceSpy.login).toHaveBeenCalledWith({ email: 'test@intersig.ma', password: 'testtest', remember: false });
   });
 
-  it('should navigate to /dashboard on successful login', async () => {
+  it('should navigate to /vehicules on successful login', async () => {
     const router = TestBed.inject(Router);
-    spyOn(router, 'navigate');
+    spyOn(router, 'navigateByUrl');
     authServiceSpy.login.and.returnValue(of({ access_token: 'at', refresh_token: 'rt', user: mockUser } as any));
 
     component.loginForm.setValue({ email: 'test@intersig.ma', password: 'testtest' });
     component.onLogin();
 
-    expect(router.navigate).toHaveBeenCalledWith(['/dashboard']);
+    expect(router.navigateByUrl).toHaveBeenCalledWith('/vehicules');
   });
 
   it('should display "Email ou mot de passe incorrect." on 401 error', () => {
@@ -172,7 +172,7 @@ describe('LoginComponent', () => {
     expect(component.errorMessage()).toBe('Les mots de passe ne correspondent pas.');
   });
 
-  it('onRegister() navigates to /dashboard on success', () => {
+  it('onRegister() navigates to /vehicules on success', () => {
     const router = TestBed.inject(Router);
     spyOn(router, 'navigate').and.returnValue(Promise.resolve(true));
     authServiceSpy.register.and.returnValue(of({ access_token: 'at', refresh_token: 'rt', user: { id: 1 } } as any));
@@ -181,7 +181,7 @@ describe('LoginComponent', () => {
       password: 'pass1234', confirm: 'pass1234', cgu: true,
     });
     component.onRegister();
-    expect(router.navigate).toHaveBeenCalledWith(['/dashboard']);
+    expect(router.navigate).toHaveBeenCalledWith(['/vehicules']);
   });
 
   it('onRegister() shows 409 error when email already exists', () => {

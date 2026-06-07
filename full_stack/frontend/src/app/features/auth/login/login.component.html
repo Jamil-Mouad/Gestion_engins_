@@ -116,6 +116,7 @@
                 <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/>
               </svg>
               <input id="login-email" type="email" formControlName="email" placeholder="email@intersig.ma"
+                     autocomplete="username"
                      style="flex:1;border:none;outline:none;background:transparent;font-family:'Open Sans',sans-serif;font-size:14px;color:var(--color-text);" />
             </div>
           </div>
@@ -129,6 +130,7 @@
                  style="height:40px;padding:0 14px;border:1px solid var(--color-border);border-radius:8px;background:var(--color-surface);
                         box-shadow:0 1px 2px rgba(17,24,39,.06);gap:8px;">
               <input id="login-password" [type]="showPassword() ? 'text' : 'password'" formControlName="password" placeholder="••••••••"
+                     autocomplete="current-password"
                      style="flex:1;border:none;outline:none;background:transparent;font-family:'Open Sans',sans-serif;font-size:14px;color:var(--color-text);" />
               <button type="button" (click)="showPassword.set(!showPassword())"
                       style="border:none;background:transparent;padding:0;cursor:pointer;display:flex;align-items:center;flex-shrink:0;color:var(--color-text-muted);">
@@ -212,6 +214,7 @@
                 <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/>
               </svg>
               <input id="register-email" type="email" formControlName="email" placeholder="email@intersig.ma"
+                     autocomplete="username"
                      style="flex:1;border:none;outline:none;background:transparent;font-family:'Open Sans',sans-serif;font-size:14px;color:var(--color-text);" />
             </div>
           </div>
@@ -221,6 +224,7 @@
             <label for="register-password" style="font-family:'Montserrat',sans-serif;font-size:11px;font-weight:600;color:var(--color-n700);text-transform:uppercase;letter-spacing:0.05em;display:block;margin-bottom:6px;">MOT DE PASSE</label>
             <div style="height:40px;padding:0 14px;border:1px solid var(--color-border);border-radius:8px;background:var(--color-surface);display:flex;align-items:center;gap:8px;box-shadow:0 1px 2px rgba(17,24,39,.06);">
               <input id="register-password" [type]="showRegisterPassword() ? 'text' : 'password'" formControlName="password" placeholder="••••••••"
+                     autocomplete="new-password"
                      style="flex:1;border:none;outline:none;background:transparent;font-family:'Open Sans',sans-serif;font-size:14px;color:var(--color-text);" />
               <button type="button" (click)="showRegisterPassword.set(!showRegisterPassword())"
                       style="border:none;background:transparent;padding:0;cursor:pointer;display:flex;align-items:center;flex-shrink:0;color:var(--color-text-muted);">
@@ -274,7 +278,7 @@
                 }
               </div>
               <span style="font-family:'Open Sans',sans-serif;font-size:13px;color:var(--color-text-muted);line-height:1.4;">
-                J'accepte les <a href="#" style="color:var(--color-primary);text-decoration:none;">conditions générales d'utilisation</a>
+                J'accepte les <button type="button" style="background:none;border:none;padding:0;color:var(--color-primary);text-decoration:none;cursor:pointer;font-family:inherit;font-size:inherit;">conditions générales d'utilisation</button>
               </span>
             </label>
             @if (registerForm.get('cgu')?.invalid && registerForm.get('cgu')?.touched) {

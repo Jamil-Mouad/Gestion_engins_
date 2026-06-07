@@ -2,7 +2,6 @@ import { TestBed } from '@angular/core/testing';
 import { provideHttpClient } from '@angular/common/http';
 import { provideHttpClientTesting, HttpTestingController } from '@angular/common/http/testing';
 import { provideRouter } from '@angular/router';
-import { ReactiveFormsModule } from '@angular/forms';
 
 import { ProfilComponent } from './profil.component';
 import { User } from '../../shared/models/user.model';
@@ -18,6 +17,7 @@ describe('ProfilComponent', () => {
     role: 'ADMIN',
     dashboardConfig: null,
     actif: true,
+    telephone: '+212 6 00 00 00 00',
   };
 
   beforeEach(() => {
@@ -64,47 +64,30 @@ describe('ProfilComponent', () => {
     expect(component.infosForm.value.prenom).toBe('Jean');
     expect(component.infosForm.value.nom).toBe('Dupont');
     expect(component.infosForm.value.email).toBe('jean.dupont@mail.com');
+    expect(component.infosForm.value.telephone).toBe('+212 6 00 00 00 00');
   });
 
-  it('renders 3 section toggles', () => {
+  it('renders 2 section titles (Informations personnelles + Sécurité)', () => {
     const fixture = TestBed.createComponent(ProfilComponent);
     const req = httpMock.expectOne('/api/v1/users/me');
     req.flush(mockUser);
     fixture.detectChanges();
 
     const nativeEl = fixture.nativeElement as HTMLElement;
-    const toggles = nativeEl.querySelectorAll('.profil__section-toggle');
-    expect(toggles.length).toBe(3);
-    expect(toggles[0].textContent).toContain('Informations personnelles');
-    expect(toggles[1].textContent).toContain('Sécurité');
-    expect(toggles[2].textContent).toContain('Préférences notifications');
+    const titles = nativeEl.querySelectorAll('.profil__section-title');
+    expect(titles.length).toBe(2);
+    expect(titles[0].textContent).toContain('Informations personnelles');
+    expect(titles[1].textContent).toContain('Sécurité');
   });
 
-  it('shows infos section expanded by default', () => {
+  it('does not render Préférences notifications section', () => {
     const fixture = TestBed.createComponent(ProfilComponent);
-    const component = fixture.componentInstance;
     const req = httpMock.expectOne('/api/v1/users/me');
     req.flush(mockUser);
+    fixture.detectChanges();
 
-    expect(component.expandedSections().has('infos')).toBe(true);
-  });
-
-  it('toggleSection expands and collapses sections', () => {
-    const fixture = TestBed.createComponent(ProfilComponent);
-    const component = fixture.componentInstance;
-    const req = httpMock.expectOne('/api/v1/users/me');
-    req.flush(mockUser);
-
-    expect(component.expandedSections().has('infos')).toBe(true);
-
-    component.toggleSection('infos');
-    expect(component.expandedSections().has('infos')).toBe(false);
-
-    component.toggleSection('infos');
-    expect(component.expandedSections().has('infos')).toBe(true);
-
-    component.toggleSection('securite');
-    expect(component.expandedSections().has('securite')).toBe(true);
+    const nativeEl = fixture.nativeElement as HTMLElement;
+    expect(nativeEl.textContent).not.toContain('Préférences notifications');
   });
 
   it('shows skeleton while loading', () => {
@@ -160,7 +143,7 @@ describe('ProfilComponent', () => {
     expect(component.passwordForm.valid).toBe(true);
   });
 
-  it('saveInfos calls PATCH /api/v1/users/me with form values', () => {
+  it('saveInfos calls PATCH /api/v1/users/me with form values including telephone', () => {
     const fixture = TestBed.createComponent(ProfilComponent);
     const component = fixture.componentInstance;
     const initReq = httpMock.expectOne('/api/v1/users/me');
@@ -169,7 +152,9 @@ describe('ProfilComponent', () => {
     component.saveInfos();
 
     const saveReq = httpMock.expectOne((r) => r.url === '/api/v1/users/me' && r.method === 'PATCH');
-    expect(saveReq.request.body).toEqual({ prenom: 'Jean', nom: 'Dupont', email: 'jean.dupont@mail.com' });
+    expect(saveReq.request.body.prenom).toBe('Jean');
+    expect(saveReq.request.body.nom).toBe('Dupont');
+    expect(saveReq.request.body.email).toBe('jean.dupont@mail.com');
     saveReq.flush(mockUser);
 
     expect(component.infosSaved()).toBe(true);
@@ -259,25 +244,13 @@ describe('ProfilComponent', () => {
     expect(component.infosSaved()).toBe(false);
   });
 
-  it('toggleSection() shows preferences panel when expanded', () => {
-    const fixture = TestBed.createComponent(ProfilComponent);
-    const component = fixture.componentInstance;
-    const req = httpMock.expectOne('/api/v1/users/me');
-    req.flush(mockUser);
-    fixture.detectChanges();
-
-    component.toggleSection('preferences');
-    expect(component.expandedSections().has('preferences')).toBe(true);
-  });
-
-  it('renders password form with mismatch error message', () => {
+  it('renders password mismatch error message', () => {
     const fixture = TestBed.createComponent(ProfilComponent);
     const req = httpMock.expectOne('/api/v1/users/me');
     req.flush(mockUser);
     fixture.detectChanges();
 
     const component = fixture.componentInstance;
-    component.toggleSection('securite');
     component.passwordForm.patchValue({
       currentPassword: 'oldPass',
       newPassword: 'newPass123',

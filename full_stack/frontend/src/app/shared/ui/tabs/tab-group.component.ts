@@ -32,16 +32,15 @@ import { TabComponent } from './tab.component';
       position: relative;
       overflow-x: auto;
       scrollbar-width: none;
+      isolation: isolate;
     }
     .tab-group::-webkit-scrollbar { display: none; }
     .hover-pill {
       position: absolute;
       top: 4px;
       height: calc(100% - 12px);
-      background: rgba(255, 255, 255, 0.07);
-      backdrop-filter: blur(14px);
-      -webkit-backdrop-filter: blur(14px);
-      border: 1px solid rgba(255, 255, 255, 0.13);
+      background: #EBEBEB;
+      border: 1px solid #E0E0E0;
       border-radius: 8px;
       pointer-events: none;
       opacity: 0;
@@ -49,7 +48,7 @@ import { TabComponent } from './tab.component';
         left 320ms cubic-bezier(0.34, 1.2, 0.64, 1),
         width 320ms cubic-bezier(0.34, 1.2, 0.64, 1),
         opacity 180ms ease;
-      z-index: 0;
+      z-index: -1;
     }
   `],
   host: {

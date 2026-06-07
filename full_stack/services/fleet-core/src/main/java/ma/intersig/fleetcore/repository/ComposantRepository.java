@@ -21,12 +21,17 @@ public interface ComposantRepository extends JpaRepository<Composant, Long> {
 
     @Query("SELECT c FROM Composant c WHERE c.actif = true " +
             "AND (:categorie IS NULL OR c.categorie = :categorie) " +
-            "AND (:q IS NULL OR LOWER(c.designation) LIKE LOWER(CONCAT('%', :q, '%')) " +
-            "     OR LOWER(c.reference) LIKE LOWER(CONCAT('%', :q, '%')))")
+            "AND (:q IS NULL OR LOWER(c.designation) LIKE LOWER(CONCAT('%', CAST(:q AS string), '%')) " +
+            "     OR LOWER(c.reference) LIKE LOWER(CONCAT('%', CAST(:q AS string), '%')))")
     Page<Composant> searchWithFilters(@Param("q") String q, @Param("categorie") String categorie, Pageable pageable);
 
     @Query("SELECT c FROM Composant c WHERE c.parent IS NULL AND c.actif = true ORDER BY c.designation")
     List<Composant> findByParentIsNull();
+
+    // Roots visible for a given vehicle type: shared (NULL) baseline + type-specific roots.
+    @Query("SELECT c FROM Composant c WHERE c.parent IS NULL AND c.actif = true " +
+            "AND (c.vehiculeType IS NULL OR c.vehiculeType = :type) ORDER BY c.designation")
+    List<Composant> findRootsByType(@Param("type") String type);
 
     List<Composant> findByCategorieAndActifTrue(String categorie);
 

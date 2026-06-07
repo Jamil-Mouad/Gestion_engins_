@@ -18,6 +18,8 @@ public record ComposantDto(
         BigDecimal prixUnitaire,
         Integer stock,
         Boolean actif,
+        String imageUrl,
+        String vehiculeType,
         List<ComposantDto> children
 ) {
     public static ComposantDto from(Composant c) {
@@ -33,6 +35,8 @@ public record ComposantDto(
                 c.getPrixUnitaire(),
                 c.getStock(),
                 c.getActif(),
+                c.getImageUrl(),
+                c.getVehiculeType(),
                 new ArrayList<>()
         );
     }

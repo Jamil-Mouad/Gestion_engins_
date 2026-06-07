@@ -4,6 +4,7 @@ import ma.intersig.fleetcore.entity.*;
 import ma.intersig.fleetcore.exception.BusinessException;
 import ma.intersig.fleetcore.repository.*;
 import ma.intersig.fleetcore.service.NotificationService;
+import org.springframework.data.domain.PageRequest;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
@@ -82,12 +83,45 @@ class NotificationSchedulerTest {
     }
 
     @Test
-    void scheduler_is_idempotent_within1Hour() {
+    void scheduler_is_idempotent_within24h() {
         notificationScheduler.runAlertScan();
         long countAfterFirst = notificationRepository.count();
         notificationScheduler.runAlertScan();
         long countAfterSecond = notificationRepository.count();
-        assertEquals(countAfterFirst, countAfterSecond, "Second scan within 1 hour should not create duplicates");
+        assertEquals(countAfterFirst, countAfterSecond, "Second scan within 24h should not create duplicates");
+    }
+
+    @Test
+    void scheduler_doesNotRecreate_afterUserMarksAsRead() {
+        Vehicule vehicule = new Vehicule();
+        vehicule.setCode("MR-" + (System.nanoTime() % 10000000L));
+        vehicule.setType("chariot");
+        vehicule.setMarque("TestMarque");
+        vehicule.setModele("TestModele");
+        vehicule.setStatut("in-service");
+        vehicule = vehiculeRepository.save(vehicule);
+
+        Pneu pneu = new Pneu();
+        pneu.setVehicule(vehicule);
+        pneu.setPosition((short) 2);
+        pneu.setKmParcourus(0);
+        pneu.setExpectedLifeKm(50_000);
+        pneu.setStatus("warn");
+        pneuRepository.save(pneu);
+
+        notificationScheduler.runAlertScan();
+        long countAfterFirst = notificationRepository.count();
+
+        // Simulate the user clicking "mark as read" — this was the dedup bypass that caused the flood
+        User owner = userRepository.findById(1L).orElseThrow();
+        notificationRepository.findByUserIdAndLu(owner.getId(), false, PageRequest.of(0, 100))
+                .forEach(n -> notificationService.marquerLue(n.getId(), owner.getId()));
+
+        notificationScheduler.runAlertScan();
+        long countAfterSecond = notificationRepository.count();
+
+        assertEquals(countAfterFirst, countAfterSecond,
+                "Scheduler must not recreate notifications for an issue already notified within 24h, even if the user marked them as read");
     }
 
     @Test

@@ -18,7 +18,7 @@ export interface DataTableRowCol {
       [class.dtr-row--alert]="alert"
       [class.dtr-row--selected]="selected"
       [class.dtr-row--clickable]="clickable"
-      [style.animation-delay]="idx * 30 + 'ms'"
+      [style.animation-delay]="Math.min(idx, 8) * 20 + 'ms'"
       (click)="clickable ? rowClicked.emit() : null">
       @if (cols && cols.length > 0) {
         @for (col of cols; track $index) {
@@ -77,6 +77,7 @@ export interface DataTableRowCol {
   `],
 })
 export class DataTableRowComponent {
+  protected readonly Math = Math;
   @Input() cols?: DataTableRowCol[];
   @Input() alert = false;
   @Input() selected = false;

@@ -1,30 +1,28 @@
 import { Injectable, inject } from '@angular/core';
 import { HttpClient } from '@angular/common/http';
 import { Observable } from 'rxjs';
-import { map, shareReplay } from 'rxjs/operators';
+import { shareReplay } from 'rxjs/operators';
 
-import { KpiSnapshot, DashboardConfig, KpiCostHistory, KpiInterventionByStatus, DashboardSnapshot } from '../../shared/models/dashboard.model';
+import { KpiSnapshot, DashboardConfig, KpiCostHistory, KpiInterventionByStatus } from '../../shared/models/dashboard.model';
 
 @Injectable({ providedIn: 'root' })
 export class DashboardService {
-  private readonly API_DASHBOARD = '/api/v1/dashboard/snapshot';
+  private readonly API_KPIS = '/api/v1/kpis';
+  private readonly API_COST_HISTORY = '/api/v1/kpis/cost-history';
+  private readonly API_INTERVENTIONS_STATUS = '/api/v1/kpis/interventions-by-status';
   private readonly API_CONFIG = '/api/v1/users/me/dashboard-config';
   private http = inject(HttpClient);
 
-  private snapshot$: Observable<DashboardSnapshot> | null = null;
+  private kpis$: Observable<KpiSnapshot> | null = null;
   private dashboardConfig$: Observable<DashboardConfig> | null = null;
 
-  private getSnapshot(): Observable<DashboardSnapshot> {
-    if (!this.snapshot$) {
-      this.snapshot$ = this.http.get<DashboardSnapshot>(this.API_DASHBOARD).pipe(
+  getKpis(): Observable<KpiSnapshot> {
+    if (!this.kpis$) {
+      this.kpis$ = this.http.get<KpiSnapshot>(this.API_KPIS).pipe(
         shareReplay({ bufferSize: 1, refCount: false })
       );
     }
-    return this.snapshot$;
-  }
-
-  getKpis(): Observable<KpiSnapshot> {
-    return this.getSnapshot().pipe(map(s => s.kpis));
+    return this.kpis$;
   }
 
   getDashboardConfig(): Observable<DashboardConfig> {
@@ -42,15 +40,15 @@ export class DashboardService {
   }
 
   getCostHistory(): Observable<KpiCostHistory[]> {
-    return this.getSnapshot().pipe(map(s => s.costHistory));
+    return this.http.get<KpiCostHistory[]>(this.API_COST_HISTORY);
   }
 
   getInterventionsByStatus(): Observable<KpiInterventionByStatus[]> {
-    return this.getSnapshot().pipe(map(s => s.interventionsByStatus));
+    return this.http.get<KpiInterventionByStatus[]>(this.API_INTERVENTIONS_STATUS);
   }
 
   invalidate(): void {
-    this.snapshot$ = null;
+    this.kpis$ = null;
     this.dashboardConfig$ = null;
   }
 }

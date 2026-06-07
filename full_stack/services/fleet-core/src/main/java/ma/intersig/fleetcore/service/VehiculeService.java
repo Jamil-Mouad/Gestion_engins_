@@ -80,7 +80,15 @@ public class VehiculeService {
                 .orElse(null);
         }
 
-        return VehiculeDto.from(v, currentAttelage);
+        // Compute % conso vs flotte for camion types that have a conso value set
+        java.math.BigDecimal pctConsoVsFlotte = null;
+        if (v instanceof Camion camionV && camionV.getConsoGasoilLitresMois() != null) {
+            java.math.BigDecimal fleetTotal = vehiculeRepository.sumConsoGasoilActiveCamions();
+            pctConsoVsFlotte = ma.intersig.fleetcore.dto.response.CamionDetailsDto.computePct(
+                    camionV.getConsoGasoilLitresMois(), fleetTotal);
+        }
+
+        return VehiculeDto.from(v, currentAttelage, pctConsoVsFlotte);
     }
 
     @CacheEvict(value = {"vehicules-page", "vehicules"}, allEntries = true)
@@ -243,5 +251,7 @@ public class VehiculeService {
         if (details.batterieDateAchat() != null) c.setBatterieDateAchat(details.batterieDateAchat());
         if (details.batterieDateControle() != null) c.setBatterieDateControle(details.batterieDateControle());
         if (details.consoGasoilLitresMois() != null) c.setConsoGasoilLitresMois(details.consoGasoilLitresMois());
+        if (details.voyagesMois() != null) c.setVoyagesMois(details.voyagesMois());
+        if (details.kmParcourus() != null) c.setKmParcourus(details.kmParcourus());
     }
 }

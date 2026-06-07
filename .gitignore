@@ -40,7 +40,7 @@ __pycache__/
 venv/
 *.egg-info/
 .pytest_cache/
-db/
+/db/
 db/import/.pytest_cache/
 db/import/.venv/
 db/import/__pycache__/

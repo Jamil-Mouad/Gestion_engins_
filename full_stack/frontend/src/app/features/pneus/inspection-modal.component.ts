@@ -1,15 +1,15 @@
-import { Component, Input, Output, EventEmitter, signal, inject } from '@angular/core';
+import { Component, Input, Output, EventEmitter, signal, inject, DestroyRef } from '@angular/core';
+import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { CommonModule } from '@angular/common';
 import { ReactiveFormsModule, FormBuilder, Validators } from '@angular/forms';
 import { PneuService } from './pneu.service';
 import { InspectionActivity, InspectionForm, PneuInspection } from '../../shared/models/pneu.model';
 import { ModalShellComponent } from '../../shared/ui/modal/modal-shell.component';
-import { DoubleClickGuardDirective } from '../../shared/directives/double-click-guard.directive';
 
 @Component({
   selector: 'app-inspection-modal',
   standalone: true,
-  imports: [CommonModule, ReactiveFormsModule, ModalShellComponent, DoubleClickGuardDirective],
+  imports: [CommonModule, ReactiveFormsModule, ModalShellComponent],
   template: `
     <app-modal-shell modalTitle="Nouvelle inspection" (onClose)="close.emit()">
       <form [formGroup]="form" (ngSubmit)="onSubmit()" class="inspection-form">
@@ -54,7 +54,7 @@ import { DoubleClickGuardDirective } from '../../shared/directives/double-click-
 
         <div class="form-actions">
           <button type="button" class="btn-cancel" (click)="close.emit()">Annuler</button>
-          <button type="submit" class="btn-submit" [disabled]="form.invalid || submitting()" [appDoubleClickGuard]="submitting()">
+          <button type="submit" class="btn-submit" [disabled]="form.invalid || submitting()">
             {{ submitting() ? 'Enregistrement…' : 'Créer' }}
           </button>
         </div>
@@ -78,6 +78,7 @@ import { DoubleClickGuardDirective } from '../../shared/directives/double-click-
 })
 export class InspectionModalComponent {
   private pneuService = inject(PneuService);
+  private destroyRef = inject(DestroyRef);
 
   @Input({ required: true }) pneuId!: number;
   @Output() saved = new EventEmitter<PneuInspection>();
@@ -118,7 +119,7 @@ export class InspectionModalComponent {
       notes: formValue.notes ?? '',
     };
 
-    this.pneuService.createInspection(this.pneuId, payload).subscribe({
+    this.pneuService.createInspection(this.pneuId, payload).pipe(takeUntilDestroyed(this.destroyRef)).subscribe({
       next: (inspection) => {
         this.submitting.set(false);
         this.saved.emit(inspection);

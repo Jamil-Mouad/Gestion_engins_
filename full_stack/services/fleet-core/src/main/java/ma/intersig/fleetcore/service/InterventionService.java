@@ -4,6 +4,7 @@ import jakarta.persistence.EntityManager;
 import ma.intersig.fleetcore.dto.request.CreateInterventionRequest;
 import ma.intersig.fleetcore.dto.response.InterventionDto;
 import ma.intersig.fleetcore.dto.response.PageResponse;
+import ma.intersig.fleetcore.dto.response.TypeInterventionRefDto;
 import ma.intersig.fleetcore.entity.Composant;
 import ma.intersig.fleetcore.entity.Intervention;
 import ma.intersig.fleetcore.entity.TypeIntervention;
@@ -18,6 +19,7 @@ import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.math.BigDecimal;
 import java.time.OffsetDateTime;
 import java.util.List;
 
@@ -45,20 +47,27 @@ public class InterventionService {
     }
 
     @Transactional(readOnly = true)
-    public PageResponse<InterventionDto> list(Long vehiculeId, String categorie, String statut,
+    public List<TypeInterventionRefDto> listTypes() {
+        return typeInterventionRepository.findAll().stream()
+                .map(TypeInterventionRefDto::from)
+                .toList();
+    }
+
+    @Transactional(readOnly = true)
+    public PageResponse<InterventionDto> list(String q, Long vehiculeId, String categorie, String statut,
                                                OffsetDateTime dateFrom, OffsetDateTime dateTo,
                                                Pageable pageable) {
-        Page<Intervention> page = (vehiculeId != null || categorie != null || statut != null
+        Page<Intervention> page = (q != null || vehiculeId != null || categorie != null || statut != null
                 || dateFrom != null || dateTo != null)
-                ? interventionRepository.findByFilters(vehiculeId, categorie, statut, dateFrom, dateTo, pageable)
-                : interventionRepository.findAll(pageable);
+                ? interventionRepository.findByFilters(q, vehiculeId, categorie, statut, dateFrom, dateTo, pageable)
+                : interventionRepository.findAllWithRelations(pageable);
         return PageResponse.of(page.map(InterventionDto::from));
     }
 
     @Transactional(readOnly = true)
     public PageResponse<InterventionDto> listByVehicule(Long vehiculeId, String categorie,
                                                          String statut, Pageable pageable) {
-        Page<Intervention> page = interventionRepository.findByFilters(vehiculeId, categorie, statut, null, null, pageable);
+        Page<Intervention> page = interventionRepository.findByFilters(null, vehiculeId, categorie, statut, null, null, pageable);
         return PageResponse.of(page.map(InterventionDto::from));
     }
 
@@ -68,11 +77,16 @@ public class InterventionService {
         }
     }
 
+    /** Cost columns are NOT NULL in the DB; default to zero when the request omits them. */
+    private static BigDecimal nz(BigDecimal v) {
+        return v != null ? v : BigDecimal.ZERO;
+    }
+
     public InterventionDto create(CreateInterventionRequest req) {
         validateCategorie(req.categorie());
         Vehicule vehicule = vehiculeRepository.findById(req.vehiculeId())
                 .orElseThrow(() -> new ResourceNotFoundException("Vehicle not found", "VEHICLE_NOT_FOUND"));
-        TypeIntervention type = typeInterventionRepository.findById(req.typeId())
+        TypeIntervention type = typeInterventionRepository.findById(req.typeInterventionId())
                 .orElseThrow(() -> new ResourceNotFoundException("Intervention type not found", "TYPE_NOT_FOUND"));
 
         Intervention intervention = new Intervention();
@@ -82,10 +96,11 @@ public class InterventionService {
         intervention.setPartie(req.partie());
         intervention.setNBs(req.nBs());
         intervention.setDateDebut(req.dateDebut());
-        intervention.setCoutPieces(req.coutPieces());
-        intervention.setCoutMainOeuvre(req.coutMainOeuvre());
-        intervention.setCoutSousTraitance(req.coutSousTraitance());
+        intervention.setCoutPieces(nz(req.coutPieces()));
+        intervention.setCoutMainOeuvre(nz(req.coutMainOeuvre()));
+        intervention.setCoutSousTraitance(nz(req.coutSousTraitance()));
         intervention.setObservations(req.observations());
+        intervention.setPhotoUrl(req.photoUrl());
 
         if (req.composantId() != null) {
             intervention.setComposant(entityManager.getReference(Composant.class, req.composantId()));
@@ -104,7 +119,7 @@ public class InterventionService {
 
         Vehicule vehicule = vehiculeRepository.findById(req.vehiculeId())
                 .orElseThrow(() -> new ResourceNotFoundException("Vehicle not found", "VEHICLE_NOT_FOUND"));
-        TypeIntervention type = typeInterventionRepository.findById(req.typeId())
+        TypeIntervention type = typeInterventionRepository.findById(req.typeInterventionId())
                 .orElseThrow(() -> new ResourceNotFoundException("Intervention type not found", "TYPE_NOT_FOUND"));
 
         intervention.setVehicule(vehicule);
@@ -113,10 +128,11 @@ public class InterventionService {
         intervention.setPartie(req.partie());
         intervention.setNBs(req.nBs());
         intervention.setDateDebut(req.dateDebut());
-        intervention.setCoutPieces(req.coutPieces());
-        intervention.setCoutMainOeuvre(req.coutMainOeuvre());
-        intervention.setCoutSousTraitance(req.coutSousTraitance());
+        intervention.setCoutPieces(nz(req.coutPieces()));
+        intervention.setCoutMainOeuvre(nz(req.coutMainOeuvre()));
+        intervention.setCoutSousTraitance(nz(req.coutSousTraitance()));
         intervention.setObservations(req.observations());
+        intervention.setPhotoUrl(req.photoUrl());
 
         if (req.composantId() != null) {
             intervention.setComposant(entityManager.getReference(Composant.class, req.composantId()));

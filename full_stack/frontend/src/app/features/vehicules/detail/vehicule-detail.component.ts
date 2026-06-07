@@ -2,10 +2,10 @@ import { Component, DestroyRef, inject, signal, computed, effect } from '@angula
 import { UpperCasePipe, DecimalPipe } from '@angular/common';
 import { ActivatedRoute, Router, RouterLink } from '@angular/router';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
-import { catchError, of } from 'rxjs';
+import { catchError, map, of, switchMap, tap, combineLatest } from 'rxjs';
 import { LucideAngularModule } from 'lucide-angular';
 import { VehiculeService } from '../vehicule.service';
-import { VehiculeDetail, isCamionType } from '../../../shared/models/vehicule.model';
+import { VehiculeDetail, isCamionType, Vehicule } from '../../../shared/models/vehicule.model';
 import { StatusBadgeComponent } from '../../../shared/ui/badge/badge.component';
 import { StatusLabelPipe } from '../../../shared/pipes/status-label.pipe';
 import { SkeletonComponent } from '../../../shared/ui/skeleton/skeleton.component';
@@ -18,10 +18,8 @@ import { InfosTabComponent } from './tabs/infos-tab.component';
 import { PneusTabComponent } from './tabs/pneus-tab.component';
 import { InterventionsTabComponent } from './tabs/interventions-tab.component';
 import { ComposantsTabComponent } from './tabs/composants-tab.component';
-import { VidangesTabComponent } from './tabs/vidanges-tab.component';
-import { HistoriqueTabComponent } from './tabs/historique-tab.component';
-import { KpisTabComponent } from './tabs/kpis-tab.component';
-import { DocumentsTabComponent } from './tabs/documents-tab.component';
+import { EditVehiculeModalComponent } from '../list/edit-vehicule-modal.component';
+import { PneusTableTabComponent } from '../../pneus/pneus-table-tab.component';
 
 @Component({
   selector: 'app-vehicule-detail',
@@ -33,7 +31,7 @@ import { DocumentsTabComponent } from './tabs/documents-tab.component';
     ConfirmDeleteModalComponent, EmptyStateComponent,
     BreadcrumbComponent, TabGroupComponent,
     InfosTabComponent, PneusTabComponent, InterventionsTabComponent, ComposantsTabComponent,
-    VidangesTabComponent, HistoriqueTabComponent, KpisTabComponent, DocumentsTabComponent,
+    EditVehiculeModalComponent, PneusTableTabComponent,
   ],
   template: `
     <app-spinner-overlay [show]="showSpinner()" />
@@ -47,10 +45,14 @@ import { DocumentsTabComponent } from './tabs/documents-tab.component';
         <!-- Header card always renders — skeleton only for data fields -->
         <div class="veh-detail-header">
           <div class="veh-detail-header__main">
-            <div class="veh-photo-placeholder">
-              <lucide-icon name="truck" [size]="28" />
-              <span>photo</span>
-            </div>
+            @if (vehicule()?.photoUrl) {
+              <img [src]="vehicule()!.photoUrl" alt="" class="veh-photo-img" />
+            } @else {
+              <div class="veh-photo-placeholder">
+                <lucide-icon name="truck" [size]="28" />
+                <span>photo</span>
+              </div>
+            }
             <div class="veh-detail-info">
               @if (loading()) {
                 <div class="veh-skeleton-stack">
@@ -85,7 +87,7 @@ import { DocumentsTabComponent } from './tabs/documents-tab.component';
             </div>
           </div>
           <div class="veh-detail-header__actions">
-            <button class="btn-edit" type="button">
+            <button class="btn-edit" type="button" (click)="showEdit.set(true)">
               <lucide-icon name="edit" [size]="14" />
               Éditer
             </button>
@@ -106,41 +108,27 @@ import { DocumentsTabComponent } from './tabs/documents-tab.component';
             </div>
             @defer (when isActivated('interventions')) {
               <div [hidden]="activeTab() !== 'interventions'">
-                <app-interventions-tab />
+                <app-interventions-tab [vehiculeId]="vehiculeId" [vehiculeCode]="vehicule()?.code ?? ''" />
               </div>
             }
             @defer (when isActivated('pneus')) {
               <div [hidden]="activeTab() !== 'pneus'">
-                <app-pneus-tab
-                  [vehiculeId]="vehicule()!.id"
-                  [vehiculeType]="vehicule()!.type"
-                  [configAxle]="vehicule()!.camionDetails?.configAxle ?? null"
-                  [currentAttelage]="vehicule()!.currentAttelage ?? null" />
-              </div>
-            }
-            @defer (when isActivated('vidanges')) {
-              <div [hidden]="activeTab() !== 'vidanges'">
-                <app-vidanges-tab />
-              </div>
-            }
-            @defer (when isActivated('kpis')) {
-              <div [hidden]="activeTab() !== 'kpis'">
-                <app-kpis-tab />
-              </div>
-            }
-            @defer (when isActivated('historique')) {
-              <div [hidden]="activeTab() !== 'historique'">
-                <app-historique-tab />
+                @if (isCamion()) {
+                  <app-pneus-tab
+                    [vehiculeId]="vehicule()!.id"
+                    [vehiculeType]="vehicule()!.type"
+                    [configAxle]="vehicule()!.camionDetails?.configAxle ?? null"
+                    [currentAttelage]="vehicule()!.currentAttelage ?? null" />
+                } @else {
+                  <app-pneus-table-tab
+                    [vehiculeId]="vehicule()!.id"
+                    [vehiculeType]="vehicule()!.type" />
+                }
               </div>
             }
             @defer (when isActivated('composants')) {
               <div [hidden]="activeTab() !== 'composants'">
-                <app-composants-tab />
-              </div>
-            }
-            @defer (when isActivated('documents')) {
-              <div [hidden]="activeTab() !== 'documents'">
-                <app-documents-tab />
+                <app-composants-tab [vehiculeType]="vehicule()!.type" />
               </div>
             }
           </div>
@@ -153,6 +141,12 @@ import { DocumentsTabComponent } from './tabs/documents-tab.component';
               (confirm)="onDelete()"
               (cancel)="showDelete.set(false)" />
           }
+          @if (showEdit()) {
+            <app-edit-vehicule-modal
+              [vehicule]="vehicule()!"
+              (saved)="onVehiculeEdited($event)"
+              (close)="showEdit.set(false)" />
+          }
         }
       }
     </div>
@@ -164,6 +158,7 @@ import { DocumentsTabComponent } from './tabs/documents-tab.component';
     .veh-detail-header { background: white; padding: 20px 32px; border-bottom: 1px solid var(--color-border); display: flex; align-items: flex-start; justify-content: space-between; }
     .veh-detail-header__main { display: flex; align-items: flex-start; gap: 20px; }
     .veh-photo-placeholder { width: 80px; height: 80px; background: repeating-linear-gradient(45deg,#F5F5F5,#F5F5F5 4px,#FAFAFA 4px,#FAFAFA 12px); border-radius: 12px; border: 1px solid #E5E5E5; display: flex; flex-direction: column; align-items: center; justify-content: center; flex-shrink: 0; color: #9CA3AF; gap: 4px; }
+    .veh-photo-img { width: 80px; height: 80px; object-fit: cover; border-radius: 12px; border: 1px solid #E5E5E5; flex-shrink: 0; }
     .veh-photo-placeholder span { font-family: 'JetBrains Mono',monospace; font-size: 10px; color: #6B7280; }
     .veh-detail-info { display: flex; flex-direction: column; gap: 6px; }
     .veh-detail-info__meta { display: flex; align-items: center; gap: 8px; }
@@ -203,15 +198,14 @@ export class VehiculeDetailComponent {
   private vehiculeService = inject(VehiculeService);
   private destroyRef = inject(DestroyRef);
 
-  readonly vehiculeId: number = (() => {
-    const p = this.route.snapshot.paramMap.get('id');
-    return p ? Number(p) : NaN;
-  })();
+  vehiculeId = NaN;
+  private _pendingTabFromQuery: string | null = null;
 
   vehicule = signal<VehiculeDetail | null>(null);
   loading = signal(true);
   activeTabIndex = signal(0);
   showDelete = signal(false);
+  showEdit = signal(false);
   deleting = signal(false);
   showSpinner = signal(false);
   private _spinnerTimer: ReturnType<typeof setTimeout> | null = null;
@@ -227,16 +221,34 @@ export class VehiculeDetailComponent {
       }
     });
 
-    if (isNaN(this.vehiculeId) || this.vehiculeId <= 0) {
-      this.loading.set(false);
-      return;
-    }
-    this.vehiculeService.get(this.vehiculeId).pipe(
+    // React to both param changes and query param changes together
+    combineLatest([this.route.paramMap, this.route.queryParamMap]).pipe(
+      map(([pm, qm]) => ({ id: Number(pm.get('id')), tab: qm.get('tab') ?? null })),
+      tap(({ id, tab }) => {
+        this.vehiculeId = id;
+        // Resolve initial tab from query param (after vehicle loads, resolved in subscribe)
+        this._pendingTabFromQuery = tab;
+        this.activated.set(new Set(['infos']));
+        this.showDelete.set(false);
+        this.showEdit.set(false);
+        if (!isNaN(id) && id > 0) this.loading.set(true);
+        else this.loading.set(false);
+      }),
+      switchMap(({ id }) => {
+        if (isNaN(id) || id <= 0) return of(null);
+        return this.vehiculeService.get(id).pipe(catchError(() => of(null)));
+      }),
       takeUntilDestroyed(this.destroyRef),
-      catchError(() => of(null)),
     ).subscribe(data => {
       this.vehicule.set(data);
-      this.loading.set(false);
+      if (data !== null || !isNaN(this.vehiculeId)) this.loading.set(false);
+      // Activate tab from query param once vehicle data is available
+      if (this._pendingTabFromQuery && data) {
+        const ids = this.tabIds();
+        const idx = ids.indexOf(this._pendingTabFromQuery);
+        if (idx >= 0) this.setTab(idx);
+        this._pendingTabFromQuery = null;
+      }
     });
   }
 
@@ -244,23 +256,21 @@ export class VehiculeDetailComponent {
     { label: 'Infos' },
     { label: 'Interventions' },
     { label: 'Gestion pneus' },
-    { label: 'Vidanges' },
-    { label: 'KPIs' },
-    { label: 'Historique' },
     { label: 'Composants' },
-    { label: 'Documents' },
   ];
-  private readonly CAMION_TAB_IDS = ['infos', 'interventions', 'pneus', 'vidanges', 'kpis', 'historique', 'composants', 'documents'];
+  private readonly CAMION_TAB_IDS = ['infos', 'interventions', 'pneus', 'composants'];
 
   private readonly NON_CAMION_TABS = [
     { label: 'Infos' },
     { label: 'Interventions' },
+    { label: 'Gestion pneus' },
     { label: 'Composants' },
   ];
-  private readonly NON_CAMION_TAB_IDS = ['infos', 'interventions', 'composants'];
+  private readonly NON_CAMION_TAB_IDS = ['infos', 'interventions', 'pneus', 'composants'];
 
-  tabDefs = computed(() => isCamionType(this.vehicule()?.type) ? this.CAMION_TABS : this.NON_CAMION_TABS);
-  tabIds  = computed(() => isCamionType(this.vehicule()?.type) ? this.CAMION_TAB_IDS : this.NON_CAMION_TAB_IDS);
+  tabDefs  = computed(() => isCamionType(this.vehicule()?.type) ? this.CAMION_TABS : this.NON_CAMION_TABS);
+  tabIds   = computed(() => isCamionType(this.vehicule()?.type) ? this.CAMION_TAB_IDS : this.NON_CAMION_TAB_IDS);
+  isCamion = computed(() => isCamionType(this.vehicule()?.type));
 
   activeTab = computed(() => this.tabIds()[this.activeTabIndex()]);
 
@@ -280,7 +290,9 @@ export class VehiculeDetailComponent {
   });
 
   reloadVehicule(): void {
-    this.vehiculeService.get(this.vehiculeId).pipe(
+    const id = this.vehicule()?.id ?? this.vehiculeId;
+    if (!id || isNaN(id)) return;
+    this.vehiculeService.get(id, true).pipe(
       takeUntilDestroyed(this.destroyRef),
       catchError(() => of(null)),
     ).subscribe(data => this.vehicule.set(data));
@@ -294,5 +306,10 @@ export class VehiculeDetailComponent {
       next: () => this.router.navigate(['/vehicules']),
       error: () => this.deleting.set(false),
     });
+  }
+
+  onVehiculeEdited(_v: Vehicule): void {
+    this.showEdit.set(false);
+    this.reloadVehicule();
   }
 }

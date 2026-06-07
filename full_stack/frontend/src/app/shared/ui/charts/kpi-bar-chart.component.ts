@@ -50,10 +50,8 @@ export interface BarChartItem {
     .bar-track {
       flex: 1;
       height: 32px;
-      background: rgba(255,255,255,0.55);
+      background: #F9FAFB;
       border: 1px solid #E8E8E8;
-      backdrop-filter: blur(8px);
-      -webkit-backdrop-filter: blur(8px);
       border-radius: 8px;
       overflow: hidden;
     }

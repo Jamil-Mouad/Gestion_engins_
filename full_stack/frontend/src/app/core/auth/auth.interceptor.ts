@@ -1,20 +1,20 @@
 import { HttpInterceptorFn } from '@angular/common/http';
 import { inject } from '@angular/core';
-import { Router } from '@angular/router';
 import { AuthService } from './auth.service';
-import { catchError, switchMap, throwError, EMPTY } from 'rxjs';
+import { catchError, switchMap, throwError } from 'rxjs';
 
 const getToken = (key: string): string | null =>
   localStorage.getItem(key) ?? sessionStorage.getItem(key);
 
 export const authInterceptor: HttpInterceptorFn = (req, next) => {
   const authService = inject(AuthService);
-  const router = inject(Router);
   const isRefreshRequest = req.url.includes('/auth/refresh');
   const accessToken = getToken('access_token');
 
+  // Never attach a stale access token to the refresh request itself —
+  // the refresh endpoint authenticates via the refresh_token body field.
   let authReq = req;
-  if (accessToken) {
+  if (accessToken && !isRefreshRequest) {
     authReq = req.clone({
       setHeaders: { Authorization: `Bearer ${accessToken}` },
     });
@@ -24,17 +24,14 @@ export const authInterceptor: HttpInterceptorFn = (req, next) => {
     catchError((error) => {
       if (!isRefreshRequest && error.status === 401 && getToken('refresh_token')) {
         return authService.refresh().pipe(
-          switchMap((res) => {
+          switchMap((newToken) => {
             const retryReq = req.clone({
-              setHeaders: { Authorization: `Bearer ${res.access_token}` },
+              setHeaders: { Authorization: `Bearer ${newToken}` },
             });
             return next(retryReq);
           }),
-          catchError(() => {
-            authService.clearTokens();
-            router.navigate(['/login']);
-            return EMPTY;
-          })
+          // Let the caller (rehydrate / guard) decide what to do on refresh failure
+          catchError(() => throwError(() => error))
         );
       }
       return throwError(() => error);

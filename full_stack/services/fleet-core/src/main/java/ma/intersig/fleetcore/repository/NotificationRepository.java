@@ -22,10 +22,12 @@ public interface NotificationRepository extends JpaRepository<Notification, Long
 
     List<Notification> findByUserIdAndLuFalseAndSeveriteOrderByCreatedAtDesc(Long userId, String severite, Pageable pageable);
 
-    boolean existsByUserIdAndCategorieAndTargetIdAndLuFalseAndCreatedAtAfter(@Param("userId") Long userId,
-                                                                              @Param("categorie") String categorie,
-                                                                              @Param("targetId") Long targetId,
-                                                                              @Param("createdAt") OffsetDateTime createdAt);
+    boolean existsByUserIdAndCategorieAndTargetIdAndCreatedAtAfter(Long userId, String categorie, Long targetId,
+                                                                   OffsetDateTime createdAt);
+
+    boolean existsByUserIdAndCategorieAndTargetIdAndEmailEnvoyeTrueAndEmailSentAtAfter(Long userId, String categorie,
+                                                                                       Long targetId,
+                                                                                       OffsetDateTime emailSentAt);
 
     @org.springframework.data.jpa.repository.Modifying
     @org.springframework.transaction.annotation.Transactional

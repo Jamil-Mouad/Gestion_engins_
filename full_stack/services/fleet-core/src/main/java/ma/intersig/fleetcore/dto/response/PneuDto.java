@@ -21,7 +21,8 @@ public record PneuDto(
         BigDecimal pressionPsi,
         Short profondeur32e,
         String status,
-        Boolean actif
+        Boolean actif,
+        String photoUrl
 ) {
     public static PneuDto from(Pneu p) {
         return new PneuDto(
@@ -40,7 +41,8 @@ public record PneuDto(
                 p.getPressionPsi(),
                 p.getProfondeur32e(),
                 p.getStatus(),
-                p.getActif()
+                p.getActif(),
+                p.getPhotoUrl()
         );
     }
 }

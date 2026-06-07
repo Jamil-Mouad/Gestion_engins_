@@ -247,7 +247,7 @@ public class ExportService {
         for (int i = 0; i < cols.length; i++) {
             header.createCell(i).setCellValue(cols[i]);
         }
-        List<DemandeAchat> demandes = demandeAchatRepository.findAll();
+        List<DemandeAchat> demandes = demandeAchatRepository.findAllWithComposant();
         int rowIdx = 1;
         for (DemandeAchat d : demandes) {
             Row row = sheet.createRow(rowIdx++);

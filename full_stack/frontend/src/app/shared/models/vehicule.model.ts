@@ -53,6 +53,11 @@ export interface CamionDetails {
   compteurHeures: number;
   chauffeurPrenom: string | null;
   chauffeurNom: string | null;
+  // KPI fields (editable)
+  voyagesMois: number | null;
+  kmParcourus: number | null;
+  // Computed read-only (server-side, not sent in edit payload)
+  pctConsoVsFlotte: number | null;
 }
 
 export interface VehiculeDetail extends Vehicule {

@@ -1,24 +1,19 @@
 import { HttpRequest, HttpHandlerFn, HttpErrorResponse, HttpStatusCode } from '@angular/common/http';
-import { of, throwError, Subject, BehaviorSubject } from 'rxjs';
+import { of, throwError, Subject } from 'rxjs';
 import { TestBed } from '@angular/core/testing';
+import { signal } from '@angular/core';
 
 import { authInterceptor } from './auth.interceptor';
 import { AuthService } from './auth.service';
-import { User, RefreshResponse } from '../models/user.model';
 
 describe('authInterceptor', () => {
   let authServiceSpy: jasmine.SpyObj<AuthService>;
-  let refresh$: Subject<RefreshResponse>;
 
   beforeEach(() => {
-    refresh$ = new Subject<RefreshResponse>();
-
-    authServiceSpy = jasmine.createSpyObj('AuthService', ['refresh', 'clearTokens'], {
-      currentUser: new BehaviorSubject<User | null>(null),
-      isLoggedIn: new BehaviorSubject<boolean>(false),
+    authServiceSpy = jasmine.createSpyObj('AuthService', ['refresh', 'clearTokens', 'hasExpiredToken'], {
+      user: signal(null) as any,
+      isAuthenticated: signal(false) as any,
     });
-
-    authServiceSpy.refresh.and.returnValue(refresh$.asObservable());
 
     TestBed.configureTestingModule({
       providers: [
@@ -80,6 +75,8 @@ describe('authInterceptor', () => {
     });
     spyOn(localStorage, 'setItem');
 
+    authServiceSpy.refresh.and.returnValue(of(newAccessToken));
+
     const handler: HttpHandlerFn = (req) => {
       attempt++;
       if (attempt === 1) {
@@ -96,39 +93,58 @@ describe('authInterceptor', () => {
         complete: () => {
           expect(authServiceSpy.refresh).toHaveBeenCalled();
           done();
-        }
+        },
       });
     });
-
-    refresh$.next({ access_token: newAccessToken });
-    refresh$.complete();
   });
 
-  it('should clear tokens and navigate to /login when refresh fails with 401', (done: DoneFn) => {
+  it('should propagate error to caller when refresh fails (not force-navigate)', (done: DoneFn) => {
     spyOn(localStorage, 'getItem').and.callFake((key: string) => {
       if (key === 'access_token') return 'expired-jwt';
       if (key === 'refresh_token') return 'bad-refresh-token';
       return null;
     });
 
+    const refreshError = new HttpErrorResponse({ status: HttpStatusCode.Unauthorized });
+    authServiceSpy.refresh.and.returnValue(throwError(() => refreshError));
+
     const handler: HttpHandlerFn = () => {
       return throwError(() => new HttpErrorResponse({ status: HttpStatusCode.Unauthorized }));
     };
 
-    const req = new HttpRequest('GET', '/api/v1/auth/me');
+    const req = new HttpRequest('GET', '/api/v1/test');
 
     TestBed.runInInjectionContext(() => {
       authInterceptor(req, handler).subscribe({
-        error: () => {
-          done.fail('Expected completion but got error');
-        },
-        complete: () => {
-          expect(authServiceSpy.clearTokens).toHaveBeenCalled();
+        error: (err) => {
+          // Interceptor propagates the error — caller (rehydrate / guard) decides what to do.
+          expect(err).toBeDefined();
+          expect(authServiceSpy.clearTokens).not.toHaveBeenCalled();
           done();
-        }
+        },
       });
     });
+  });
 
-    refresh$.error(new HttpErrorResponse({ status: HttpStatusCode.Unauthorized }));
+  it('should not attach Authorization header to the refresh request itself', () => {
+    spyOn(localStorage, 'getItem').and.callFake((key: string) => {
+      if (key === 'access_token') return 'stale-jwt';
+      return null;
+    });
+
+    let capturedAuth: string | null = null;
+
+    const handler: HttpHandlerFn = (req) => {
+      capturedAuth = req.headers.get('Authorization');
+      return of({} as any);
+    };
+
+    const refreshReq = new HttpRequest('POST', '/api/v1/auth/refresh', {});
+
+    TestBed.runInInjectionContext(() => {
+      authInterceptor(refreshReq, handler).subscribe();
+    });
+
+    expect(capturedAuth).toBeNull();
   });
 });

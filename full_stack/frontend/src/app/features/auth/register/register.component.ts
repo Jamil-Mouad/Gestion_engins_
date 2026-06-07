@@ -36,10 +36,10 @@ export class RegisterComponent {
     this.loading.set(true);
     this.errorMessage.set('');
     const { prenom, nom, email, password } = this.registerForm.value;
-    this.auth.register({ prenom: prenom!, nom: nom!, email: email!, password: password! }).subscribe({
+    this.auth.register({ prenom: prenom!, nom: nom!, email: email!.trim().toLowerCase(), password: password! }).subscribe({
       next: () => {
         this.loading.set(false);
-        this.router.navigate(['/dashboard']);
+        this.router.navigate(['/vehicules']);
       },
       error: (err: HttpErrorResponse) => {
         this.loading.set(false);

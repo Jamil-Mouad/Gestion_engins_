@@ -96,6 +96,14 @@ public class ReleveCompteurService {
         return ReleveCompteurDto.from(releve);
     }
 
+    @Transactional(readOnly = true)
+    public List<ReleveCompteurDto> listByVehicule(Long vehiculeId) {
+        return releveRepository.findByVehiculeIdOrderByDateReleveDesc(vehiculeId)
+                .stream()
+                .map(ReleveCompteurDto::from)
+                .collect(java.util.stream.Collectors.toList());
+    }
+
     @Transactional
     public ImportReportDto importExcel(MultipartFile file, Long userId) {
         List<ImportRowError> errors = new ArrayList<>();

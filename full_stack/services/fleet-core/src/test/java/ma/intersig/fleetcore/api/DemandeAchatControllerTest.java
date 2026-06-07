@@ -98,7 +98,7 @@ class DemandeAchatControllerTest {
         .then()
                 .statusCode(200)
                 .body("statut", equalTo("Approuvée"))
-                .body("approbateurId", equalTo(2));
+                .body("approbateur.id", equalTo(2));
     }
 
     @Test

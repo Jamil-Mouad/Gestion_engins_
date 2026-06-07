@@ -36,8 +36,28 @@ export class PneuService {
     return this.http.post<PneuInspection>(`${this.API}/${pneuId}/inspections`, form);
   }
 
-  permuter(pneuId: number, echangerAvecPosition: number): Observable<void> {
-    return this.http.patch<void>(`${this.API}/${pneuId}/permuter`, { echangerAvecPosition }).pipe(
+  update(pneuId: number, body: {
+    nSerie?: string | null;
+    marque?: string | null;
+    dateMontage?: string | null;
+    expectedLifeKm?: number | null;
+    pressionPsi?: number | null;
+    profondeur32e?: number | null;
+    photoUrl?: string | null;
+  }): Observable<Pneu> {
+    return this.http.patch<Pneu>(`${this.API}/${pneuId}`, body).pipe(
+      tap(() => this.byVehiculeCache.clear())
+    );
+  }
+
+  uploadPhoto(file: File): Observable<{ url: string; filename: string }> {
+    const formData = new FormData();
+    formData.append('file', file);
+    return this.http.post<{ url: string; filename: string }>('/api/v1/files/pneu-photos', formData);
+  }
+
+  permuter(pneuId: number, nouvellePosition: number): Observable<void> {
+    return this.http.patch<void>(`${this.API}/${pneuId}/permuter`, { nouvellePosition }).pipe(
       tap(() => this.byVehiculeCache.clear())
     );
   }

@@ -12,10 +12,17 @@ export const authGuard: CanActivateFn = () => {
     filter(isBootstrapping => !isBootstrapping),
     take(1),
     map(() => {
-      if (auth.isLoggedIn()) {
+      if (auth.isAuthenticated()) {
         return true;
       }
-      return router.createUrlTree(['/login']);
+      // Allow through when a valid (non-expired) token exists even if rehydration
+      // failed transiently — the interceptor will attach the token and downstream
+      // pages show their own error state; the interceptor's refresh logic handles 401.
+      if (auth.hasStoredToken() && !auth.hasExpiredToken()) {
+        return true;
+      }
+      void router.navigate(['/login'], { queryParams: { redirect: location.pathname } });
+      return false;
     })
   );
 };

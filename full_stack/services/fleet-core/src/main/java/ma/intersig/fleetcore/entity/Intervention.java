@@ -60,6 +60,9 @@ public class Intervention {
     @JoinColumn(name = "demande_achat_id")
     private DemandeAchat demandeAchat;
 
+    @Column(name = "photo_url", length = 500)
+    private String photoUrl;
+
     @Column(name = "created_at", insertable = false, updatable = false)
     private OffsetDateTime createdAt;
 
@@ -97,6 +100,8 @@ public class Intervention {
     public void setObservations(String observations) { this.observations = observations; }
     public DemandeAchat getDemandeAchat() { return demandeAchat; }
     public void setDemandeAchat(DemandeAchat demandeAchat) { this.demandeAchat = demandeAchat; }
+    public String getPhotoUrl() { return photoUrl; }
+    public void setPhotoUrl(String photoUrl) { this.photoUrl = photoUrl; }
     public OffsetDateTime getCreatedAt() { return createdAt; }
     public OffsetDateTime getUpdatedAt() { return updatedAt; }
 }

@@ -13,7 +13,7 @@ import { LucideAngularModule } from 'lucide-angular';
           <lucide-icon name="chevron-right" [size]="14" class="breadcrumb-sep" />
         }
         @if (item.route && !last) {
-          <a [routerLink]="item.route" class="breadcrumb-item breadcrumb-item--link">{{ item.label }}</a>
+          <a [routerLink]="item.route" [queryParams]="item.queryParams ?? null" class="breadcrumb-item breadcrumb-item--link">{{ item.label }}</a>
         } @else {
           <span class="breadcrumb-item" [class.breadcrumb-item--current]="last">{{ item.label }}</span>
         }
@@ -53,5 +53,5 @@ import { LucideAngularModule } from 'lucide-angular';
   `],
 })
 export class BreadcrumbComponent {
-  @Input() items: { label: string; route?: string }[] = [];
+  @Input() items: { label: string; route?: string; queryParams?: Record<string, string> }[] = [];
 }

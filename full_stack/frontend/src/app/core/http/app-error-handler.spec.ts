@@ -45,7 +45,7 @@ describe('AppErrorHandler', () => {
     handler = TestBed.inject(AppErrorHandler);
 
     const fetchSpy = spyOn(window, 'fetch').and.resolveTo({ ok: true } as Response);
-    spyOn(console, 'error');
+    spyOn(console, 'error').and.stub();
 
     handler.handleError(new Error('production error'));
 
@@ -95,7 +95,7 @@ describe('AppErrorHandler', () => {
     });
     handler = TestBed.inject(AppErrorHandler);
     const fetchSpy = spyOn(window, 'fetch').and.resolveTo({ ok: true } as Response);
-    spyOn(console, 'error');
+    spyOn(console, 'error').and.stub();
 
     handler.handleError(new Error('test'));
 

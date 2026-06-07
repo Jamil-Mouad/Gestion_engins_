@@ -8,6 +8,8 @@ import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
 
+import java.util.List;
+
 @Repository
 public interface DemandeAchatRepository extends JpaRepository<DemandeAchat, Long> {
 
@@ -16,6 +18,9 @@ public interface DemandeAchatRepository extends JpaRepository<DemandeAchat, Long
 
     Page<DemandeAchat> findByStatut(String statut, Pageable pageable);
 
-    @Query("SELECT d FROM DemandeAchat d WHERE (:statut IS NULL OR d.statut = :statut) AND (:urgence IS NULL OR d.urgence = :urgence) AND (:q IS NULL OR LOWER(d.motif) LIKE LOWER(CONCAT('%', :q, '%')))")
+    @Query("SELECT d FROM DemandeAchat d WHERE (:statut IS NULL OR d.statut = :statut) AND (:urgence IS NULL OR d.urgence = :urgence) AND (:q IS NULL OR LOWER(d.motif) LIKE LOWER(CONCAT('%', CAST(:q AS string), '%')))")
     Page<DemandeAchat> findByFilters(@Param("statut") String statut, @Param("urgence") String urgence, @Param("q") String q, Pageable pageable);
+
+    @Query("SELECT d FROM DemandeAchat d LEFT JOIN FETCH d.composant")
+    List<DemandeAchat> findAllWithComposant();
 }

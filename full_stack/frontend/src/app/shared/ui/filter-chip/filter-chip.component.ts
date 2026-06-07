@@ -9,6 +9,7 @@ import { Component, Input, Output, EventEmitter } from '@angular/core';
       class="filter-chip"
       [class.filter-chip--active]="active"
       [class.filter-chip--inactive]="!active"
+      [attr.aria-pressed]="active"
       (click)="clicked.emit()"
       type="button">
       @if (active) {

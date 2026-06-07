@@ -8,7 +8,9 @@ export class EventSourceService implements OnDestroy {
 
   connect(): void {
     if (this.es) return;
-    this.es = new EventSource('/api/v1/events/stream');
+    const token = localStorage.getItem('access_token') ?? sessionStorage.getItem('access_token');
+    if (!token) return;
+    this.es = new EventSource(`/api/v1/events/stream?token=${encodeURIComponent(token)}`);
 
     this.es.addEventListener('vehicule.changed', () => {
       this.vehiculeService.invalidate();

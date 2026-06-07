@@ -1,4 +1,4 @@
-import { Component, inject, signal, Output, EventEmitter } from '@angular/core';
+import { Component, inject, signal, Output, EventEmitter, ViewChild, ElementRef } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { ReactiveFormsModule, FormBuilder, Validators } from '@angular/forms';
 import { VehiculeService } from '../vehicule.service';
@@ -52,6 +52,32 @@ import { DoubleClickGuardDirective } from '../../../shared/directives/double-cli
           </select>
         </div>
 
+        <div class="form-group">
+          <label>Carburant</label>
+          <select formControlName="carburant">
+            @for (c of carburantOptions; track c.value) {
+              <option [value]="c.value">{{ c.label }}</option>
+            }
+          </select>
+        </div>
+
+        <div class="form-group">
+          <label>Photo</label>
+          <div class="photo-field">
+            <input formControlName="photoUrl" placeholder="https://…/photo.jpg" class="photo-url-input" />
+            <input #fileInput type="file" accept="image/*" class="hidden-file-input" (change)="onPhotoFileChange($event)" />
+            <button type="button" class="btn-upload" [disabled]="uploading()" (click)="fileInput.click()">
+              {{ uploading() ? '...' : 'Choisir un fichier' }}
+            </button>
+          </div>
+          @if (uploadError()) {
+            <span class="upload-error">{{ uploadError() }}</span>
+          }
+          @if (form.get('photoUrl')?.value) {
+            <img [src]="form.get('photoUrl')!.value" alt="Aperçu photo" class="photo-preview" (error)="onPhotoError($event)" />
+          }
+        </div>
+
         @if (isCamionTypeSelected()) {
           <div class="camion-subform">
             <h3>Détails camion</h3>
@@ -78,7 +104,7 @@ import { DoubleClickGuardDirective } from '../../../shared/directives/double-cli
 
         <div class="form-actions">
           <button type="button" class="btn-cancel" (click)="close.emit()">Annuler</button>
-          <button type="submit" class="btn-submit" [disabled]="form.invalid || submitting()" [appDoubleClickGuard]="submitting()">
+          <button type="submit" class="btn-submit" [disabled]="form.invalid || submitting() || uploading()" [appDoubleClickGuard]="submitting()">
             {{ submitting() ? 'Enregistrement...' : 'Ajouter' }}
           </button>
         </div>
@@ -99,6 +125,14 @@ import { DoubleClickGuardDirective } from '../../../shared/directives/double-cli
     .btn-submit { background: var(--color-primary); color: #fff; border: none; border-radius: var(--radius-sm); padding: 8px 20px; font-family: 'Open Sans', sans-serif; font-size: 14px; font-weight: 600; cursor: pointer; }
     .btn-submit:hover { background: var(--color-primary-dark); }
     .btn-submit:disabled { opacity: 0.5; cursor: not-allowed; }
+    .photo-field { display: flex; gap: 8px; align-items: center; }
+    .photo-url-input { flex: 1; height: 40px; padding: 0 12px; border: 1px solid var(--color-border); border-radius: var(--radius-sm); background: var(--color-surface); font-family: 'Open Sans', sans-serif; font-size: 14px; color: var(--color-text); }
+    .hidden-file-input { display: none; }
+    .btn-upload { height: 40px; padding: 0 12px; background: var(--color-surface); border: 1px solid var(--color-border); border-radius: var(--radius-sm); font-family: 'Open Sans', sans-serif; font-size: 13px; color: var(--color-text); cursor: pointer; white-space: nowrap; flex-shrink: 0; }
+    .btn-upload:hover { background: #F9FAFB; }
+    .btn-upload:disabled { opacity: 0.5; cursor: not-allowed; }
+    .upload-error { font-family: 'Open Sans', sans-serif; font-size: 12px; color: #991B1B; margin-top: 4px; }
+    .photo-preview { width: 80px; height: 60px; object-fit: cover; border-radius: 6px; border: 1px solid var(--color-border); margin-top: 6px; }
   `],
 })
 export class NewVehiculeModalComponent {
@@ -106,9 +140,12 @@ export class NewVehiculeModalComponent {
 
   @Output() saved = new EventEmitter<Vehicule>();
   @Output() close = new EventEmitter<void>();
+  @ViewChild('fileInput') fileInputRef!: ElementRef<HTMLInputElement>;
 
   submitting = signal(false);
+  uploading = signal(false);
   errorMessage = signal('');
+  uploadError = signal('');
 
   isCamionTypeSelected(): boolean {
     return isCamionType(this.form.get('type')?.value ?? '');
@@ -137,16 +174,46 @@ export class NewVehiculeModalComponent {
     code: ['', [Validators.required]],
     type: ['camion' as VehiculeType, [Validators.required]],
     marque: ['', [Validators.required]],
-    modele: ['', [Validators.required]],
+    modele: [''],
     matricule: [''],
     nChassis: [''],
     annee: [null as number | null],
-    carburant: ['Diesel'],
+    carburant: ['gasoil'],
     statut: ['in-service' as VehiculeStatut, [Validators.required]],
     dateMiseService: [null as string | null],
     capaciteTonnes: [null as number | null],
     configAxle: ['4x2' as '4x2' | '6x4' | 'plateau-2x2' | null],
+    photoUrl: ['' as string | null],
   });
+
+  carburantOptions = [
+    { value: 'gasoil',     label: 'Gasoil' },
+    { value: 'essence',    label: 'Essence' },
+    { value: 'electrique', label: 'Électrique' },
+    { value: 'hybride',    label: 'Hybride' },
+  ];
+
+  onPhotoFileChange(event: Event): void {
+    const input = event.target as HTMLInputElement;
+    const file = input.files?.[0];
+    if (!file) return;
+    this.uploading.set(true);
+    this.uploadError.set('');
+    this.vehiculeService.uploadPhoto(file).subscribe({
+      next: (res) => {
+        this.form.patchValue({ photoUrl: res.url });
+        this.uploading.set(false);
+      },
+      error: (err: any) => {
+        this.uploadError.set(err?.error?.error || 'Erreur lors du téléversement de la photo.');
+        this.uploading.set(false);
+      },
+    });
+  }
+
+  onPhotoError(event: Event): void {
+    (event.target as HTMLImageElement).style.display = 'none';
+  }
 
   onSubmit(): void {
     if (this.form.invalid) return;
@@ -159,12 +226,13 @@ export class NewVehiculeModalComponent {
       type: formValue.type,
       marque: formValue.marque,
       modele: formValue.modele,
-      matricule: formValue.matricule || '',
-      nChassis: formValue.nChassis || '',
+      matricule: formValue.matricule || null,
+      nChassis: formValue.nChassis || null,
       annee: formValue.annee,
-      carburant: formValue.carburant || 'Diesel',
+      carburant: formValue.carburant || 'gasoil',
       statut: formValue.statut,
       dateMiseService: formValue.dateMiseService,
+      photoUrl: formValue.photoUrl || null,
     };
 
     if (isCamionType(formValue.type ?? '')) {
@@ -180,9 +248,9 @@ export class NewVehiculeModalComponent {
         this.saved.emit(v);
         this.close.emit();
       },
-      error: () => {
+      error: (err: any) => {
         this.submitting.set(false);
-        this.errorMessage.set('Erreur lors de la création du véhicule.');
+        this.errorMessage.set(err?.error?.error || err?.error?.message || 'Erreur lors de la création du véhicule.');
       },
     });
   }

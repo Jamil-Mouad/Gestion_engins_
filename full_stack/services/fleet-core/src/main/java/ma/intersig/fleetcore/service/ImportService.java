@@ -82,6 +82,10 @@ public class ImportService {
         try (InputStream is = file.getInputStream(); Workbook workbook = new XSSFWorkbook(is)) {
             Sheet sheet = workbook.getSheetAt(0);
 
+            if (mapping == null || mapping.isEmpty()) {
+                mapping = buildAutoMapping(sheet, entite);
+            }
+
             for (int i = 1; i <= sheet.getLastRowNum(); i++) {
                 Row row = sheet.getRow(i);
                 if (row == null) continue;
@@ -108,6 +112,26 @@ public class ImportService {
         saveHistorique(file.getOriginalFilename(), "excel_" + entite, total, ok, erreur, userId);
 
         return ImportReportDto.of(total, ok, erreur, errors);
+    }
+
+    private Map<Integer, String> buildAutoMapping(Sheet sheet, String entite) {
+        List<String> knownFields = ENTITY_FIELDS.get(entite);
+        Map<Integer, String> autoMapping = new LinkedHashMap<>();
+        Row headerRow = sheet.getRow(0);
+        if (headerRow == null || knownFields == null) return autoMapping;
+        for (int colIdx = 0; colIdx < headerRow.getLastCellNum(); colIdx++) {
+            Cell cell = headerRow.getCell(colIdx);
+            if (cell == null) continue;
+            String headerText = cell.getStringCellValue().trim().toLowerCase();
+            if (headerText.isEmpty()) continue;
+            for (String field : knownFields) {
+                if (field.equalsIgnoreCase(headerText)) {
+                    autoMapping.put(colIdx, field);
+                    break;
+                }
+            }
+        }
+        return autoMapping;
     }
 
     private Map<String, String> extractRowValues(Row row, Map<Integer, String> mapping) {

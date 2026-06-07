@@ -21,6 +21,8 @@ import { Component, Input, Output, EventEmitter } from '@angular/core';
   `,
   styles: [`
     .tab {
+      position: relative;
+      z-index: 1;
       height: 48px;
       padding: 0 20px;
       display: inline-flex;
@@ -40,6 +42,8 @@ import { Component, Input, Output, EventEmitter } from '@angular/core';
       border-color: var(--color-primary);
       font-weight: 600;
       color: var(--color-text);
+      font-synthesis: none;
+      -webkit-font-smoothing: antialiased;
     }
     .tab--inactive {
       border-color: transparent;

@@ -10,8 +10,10 @@ export class ComposantService {
   private readonly API = '/api/v1/composants';
   private http = inject(HttpClient);
 
-  tree(): Observable<ComposantNode[]> {
-    return this.http.get<ComposantNode[]>(`${this.API}/tree`);
+  tree(type?: string): Observable<ComposantNode[]> {
+    let httpParams = new HttpParams();
+    if (type) httpParams = httpParams.set('type', type);
+    return this.http.get<ComposantNode[]>(`${this.API}/tree`, { params: httpParams });
   }
 
   list(params?: { categorie?: string; page?: number; size?: number }): Observable<Page<Composant>> {
@@ -34,5 +36,19 @@ export class ComposantService {
     let httpParams = new HttpParams().set('q', q);
     if (categorie) httpParams = httpParams.set('categorie', categorie);
     return this.http.get<Composant[]>(`${this.API}/search`, { params: httpParams });
+  }
+
+  update(id: number, form: Partial<Composant>): Observable<Composant> {
+    return this.http.put<Composant>(`${this.API}/${id}`, form);
+  }
+
+  delete(id: number): Observable<void> {
+    return this.http.delete<void>(`${this.API}/${id}`);
+  }
+
+  uploadPhoto(file: File): Observable<{ url: string; filename: string }> {
+    const formData = new FormData();
+    formData.append('file', file);
+    return this.http.post<{ url: string; filename: string }>('/api/v1/files/composant-photos', formData);
   }
 }

@@ -18,5 +18,8 @@ public record CamionDetailsRequest(
         Integer compteurKm,
         Integer compteurHeures,
         String chauffeurPrenom,
-        String chauffeurNom
+        String chauffeurNom,
+        // KPI fields (editable)
+        Integer voyagesMois,
+        Integer kmParcourus
 ) {}

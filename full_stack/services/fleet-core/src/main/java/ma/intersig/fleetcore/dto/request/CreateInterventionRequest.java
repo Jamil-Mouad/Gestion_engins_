@@ -15,5 +15,6 @@ public record CreateInterventionRequest(
         BigDecimal coutPieces,
         BigDecimal coutMainOeuvre,
         BigDecimal coutSousTraitance,
-        String observations
+        String observations,
+        String photoUrl
 ) {}

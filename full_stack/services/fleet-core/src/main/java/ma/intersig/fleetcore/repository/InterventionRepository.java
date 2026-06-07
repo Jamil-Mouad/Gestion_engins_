@@ -38,6 +38,7 @@ public interface InterventionRepository extends JpaRepository<Intervention, Long
            "  OR LOWER(COALESCE(c.designation, '')) LIKE LOWER(CONCAT('%', CAST(:q AS string), '%')))",
            countQuery = "SELECT COUNT(i) FROM Intervention i " +
            "LEFT JOIN i.vehicule v " +
+           "LEFT JOIN i.typeIntervention t " +
            "LEFT JOIN i.composant c " +
            "WHERE (:vehiculeId IS NULL OR v.id = :vehiculeId) " +
            "AND (:categorie IS NULL OR i.categorie = :categorie) " +
@@ -66,7 +67,7 @@ public interface InterventionRepository extends JpaRepository<Intervention, Long
            countQuery = "SELECT COUNT(i) FROM Intervention i")
     Page<Intervention> findAllWithRelations(Pageable pageable);
 
-    @Query("SELECT i FROM Intervention i LEFT JOIN FETCH i.vehicule WHERE i.dateDebut >= :from AND i.dateDebut <= :to")
+    @Query("SELECT i FROM Intervention i LEFT JOIN FETCH i.vehicule LEFT JOIN FETCH i.typeIntervention LEFT JOIN FETCH i.composant WHERE i.dateDebut >= :from AND i.dateDebut <= :to")
     List<Intervention> findAllWithVehiculeInRange(@Param("from") java.time.OffsetDateTime from,
                                                   @Param("to") java.time.OffsetDateTime to);
 

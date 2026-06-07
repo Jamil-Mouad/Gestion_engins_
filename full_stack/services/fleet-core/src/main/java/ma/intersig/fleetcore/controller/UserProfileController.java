@@ -30,20 +30,36 @@ public class UserProfileController {
                 user.getEmail(),
                 user.getPrenom(),
                 user.getNom(),
-                user.getActif()
+                user.getActif(),
+                user.getTelephone()
         ));
     }
 
     @PutMapping("/me")
     public ResponseEntity<UserDto> updateMe(@CurrentUserId Long userId,
                                              @Valid @RequestBody UpdateUserRequest req) {
-        User user = userService.updateMe(userId, req.prenom(), req.nom());
+        User user = userService.updateMe(userId, req.prenom(), req.nom(), req.telephone());
         return ResponseEntity.ok(new UserDto(
                 user.getId(),
                 user.getEmail(),
                 user.getPrenom(),
                 user.getNom(),
-                user.getActif()
+                user.getActif(),
+                user.getTelephone()
+        ));
+    }
+
+    @PatchMapping("/me")
+    public ResponseEntity<UserDto> patchMe(@CurrentUserId Long userId,
+                                            @Valid @RequestBody UpdateUserRequest req) {
+        User user = userService.updateMe(userId, req.prenom(), req.nom(), req.telephone());
+        return ResponseEntity.ok(new UserDto(
+                user.getId(),
+                user.getEmail(),
+                user.getPrenom(),
+                user.getNom(),
+                user.getActif(),
+                user.getTelephone()
         ));
     }
 
@@ -84,7 +100,7 @@ public class UserProfileController {
         }
     }
 
-    public record UpdateUserRequest(@NotBlank String prenom, @NotBlank String nom) {}
+    public record UpdateUserRequest(@NotBlank String prenom, @NotBlank String nom, String telephone) {}
 
-    public record UserDto(Long id, String email, String prenom, String nom, Boolean actif) {}
+    public record UserDto(Long id, String email, String prenom, String nom, Boolean actif, String telephone) {}
 }

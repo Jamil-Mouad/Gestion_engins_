@@ -42,6 +42,9 @@ public class Notification {
     @Column(name = "email_envoye", nullable = false)
     private Boolean emailEnvoye = false;
 
+    @Column(name = "email_sent_at")
+    private OffsetDateTime emailSentAt;
+
     @Column(name = "created_at", insertable = false, updatable = false)
     private OffsetDateTime createdAt;
 
@@ -70,6 +73,8 @@ public class Notification {
     public void setLu(Boolean lu) { this.lu = lu; }
     public Boolean getEmailEnvoye() { return emailEnvoye; }
     public void setEmailEnvoye(Boolean emailEnvoye) { this.emailEnvoye = emailEnvoye; }
+    public OffsetDateTime getEmailSentAt() { return emailSentAt; }
+    public void setEmailSentAt(OffsetDateTime emailSentAt) { this.emailSentAt = emailSentAt; }
     public OffsetDateTime getCreatedAt() { return createdAt; }
     public OffsetDateTime getUpdatedAt() { return updatedAt; }
 }

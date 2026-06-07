@@ -24,11 +24,13 @@ public class ComposantController {
         this.composantService = composantService;
     }
 
-    @Operation(summary = "Get component hierarchy tree")
+    @Operation(summary = "Get component hierarchy tree (optionally scoped to a vehicle type)")
     @GetMapping("/tree")
-    public ResponseEntity<List<ComposantDto>> getTree(HttpServletResponse response) {
+    public ResponseEntity<List<ComposantDto>> getTree(
+            @RequestParam(required = false) String type,
+            HttpServletResponse response) {
         response.setHeader("Cache-Control", "public, max-age=300");
-        return ResponseEntity.ok(composantService.getTree());
+        return ResponseEntity.ok(composantService.getTree(type));
     }
 
     @Operation(summary = "Search components by name or reference")

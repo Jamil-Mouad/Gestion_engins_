@@ -14,7 +14,7 @@ import { ClickOutsideDirective } from '../../directives/click-outside.directive'
     <header class="top-bar">
 
       <!-- Logo lockup -->
-      <a routerLink="/dashboard" class="logo-wrap">
+      <a routerLink="/vehicules" class="logo-wrap">
         <img src="assets/logo.png" alt="INTERSIG" class="logo-img" />
         <div class="logo-arrow-square">
           <svg width="20" height="16" viewBox="0 0 20 16" fill="none">
@@ -32,13 +32,6 @@ import { ClickOutsideDirective } from '../../directives/click-outside.directive'
 
         <!-- Glass pill -->
         <div #hoverPill class="hover-pill"></div>
-
-        <!-- Dashboard -->
-        <div class="nav-item-wrap" (mouseenter)="movePill($event.currentTarget)">
-          <a routerLink="/dashboard" routerLinkActive="nav-link--active" [routerLinkActiveOptions]="{exact:true}" class="nav-link">
-            <span class="nav-label" [class.nav-label--active]="router.url === '/dashboard'">Dashboard</span>
-          </a>
-        </div>
 
         <!-- Véhicules -->
         <div class="nav-item-wrap" (mouseenter)="movePill($event.currentTarget)">
@@ -61,51 +54,17 @@ import { ClickOutsideDirective } from '../../directives/click-outside.directive'
           </a>
         </div>
 
-        <!-- Vidanges -->
+        <!-- Demandes achat -->
         <div class="nav-item-wrap" (mouseenter)="movePill($event.currentTarget)">
-          <a routerLink="/vidanges" routerLinkActive="nav-link--active" class="nav-link">
-            <span class="nav-label" [class.nav-label--active]="router.url.startsWith('/vidanges')">Vidanges</span>
+          <a routerLink="/demandes-achat" routerLinkActive="nav-link--active" class="nav-link">
+            <span class="nav-label" [class.nav-label--active]="router.url.startsWith('/demandes-achat')">Demandes</span>
           </a>
-        </div>
-
-        <!-- Demandes dropdown -->
-        <div class="nav-item-wrap nav-item-wrap--demandes"
-             (mouseenter)="demandesOpen.set(true); movePill($event.currentTarget)"
-             (mouseleave)="demandesOpen.set(false)">
-          <div class="nav-link" [class.nav-link--active]="isDemandesActive()">
-            <span class="nav-label" [class.nav-label--active]="isDemandesActive()">Demandes ▾</span>
-          </div>
-          @if (demandesOpen()) {
-            <div class="demandes-dropdown">
-              <a routerLink="/demandes-intervention" class="demandes-sub-item"
-                 [class.demandes-sub-item--active]="router.url.startsWith('/demandes-intervention')"
-                 (click)="demandesOpen.set(false)"
-                 (mouseenter)="onSubItemEnter($event)"
-                 (mouseleave)="onSubItemLeave($event)">
-                Intervention
-              </a>
-              <a routerLink="/demandes-achat" class="demandes-sub-item"
-                 [class.demandes-sub-item--active]="router.url.startsWith('/demandes-achat')"
-                 (click)="demandesOpen.set(false)"
-                 (mouseenter)="onSubItemEnter($event)"
-                 (mouseleave)="onSubItemLeave($event)">
-                Achat
-              </a>
-            </div>
-          }
         </div>
 
         <!-- Chat AI -->
         <div class="nav-item-wrap" (mouseenter)="movePill($event.currentTarget)">
           <a routerLink="/chatbot" routerLinkActive="nav-link--active" class="nav-link">
             <span class="nav-label" [class.nav-label--active]="router.url.startsWith('/chatbot')">Chat AI</span>
-          </a>
-        </div>
-
-        <!-- Historique -->
-        <div class="nav-item-wrap" (mouseenter)="movePill($event.currentTarget)">
-          <a routerLink="/historique" routerLinkActive="nav-link--active" class="nav-link">
-            <span class="nav-label" [class.nav-label--active]="router.url.startsWith('/historique')">Historique</span>
           </a>
         </div>
 
@@ -225,10 +184,11 @@ import { ClickOutsideDirective } from '../../directives/click-outside.directive'
       border-radius: 8px;
       pointer-events: none;
       z-index: 0;
-      background: rgba(255,255,255,0.07);
+      background: rgba(255,255,255,0.10);
       border: 1px solid rgba(255,255,255,0.13);
-      backdrop-filter: blur(14px);
-      box-shadow: 0 2px 16px rgba(0,0,0,0.18), inset 0 1px 0 rgba(255,255,255,0.09);
+      box-shadow: 0 2px 8px rgba(0,0,0,0.12);
+      backdrop-filter: blur(20px) saturate(180%);
+      -webkit-backdrop-filter: blur(20px) saturate(180%);
       transition: left 320ms cubic-bezier(0.34,1.2,0.64,1), width 320ms cubic-bezier(0.34,1.2,0.64,1), opacity 180ms ease;
       opacity: 0;
     }
@@ -238,10 +198,6 @@ import { ClickOutsideDirective } from '../../directives/click-outside.directive'
       position: relative;
       z-index: 1;
     }
-    .nav-item-wrap--demandes {
-      position: relative;
-    }
-
     .nav-link {
       height: 72px;
       padding: 0 14px;
@@ -251,10 +207,28 @@ import { ClickOutsideDirective } from '../../directives/click-outside.directive'
       border-bottom: 2px solid transparent;
       transition: border-color 200ms ease-out;
       text-decoration: none;
+      position: relative;
     }
     .nav-link--active,
     .nav-link.active {
       border-bottom-color: #F7941D;
+    }
+    /* Glass pill behind the active tab label */
+    .nav-link--active::before,
+    .nav-link.active::before {
+      content: '';
+      position: absolute;
+      top: 19px;
+      left: 0;
+      right: 0;
+      height: 32px;
+      border-radius: 8px;
+      background: rgba(255,255,255,0.10);
+      border: 1px solid rgba(255,255,255,0.14);
+      backdrop-filter: blur(20px) saturate(180%);
+      -webkit-backdrop-filter: blur(20px) saturate(180%);
+      box-shadow: 0 2px 8px rgba(0,0,0,0.18), inset 0 1px 0 rgba(255,255,255,0.08);
+      pointer-events: none;
     }
 
     .nav-label {
@@ -265,42 +239,13 @@ import { ClickOutsideDirective } from '../../directives/click-outside.directive'
       user-select: none;
       transition: color 200ms;
       white-space: nowrap;
+      position: relative;
     }
     .nav-label--active {
       font-weight: 600;
       color: #fff;
-    }
-
-    /* ── Demandes dropdown ── */
-    .demandes-dropdown {
-      position: absolute;
-      top: 70px;
-      left: 0;
-      background: rgba(20,20,20,0.97);
-      backdrop-filter: blur(18px);
-      border: 1px solid rgba(255,255,255,0.1);
-      border-radius: 8px;
-      min-width: 160px;
-      box-shadow: 0 24px 48px rgba(17,24,39,0.14);
-      z-index: 20;
-      overflow: hidden;
-    }
-    .demandes-sub-item {
-      display: block;
-      padding: 12px 20px;
-      font-family: 'Open Sans', sans-serif;
-      font-size: 14px;
-      cursor: pointer;
-      text-decoration: none;
-      border-left: 3px solid transparent;
-      font-weight: 400;
-      color: rgba(255,255,255,0.7);
-      transition: all 120ms;
-    }
-    .demandes-sub-item--active {
-      border-left-color: #F7941D;
-      font-weight: 600;
-      color: #fff;
+      font-synthesis: none;
+      -webkit-font-smoothing: antialiased;
     }
 
     /* ── Right cluster ── */
@@ -388,13 +333,8 @@ export class TopBarComponent {
 
   unreadCount = this.notificationService.unreadCount;
   userMenuOpen = signal(false);
-  demandesOpen = signal(false);
 
   initials = computed(() => (this.auth.user()?.prenom?.[0] ?? '') + (this.auth.user()?.nom?.[0] ?? ''));
-
-  isDemandesActive(): boolean {
-    return this.router.url.startsWith('/demandes-intervention') || this.router.url.startsWith('/demandes-achat');
-  }
 
   movePill(el: EventTarget | null): void {
     const pill = this.hoverPillRef?.nativeElement;
@@ -414,18 +354,9 @@ export class TopBarComponent {
     }
   }
 
-  onSubItemEnter(event: MouseEvent): void {
-    (event.currentTarget as HTMLElement).style.background = 'rgba(255,255,255,0.07)';
-  }
-
-  onSubItemLeave(event: MouseEvent): void {
-    (event.currentTarget as HTMLElement).style.background = 'transparent';
-  }
-
   logout(): void {
     this.auth.logout().subscribe({
       next: () => this.router.navigate(['/login']),
-      error: () => this.router.navigate(['/login']),
     });
   }
 }

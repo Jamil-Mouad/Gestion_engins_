@@ -13,11 +13,17 @@ import { ModalShellComponent } from '../../shared/ui/modal/modal-shell.component
     <app-modal-shell modalTitle="Ajouter un pneu" (onClose)="close.emit()">
       <div class="ajouter-modal">
 
-        <!-- Mode toggle -->
-        <div class="mode-toggle">
-          <button type="button" class="mode-btn" [class.mode-btn--active]="mode() === 'nouveau'"
+        <!-- Mode toggle — sliding pill (login-style) -->
+        <div class="tab-switcher" role="tablist">
+          <div aria-hidden="true" class="tab-pill"
+               [style.left]="mode() === 'nouveau' ? '4px' : 'calc(50% + 2px)'"></div>
+          <button type="button" role="tab" class="tab-btn"
+                  [style.fontWeight]="mode() === 'nouveau' ? '700' : '500'"
+                  [style.color]="mode() === 'nouveau' ? 'var(--color-text)' : 'var(--color-text-muted)'"
                   (click)="mode.set('nouveau')">Nouveau pneu</button>
-          <button type="button" class="mode-btn" [class.mode-btn--active]="mode() === 'existant'"
+          <button type="button" role="tab" class="tab-btn"
+                  [style.fontWeight]="mode() === 'existant' ? '700' : '500'"
+                  [style.color]="mode() === 'existant' ? 'var(--color-text)' : 'var(--color-text-muted)'"
                   (click)="mode.set('existant'); loadAvailable()">Pneu existant</button>
         </div>
 
@@ -139,9 +145,10 @@ import { ModalShellComponent } from '../../shared/ui/modal/modal-shell.component
     .btn-confirm { height: 38px; padding: 0 20px; border: none; border-radius: 8px; background: var(--color-primary); font-family: 'Open Sans', sans-serif; font-size: 14px; font-weight: 600; color: #fff; cursor: pointer; }
     .btn-confirm:hover:not(:disabled) { opacity: 0.9; }
     .btn-confirm:disabled { opacity: 0.5; cursor: not-allowed; }
-    .mode-toggle { display: flex; border: 1px solid var(--color-border); border-radius: 6px; overflow: hidden; margin-bottom: 4px; }
-    .mode-btn { flex: 1; height: 36px; border: none; background: transparent; font-family: 'Montserrat', sans-serif; font-size: 13px; font-weight: 500; color: var(--color-text-muted); cursor: pointer; }
-    .mode-btn--active { background: var(--color-primary); color: #fff; font-weight: 600; }
+    /* Tab switcher — login-style sliding pill */
+    .tab-switcher { position: relative; display: grid; grid-template-columns: 1fr 1fr; background: var(--color-n100, #F3F4F6); border-radius: 10px; padding: 4px; margin-bottom: 4px; }
+    .tab-pill { position: absolute; top: 4px; bottom: 4px; width: calc(50% - 6px); border-radius: 6px; background: white; box-shadow: 0 1px 3px rgba(0,0,0,.12); transition: left 320ms cubic-bezier(0.34,1.25,0.64,1); pointer-events: none; z-index: 0; }
+    .tab-btn { position: relative; z-index: 1; height: 36px; border: none; background: transparent; font-family: 'Montserrat', sans-serif; font-size: 13px; border-radius: 6px; cursor: pointer; transition: color 200ms; }
   `],
 })
 export class AjouterPneuModalComponent {

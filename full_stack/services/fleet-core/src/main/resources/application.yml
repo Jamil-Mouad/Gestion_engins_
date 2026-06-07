@@ -1,6 +1,10 @@
 spring:
   application:
     name: fleet-core
+  servlet:
+    multipart:
+      max-file-size: 5MB
+      max-request-size: 6MB
   datasource:
     url: ${POSTGRES_URL:jdbc:postgresql://localhost:5432/fleettracker}
     username: ${POSTGRES_USER:intersig}
@@ -27,6 +31,8 @@ spring:
     locations: classpath:db/migrations
 
 app:
+  upload:
+    dir: ${APP_UPLOAD_DIR:./data/uploads/vehicule-photos}
   fleet-core:
     scheduler:
       alert-window-hours: ${ALERT_WINDOW_HOURS:1}
@@ -57,6 +63,8 @@ logging:
 server:
   port: 8081
   address: 127.0.0.1
+  http2:
+    enabled: true
   compression:
     enabled: true
     mime-types: application/json,application/xml,text/html,text/plain

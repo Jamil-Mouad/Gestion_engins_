@@ -3,19 +3,19 @@ import { CommonModule } from '@angular/common';
 import { Pneu, PneuStatus } from '../../../shared/models/pneu.model';
 
 // ─── Prototype-style axle layout constants ──────────────────────────────────
-const TIRE_W = 52;
-const TIRE_H = 80;
+const TIRE_W = 64;
+const TIRE_H = 96;
 const PAIR_GAP = 4;       // gap between dual tires (tighter)
 const CHASSIS_GAP = 4;    // gap between chassis edge and adjacent tire
-const CENTER_X = 170;     // chassis horizontal center (shifted right)
+const CENTER_X = 200;     // chassis horizontal center (shifted right)
 const CHASSIS_W = 40;
-const CHASSIS_LEFT = CENTER_X - CHASSIS_W / 2;   // 150
-const CHASSIS_RIGHT = CENTER_X + CHASSIS_W / 2;  // 190
-const AXLE_SPACING = 100; // vertical distance between axle centres (tighter)
+const CHASSIS_LEFT = CENTER_X - CHASSIS_W / 2;   // 180
+const CHASSIS_RIGHT = CENTER_X + CHASSIS_W / 2;  // 220
+const AXLE_SPACING = 160; // vertical distance between axle centres
 const CHASSIS_TOP_PAD = 20;
-const FIRST_AXLE_Y = 90;
+const FIRST_AXLE_Y = 110;
 const BOTTOM_PAD = 40;
-const VIEW_W = 380;       // viewBox width (includes label space)
+const VIEW_W = 460;       // viewBox width (includes label space)
 
 // ─── Per-config axle definitions ────────────────────────────────────────────
 interface AxleDef { label: string; left: 1 | 2; right: 1 | 2; }

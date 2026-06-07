@@ -1,4 +1,4 @@
-import { Component, Output, EventEmitter, ChangeDetectionStrategy, input } from '@angular/core';
+import { Component, ChangeDetectionStrategy, input, output } from '@angular/core';
 import { LucideAngularModule } from 'lucide-angular';
 
 @Component({
@@ -64,5 +64,5 @@ import { LucideAngularModule } from 'lucide-angular';
 })
 export class ViewToggleComponent {
   view = input<'table' | 'cards'>('table');
-  @Output() viewChange = new EventEmitter<'table' | 'cards'>();
+  viewChange = output<'table' | 'cards'>();
 }

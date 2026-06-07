@@ -6,6 +6,7 @@ import ma.intersig.fleetcore.dto.request.CreatePneuRequest;
 import ma.intersig.fleetcore.dto.request.PermuterPneuRequest;
 import ma.intersig.fleetcore.dto.request.RemplacerPneuRequest;
 import ma.intersig.fleetcore.dto.request.RemonterPneuRequest;
+import ma.intersig.fleetcore.dto.request.UpdatePneuRequest;
 import ma.intersig.fleetcore.dto.response.PageResponse;
 import ma.intersig.fleetcore.dto.response.PneuDto;
 import ma.intersig.fleetcore.dto.response.PneuInspectionDto;
@@ -122,6 +123,25 @@ public class PneuService {
 
         entityManager.flush();
         entityManager.refresh(pneu);
+
+        return PneuDto.from(pneu);
+    }
+
+    public PneuDto update(Long pneuId, UpdatePneuRequest req) {
+        Pneu pneu = pneuRepository.findById(pneuId)
+                .orElseThrow(() -> new ResourceNotFoundException("Pneu not found", "PNEU_NOT_FOUND"));
+
+        if (req.nSerie() != null)         pneu.setNSerie(req.nSerie());
+        if (req.marque() != null)         pneu.setMarque(req.marque());
+        if (req.dateMontage() != null)    pneu.setDateMontage(req.dateMontage());
+        if (req.expectedLifeKm() != null) pneu.setExpectedLifeKm(req.expectedLifeKm());
+        if (req.pressionPsi() != null)    pneu.setPressionPsi(req.pressionPsi());
+        if (req.profondeur32e() != null)  pneu.setProfondeur32e(req.profondeur32e());
+        if (req.photoUrl() != null)       pneu.setPhotoUrl(req.photoUrl());
+
+        pneuRepository.save(pneu);
+        // Re-read to pick up trigger-updated status and generated km_restant
+        pneu = pneuRepository.findById(pneuId).orElseThrow();
 
         return PneuDto.from(pneu);
     }

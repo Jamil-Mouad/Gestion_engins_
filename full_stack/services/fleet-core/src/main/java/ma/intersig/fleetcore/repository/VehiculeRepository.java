@@ -1,5 +1,6 @@
 package ma.intersig.fleetcore.repository;
 
+import ma.intersig.fleetcore.entity.Camion;
 import ma.intersig.fleetcore.entity.Vehicule;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
@@ -62,4 +63,11 @@ public interface VehiculeRepository extends JpaRepository<Vehicule, Long> {
 
     @Query("SELECT v FROM Vehicule v WHERE v.actif = true")
     List<Vehicule> findAllActive();
+
+    /**
+     * Sum of conso_gasoil_litres_mois for all active camion/camion_tracteur vehicles that have a value set.
+     * Used to compute % conso vs flotte.
+     */
+    @Query("SELECT COALESCE(SUM(c.consoGasoilLitresMois), 0) FROM Camion c WHERE c.actif = true AND c.consoGasoilLitresMois IS NOT NULL")
+    java.math.BigDecimal sumConsoGasoilActiveCamions();
 }

@@ -1,6 +1,9 @@
-import { Component, Input, inject, signal, ChangeDetectionStrategy, DestroyRef, OnChanges } from '@angular/core';
+import { Component, Input, inject, signal, ChangeDetectionStrategy, OnChanges } from '@angular/core';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { CommonModule } from '@angular/common';
+import { Subject } from 'rxjs';
+import { switchMap, catchError } from 'rxjs/operators';
+import { of } from 'rxjs';
 import { PneuService } from '../../pneu.service';
 import { PneuInspection, InspectionActivity } from '../../../../shared/models/pneu.model';
 import { DateFrPipe } from '../../../../shared/pipes/date-fr.pipe';
@@ -56,25 +59,26 @@ import { InspectionModalComponent } from '../../inspection-modal.component';
 })
 export class PneuInspectionsTabComponent implements OnChanges {
   private pneuService = inject(PneuService);
-  private destroyRef = inject(DestroyRef);
 
   @Input({ required: true }) pneuId!: number;
   inspections = signal<PneuInspection[]>([]);
   showModal = signal(false);
 
-  ngOnChanges(): void {
-    this.loadInspections();
+  private reload$ = new Subject<number>();
+
+  constructor() {
+    this.reload$.pipe(
+      switchMap(id => this.pneuService.getInspections(id).pipe(catchError(() => of([])))),
+      takeUntilDestroyed(),
+    ).subscribe(data => this.inspections.set(data));
   }
 
-  private loadInspections(): void {
-    this.pneuService.getInspections(this.pneuId).pipe(takeUntilDestroyed(this.destroyRef)).subscribe({
-      next: (data) => this.inspections.set(data),
-      error: () => this.inspections.set([]),
-    });
+  ngOnChanges(): void {
+    this.reload$.next(this.pneuId);
   }
 
   onInspectionSaved(): void {
     this.showModal.set(false);
-    this.loadInspections();
+    this.reload$.next(this.pneuId);
   }
 }

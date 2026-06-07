@@ -41,7 +41,8 @@ public class VehiculeController {
 
     @Operation(summary = "Get vehicle by ID")
     @GetMapping("/{id}")
-    public ResponseEntity<VehiculeDto> getById(@PathVariable Long id) {
+    public ResponseEntity<VehiculeDto> getById(@PathVariable Long id, HttpServletResponse response) {
+        response.setHeader("Cache-Control", "public, max-age=15, must-revalidate");
         return ResponseEntity.ok(vehiculeService.getById(id));
     }
 

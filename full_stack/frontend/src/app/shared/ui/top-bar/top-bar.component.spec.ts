@@ -65,43 +65,30 @@ describe('TopBarComponent', () => {
     expect(compiled.querySelector('.logo-product')?.textContent?.trim()).toBe('FleetTracker');
   });
 
-  it('nav contains all 10 items', () => {
+  it('nav contains all main items', () => {
     const compiled = fixture.nativeElement as HTMLElement;
     const text = compiled.textContent ?? '';
-    expect(text).toContain('Dashboard');
     expect(text).toContain('Véhicules');
     expect(text).toContain('Interventions');
     expect(text).toContain('Composants');
-    expect(text).toContain('Vidanges');
     expect(text).toContain('Demandes');
     expect(text).toContain('Chat AI');
-    expect(text).toContain('Historique');
     expect(text).toContain('Import');
     expect(text).toContain('Journées');
   });
 
-  it('Demandes item renders the dropdown trigger', () => {
+  it('Demandes item is a direct link to /demandes-achat', () => {
     const compiled = fixture.nativeElement as HTMLElement;
-    const demandesWrap = compiled.querySelector('.nav-item-wrap--demandes');
-    expect(demandesWrap).toBeTruthy();
-    expect(demandesWrap?.textContent).toContain('Demandes');
-  });
-
-  it('Demandes dropdown opens on demandesOpen = true', () => {
-    component.demandesOpen.set(true);
-    fixture.detectChanges();
-    const compiled = fixture.nativeElement as HTMLElement;
-    const dropdown = compiled.querySelector('.demandes-dropdown');
-    expect(dropdown).toBeTruthy();
-    expect(dropdown?.textContent).toContain('Intervention');
-    expect(dropdown?.textContent).toContain('Achat');
+    const demandesLink = compiled.querySelector('a[routerLink="/demandes-achat"]') ??
+      Array.from(compiled.querySelectorAll('.nav-item-wrap a')).find(a => a.textContent?.includes('Demandes'));
+    expect(demandesLink).toBeTruthy();
+    expect(demandesLink?.textContent).toContain('Demandes');
   });
 
   it('user avatar is rendered', () => {
     const compiled = fixture.nativeElement as HTMLElement;
     const avatar = compiled.querySelector('.user-avatar');
     expect(avatar).toBeTruthy();
-    // initials from Admin User
     expect(avatar?.textContent?.trim()).toBe('AU');
   });
 
@@ -133,20 +120,5 @@ describe('TopBarComponent', () => {
 
   it('initials computed from user prenom and nom', () => {
     expect(component.initials()).toBe('AU');
-  });
-
-  it('isDemandesActive() returns true for /demandes-intervention', () => {
-    spyOnProperty(component.router, 'url', 'get').and.returnValue('/demandes-intervention');
-    expect(component.isDemandesActive()).toBeTrue();
-  });
-
-  it('isDemandesActive() returns true for /demandes-achat', () => {
-    spyOnProperty(component.router, 'url', 'get').and.returnValue('/demandes-achat');
-    expect(component.isDemandesActive()).toBeTrue();
-  });
-
-  it('isDemandesActive() returns false for /dashboard', () => {
-    spyOnProperty(component.router, 'url', 'get').and.returnValue('/dashboard');
-    expect(component.isDemandesActive()).toBeFalse();
   });
 });

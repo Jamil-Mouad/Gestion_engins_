@@ -42,3 +42,13 @@ export interface DashboardSnapshot {
   costHistory: KpiCostHistory[];
   interventionsByStatus: KpiInterventionByStatus[];
 }
+
+export interface VehiculeKpi {
+  disponibilite: number;
+  coutMensuelMad: number;
+  kmParcourusMois: number;
+  kmCumules: number;
+  interventionsOuvertes: number;
+  vidangesEnRetard: number;
+  pneusWarnEmpty: number;
+}

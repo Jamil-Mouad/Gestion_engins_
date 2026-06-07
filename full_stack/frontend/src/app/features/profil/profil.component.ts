@@ -41,6 +41,12 @@ import {
                     <span class="profil-meta-row__label">Email</span>
                     <span class="profil-meta-row__value">{{ user()?.email }}</span>
                   </div>
+                  @if (user()?.telephone) {
+                    <div class="profil-meta-row">
+                      <span class="profil-meta-row__label">Téléphone</span>
+                      <span class="profil-meta-row__value">{{ user()?.telephone }}</span>
+                    </div>
+                  }
                   <div class="profil-meta-row">
                     <span class="profil-meta-row__label">Statut</span>
                     <span class="profil-meta-row__value">{{ user()?.actif ? 'Actif' : 'Inactif' }}</span>
@@ -55,93 +61,59 @@ import {
 
             <!-- Section 1: Informations personnelles -->
             <app-card>
-              <button class="profil__section-toggle" (click)="toggleSection('infos')">
-                <span class="profil__chevron">{{ expandedSections().has('infos') ? '▼' : '▶' }}</span>
-                <span>Informations personnelles</span>
-              </button>
-              @if (expandedSections().has('infos')) {
-                <form class="profil-form" [formGroup]="infosForm" (ngSubmit)="saveInfos()">
-                  <div class="profil-form__grid">
-                    <app-f-row label="Prénom">
-                      <input type="text" formControlName="prenom" class="profil__input" placeholder="Prénom" />
-                    </app-f-row>
-                    <app-f-row label="Nom">
-                      <input type="text" formControlName="nom" class="profil__input" placeholder="Nom" />
-                    </app-f-row>
-                    <app-f-row label="Email" [required]="true">
-                      <input type="email" formControlName="email" class="profil__input" placeholder="email@exemple.com" />
-                    </app-f-row>
-                    <app-f-row label="Rôle">
-                      <input type="text" class="profil__input profil__input--readonly" [value]="user()?.role ?? ''" readonly />
-                    </app-f-row>
-                  </div>
-                  <div class="profil-form__actions">
-                    @if (infosSaved()) {
-                      <span class="profil__success">Enregistré !</span>
-                    }
-                    <button type="submit" class="profil__btn" [disabled]="infosForm.invalid || saving()">Enregistrer</button>
-                  </div>
-                </form>
-              }
+              <h3 class="profil__section-title">Informations personnelles</h3>
+              <form class="profil-form" [formGroup]="infosForm" (ngSubmit)="saveInfos()">
+                <div class="profil-form__grid">
+                  <app-f-row label="Prénom">
+                    <input type="text" formControlName="prenom" class="profil__input" placeholder="Prénom" />
+                  </app-f-row>
+                  <app-f-row label="Nom">
+                    <input type="text" formControlName="nom" class="profil__input" placeholder="Nom" />
+                  </app-f-row>
+                  <app-f-row label="Email" [required]="true">
+                    <input type="email" formControlName="email" class="profil__input" placeholder="email@exemple.com" />
+                  </app-f-row>
+                  <app-f-row label="Téléphone">
+                    <input type="tel" formControlName="telephone" class="profil__input" placeholder="+212 6 00 00 00 00" />
+                  </app-f-row>
+                </div>
+                <div class="profil-form__actions">
+                  @if (infosSaved()) {
+                    <span class="profil__success">Enregistré !</span>
+                  }
+                  <button type="submit" class="profil__btn" [disabled]="infosForm.invalid || saving()">Enregistrer</button>
+                </div>
+              </form>
             </app-card>
 
             <!-- Section 2: Sécurité -->
             <app-card>
-              <button class="profil__section-toggle" (click)="toggleSection('securite')">
-                <span class="profil__chevron">{{ expandedSections().has('securite') ? '▼' : '▶' }}</span>
-                <span>Sécurité</span>
-              </button>
-              @if (expandedSections().has('securite')) {
-                <form class="profil-form" [formGroup]="passwordForm" (ngSubmit)="savePassword()">
-                  <div class="profil-form__grid">
-                    <app-f-row label="Mot de passe actuel">
-                      <input type="password" formControlName="currentPassword" class="profil__input" placeholder="••••••••••••" />
-                    </app-f-row>
-                    <app-f-row label="Nouveau mot de passe">
-                      <input type="password" formControlName="newPassword" class="profil__input" placeholder="••••••••••••" />
-                    </app-f-row>
-                    <app-f-row label="Confirmer">
-                      <input type="password" formControlName="confirmPassword" class="profil__input" placeholder="••••••••••••" />
-                    </app-f-row>
-                  </div>
-                  @if (passwordForm.errors?.['mismatch']) {
-                    <span class="profil__error">Les mots de passe ne correspondent pas.</span>
-                  }
-                  <div class="profil-form__actions">
-                    @if (passwordSaved()) {
-                      <span class="profil__success">Mot de passe mis à jour !</span>
-                    }
-                    @if (passwordError()) {
-                      <span class="profil__error">{{ passwordError() }}</span>
-                    }
-                    <button type="submit" class="profil__btn" [disabled]="passwordForm.invalid || saving()">Mettre à jour</button>
-                  </div>
-                </form>
-              }
-            </app-card>
-
-            <!-- Section 3: Préférences notifications -->
-            <app-card>
-              <button class="profil__section-toggle" (click)="toggleSection('preferences')">
-                <span class="profil__chevron">{{ expandedSections().has('preferences') ? '▼' : '▶' }}</span>
-                <span>Préférences notifications</span>
-              </button>
-              @if (expandedSections().has('preferences')) {
-                <div class="profil__preferences">
-                  @for (pref of notifPrefs(); track pref.label) {
-                    <div class="profil-pref-row">
-                      <span class="profil-pref-row__label">{{ pref.label }}</span>
-                      <div
-                        class="profil-toggle"
-                        [class.profil-toggle--on]="pref.on"
-                        (click)="togglePref(pref.label)">
-                        <div class="profil-toggle__knob"></div>
-                      </div>
-                    </div>
-                  }
-                  <p class="profil__preferences-hint">Les catégories de notifications que vous souhaitez recevoir.</p>
+              <h3 class="profil__section-title">Sécurité</h3>
+              <form class="profil-form" [formGroup]="passwordForm" (ngSubmit)="savePassword()">
+                <div class="profil-form__grid">
+                  <app-f-row label="Mot de passe actuel">
+                    <input type="password" formControlName="currentPassword" class="profil__input" placeholder="••••••••••••" />
+                  </app-f-row>
+                  <app-f-row label="Nouveau mot de passe">
+                    <input type="password" formControlName="newPassword" class="profil__input" placeholder="••••••••••••" />
+                  </app-f-row>
+                  <app-f-row label="Confirmer">
+                    <input type="password" formControlName="confirmPassword" class="profil__input" placeholder="••••••••••••" />
+                  </app-f-row>
                 </div>
-              }
+                @if (passwordForm.errors?.['mismatch']) {
+                  <span class="profil__error">Les mots de passe ne correspondent pas.</span>
+                }
+                <div class="profil-form__actions">
+                  @if (passwordSaved()) {
+                    <span class="profil__success">Mot de passe mis à jour !</span>
+                  }
+                  @if (passwordError()) {
+                    <span class="profil__error">{{ passwordError() }}</span>
+                  }
+                  <button type="submit" class="profil__btn" [disabled]="passwordForm.invalid || saving()">Mettre à jour</button>
+                </div>
+              </form>
             </app-card>
 
           </div>
@@ -255,35 +227,18 @@ import {
       color: var(--color-text, #111827);
     }
 
-    /* Section toggles */
-    .profil__section-toggle {
-      display: flex;
-      align-items: center;
-      gap: 8px;
-      width: 100%;
-      padding: 14px 0 14px;
-      background: transparent;
-      border: none;
-      cursor: pointer;
+    /* Section headings */
+    .profil__section-title {
       font-family: 'Montserrat', sans-serif;
       font-size: 15px;
       font-weight: 700;
       color: var(--color-text, #111827);
-      text-align: left;
-    }
-
-    .profil__section-toggle:hover {
-      color: var(--color-primary, #F7941D);
-    }
-
-    .profil__chevron {
-      font-size: 11px;
-      color: var(--color-text-muted, #6B7280);
+      margin: 0 0 16px;
     }
 
     /* Form grid */
     .profil-form {
-      margin-top: 8px;
+      margin-top: 0;
     }
 
     .profil-form__grid {
@@ -297,7 +252,7 @@ import {
       justify-content: flex-end;
       align-items: center;
       gap: 12px;
-      margin-top: 8px;
+      margin-top: 16px;
     }
 
     /* Inputs */
@@ -355,62 +310,6 @@ import {
       font-size: 13px;
       color: var(--color-danger, #EF4444);
     }
-
-    /* Preferences */
-    .profil__preferences {
-      margin-top: 8px;
-    }
-
-    .profil-pref-row {
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-      padding: 12px 0;
-      border-bottom: 1px solid var(--color-border, #E5E7EB);
-    }
-
-    .profil-pref-row:last-of-type {
-      border-bottom: none;
-    }
-
-    .profil-pref-row__label {
-      font-family: 'Open Sans', sans-serif;
-      font-size: 14px;
-      color: var(--color-text, #111827);
-    }
-
-    .profil-toggle {
-      width: 44px;
-      height: 24px;
-      border-radius: 9999px;
-      background: #D1D5DB;
-      padding: 2px;
-      cursor: pointer;
-      display: flex;
-      align-items: center;
-      justify-content: flex-start;
-      transition: background 0.2s;
-    }
-
-    .profil-toggle--on {
-      background: var(--color-primary, #F7941D);
-      justify-content: flex-end;
-    }
-
-    .profil-toggle__knob {
-      width: 20px;
-      height: 20px;
-      border-radius: 50%;
-      background: #fff;
-      box-shadow: 0 1px 3px rgba(0, 0, 0, 0.15);
-    }
-
-    .profil__preferences-hint {
-      font-family: 'Open Sans', sans-serif;
-      font-size: 13px;
-      color: var(--color-text-muted, #6B7280);
-      margin-top: 12px;
-    }
   `],
 })
 export class ProfilComponent {
@@ -422,16 +321,7 @@ export class ProfilComponent {
   infosSaved = signal(false);
   passwordSaved = signal(false);
   passwordError = signal('');
-  expandedSections = signal<Set<string>>(new Set(['infos']));
   user = signal<User | null>(null);
-
-  notifPrefs = signal([
-    { label: 'Alertes seuils critiques', on: true },
-    { label: 'Prédictions IA', on: true },
-    { label: 'Interventions terminées', on: false },
-    { label: 'Imports & exports', on: true },
-    { label: 'Rapports mensuels', on: false },
-  ]);
 
   initials = computed(() => {
     const u = this.user();
@@ -446,14 +336,15 @@ export class ProfilComponent {
 
   constructor() {
     this.infosForm = this.fb.group({
-      prenom: ['', Validators.required],
-      nom: ['', Validators.required],
-      email: ['', [Validators.required, Validators.email]],
+      prenom:    ['', Validators.required],
+      nom:       ['', Validators.required],
+      email:     ['', [Validators.required, Validators.email]],
+      telephone: [''],
     });
 
     this.passwordForm = this.fb.group({
       currentPassword: ['', Validators.required],
-      newPassword: ['', [Validators.required, Validators.minLength(6)]],
+      newPassword:     ['', [Validators.required, Validators.minLength(6)]],
       confirmPassword: ['', Validators.required],
     }, { validators: this.passwordMatch });
 
@@ -471,25 +362,16 @@ export class ProfilComponent {
     this.profilService.getMe().subscribe({
       next: (user) => {
         this.user.set(user);
-        this.infosForm.patchValue({ prenom: user.prenom, nom: user.nom, email: user.email });
+        this.infosForm.patchValue({
+          prenom:    user.prenom,
+          nom:       user.nom,
+          email:     user.email,
+          telephone: user.telephone ?? '',
+        });
         this.loading.set(false);
       },
       error: () => this.loading.set(false),
     });
-  }
-
-  toggleSection(section: string): void {
-    this.expandedSections.update((set) => {
-      const next = new Set(set);
-      if (next.has(section)) { next.delete(section); } else { next.add(section); }
-      return next;
-    });
-  }
-
-  togglePref(label: string): void {
-    this.notifPrefs.update(prefs =>
-      prefs.map(p => p.label === label ? { ...p, on: !p.on } : p)
-    );
   }
 
   saveInfos(): void {
@@ -497,7 +379,11 @@ export class ProfilComponent {
     this.saving.set(true);
     this.infosSaved.set(false);
     this.profilService.updateMe(this.infosForm.value).subscribe({
-      next: () => { this.saving.set(false); this.infosSaved.set(true); },
+      next: (updated) => {
+        this.saving.set(false);
+        this.infosSaved.set(true);
+        this.user.set(updated);
+      },
       error: () => this.saving.set(false),
     });
   }

@@ -25,7 +25,7 @@ public class UserService {
     }
 
     @Transactional
-    public User updateMe(Long userId, String prenom, String nom) {
+    public User updateMe(Long userId, String prenom, String nom, String telephone) {
         if (prenom == null || prenom.isBlank()) {
             throw new BusinessException("prenom is required", "VALIDATION_ERROR", 422);
         }
@@ -35,6 +35,7 @@ public class UserService {
         User user = getMe(userId);
         user.setPrenom(prenom);
         user.setNom(nom);
+        user.setTelephone(telephone != null && telephone.isBlank() ? null : telephone);
         return userRepository.save(user);
     }
 

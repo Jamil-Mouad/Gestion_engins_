@@ -19,6 +19,7 @@ export interface Pneu {
   profondeur32e: number | null;
   status: PneuStatus;
   actif: boolean;
+  photoUrl?: string | null;
 }
 
 export interface RemonterPneuForm {

@@ -35,7 +35,7 @@ export class ForgotPasswordComponent {
     if (this.emailForm.invalid) return;
     this.loading.set(true);
     this.errorMessage.set('');
-    const email = this.emailForm.value.email!;
+    const email = this.emailForm.value.email!.trim().toLowerCase();
 
     this.auth.requestPasswordReset(email).subscribe({
       next: () => {

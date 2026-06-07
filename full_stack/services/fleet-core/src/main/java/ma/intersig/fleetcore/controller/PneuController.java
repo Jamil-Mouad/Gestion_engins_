@@ -6,6 +6,7 @@ import ma.intersig.fleetcore.dto.request.CreatePneuRequest;
 import ma.intersig.fleetcore.dto.request.PermuterPneuRequest;
 import ma.intersig.fleetcore.dto.request.RemplacerPneuRequest;
 import ma.intersig.fleetcore.dto.request.RemonterPneuRequest;
+import ma.intersig.fleetcore.dto.request.UpdatePneuRequest;
 import ma.intersig.fleetcore.dto.response.PageResponse;
 import ma.intersig.fleetcore.dto.response.PneuDto;
 import ma.intersig.fleetcore.dto.response.PneuInspectionDto;
@@ -62,6 +63,13 @@ public class PneuController {
     @GetMapping("/vehicules/{id}/pneus")
     public ResponseEntity<List<PneuDto>> listByVehicule(@PathVariable Long id) {
         return ResponseEntity.ok(pneuService.listByVehicule(id));
+    }
+
+    @Operation(summary = "Update tire fields (nSerie, marque, dateMontage, expectedLifeKm, pression, profondeur)")
+    @PatchMapping("/pneus/{id}")
+    public ResponseEntity<PneuDto> update(@PathVariable Long id,
+                                          @Valid @RequestBody UpdatePneuRequest req) {
+        return ResponseEntity.ok(pneuService.update(id, req));
     }
 
     @Operation(summary = "Swap two tires between positions")

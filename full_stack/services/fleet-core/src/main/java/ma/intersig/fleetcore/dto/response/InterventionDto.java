@@ -23,7 +23,8 @@ public record InterventionDto(
         String observations,
         Long demandeAchatId,
         OffsetDateTime createdAt,
-        String statut
+        String statut,
+        String photoUrl
 ) {
     public static InterventionDto from(Intervention i) {
         String statut = i.getDateFin() != null ? "cloture" : "en_cours";
@@ -45,7 +46,8 @@ public record InterventionDto(
                 i.getObservations(),
                 i.getDemandeAchat() != null ? i.getDemandeAchat().getId() : null,
                 i.getCreatedAt(),
-                statut
+                statut,
+                i.getPhotoUrl()
         );
     }
 }

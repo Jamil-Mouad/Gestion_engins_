@@ -10,6 +10,17 @@ import { StatusBadgeComponent } from '../../../shared/ui/badge/badge.component';
   imports: [CommonModule, RouterLink, StatusBadgeComponent],
   template: `
     <div class="tire-card">
+      <!-- Image / placeholder -->
+      <div class="tire-card__img-wrap">
+        <img [src]="pneu.photoUrl || 'assets/tire-default.svg'"
+             [alt]="'P' + pneu.position"
+             class="tire-card__img"
+             [class.tire-card__img--default]="!pneu.photoUrl" />
+        @if (!pneu.photoUrl && pneu.marque) {
+          <span class="tire-card__img-label">{{ pneu.marque }}</span>
+        }
+      </div>
+
       <div class="tire-card__header">
         <span class="tire-card__position">P{{ pneu.position }}</span>
         <app-status-badge [status]="pneu.status" />
@@ -28,6 +39,13 @@ import { StatusBadgeComponent } from '../../../shared/ui/badge/badge.component';
   `,
   styles: [`
     .tire-card { background: var(--color-surface); border: 1px solid var(--color-border); border-radius: var(--radius-md); padding: 16px; }
+
+    /* Image / placeholder */
+    .tire-card__img-wrap { position: relative; margin: -16px -16px 14px; border-radius: var(--radius-md) var(--radius-md) 0 0; overflow: hidden; height: 80px; }
+    .tire-card__img { width: 100%; height: 100%; object-fit: cover; display: block; }
+    .tire-card__img--default { object-fit: cover; background: #1F2937; }
+    .tire-card__img-label { position: absolute; bottom: 4px; left: 0; right: 0; text-align: center; font-family: 'Open Sans', sans-serif; font-size: 11px; color: #9CA3AF; font-style: italic; pointer-events: none; }
+
     .tire-card__header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px; }
     .tire-card__position { font-family: 'Montserrat', sans-serif; font-size: 16px; font-weight: 700; color: var(--color-text); }
     .tire-card__body { display: flex; flex-direction: column; gap: 6px; }

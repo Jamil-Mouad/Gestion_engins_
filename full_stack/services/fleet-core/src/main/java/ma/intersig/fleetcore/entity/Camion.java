@@ -5,8 +5,6 @@ import java.math.BigDecimal;
 import java.time.LocalDate;
 
 @Entity
-@Table(name = "camions")
-@PrimaryKeyJoinColumn(name = "vehicule_id")
 @DiscriminatorValue("camion")
 public class Camion extends Vehicule {
 
@@ -55,6 +53,12 @@ public class Camion extends Vehicule {
     @Column(name = "chauffeur_nom", length = 50)
     private String chauffeurNom;
 
+    @Column(name = "voyages_mois")
+    private Integer voyagesMois;
+
+    @Column(name = "km_parcourus")
+    private Integer kmParcourus;
+
     public BigDecimal getCapaciteTonnes() { return capaciteTonnes; }
     public void setCapaciteTonnes(BigDecimal capaciteTonnes) { this.capaciteTonnes = capaciteTonnes; }
     public String getConfigAxle() { return configAxle; }
@@ -85,4 +89,8 @@ public class Camion extends Vehicule {
     public void setChauffeurPrenom(String chauffeurPrenom) { this.chauffeurPrenom = chauffeurPrenom; }
     public String getChauffeurNom() { return chauffeurNom; }
     public void setChauffeurNom(String chauffeurNom) { this.chauffeurNom = chauffeurNom; }
+    public Integer getVoyagesMois() { return voyagesMois; }
+    public void setVoyagesMois(Integer voyagesMois) { this.voyagesMois = voyagesMois; }
+    public Integer getKmParcourus() { return kmParcourus; }
+    public void setKmParcourus(Integer kmParcourus) { this.kmParcourus = kmParcourus; }
 }

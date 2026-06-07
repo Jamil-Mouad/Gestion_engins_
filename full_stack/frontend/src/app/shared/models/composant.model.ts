@@ -1,6 +1,7 @@
 export type ComposantCategorie =
   | 'moteur' | 'pneumatique' | 'freinage' | 'hydraulique'
-  | 'electrique' | 'transmission' | 'autre';
+  | 'electrique' | 'transmission' | 'autre'
+  | 'chassis' | 'carrosserie' | 'suspension';
 
 export interface ComposantNode {
   id: number;
@@ -10,6 +11,8 @@ export interface ComposantNode {
   reference?: string | null;
   unite?: string | null;
   stock?: number | null;
+  imageUrl?: string | null;
+  vehiculeType?: string | null;
   children: ComposantNode[];
 }
 
@@ -25,5 +28,7 @@ export interface Composant {
   prixUnitaire: number | null;
   stock: number;
   actif: boolean;
+  imageUrl: string | null;
+  vehiculeType?: string | null;
   creePar: { id: number; prenom: string; nom: string } | null;
 }

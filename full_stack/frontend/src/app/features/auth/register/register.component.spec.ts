@@ -145,13 +145,13 @@ describe('RegisterComponent', () => {
     expect(component.errorMessage()).toContain('remplir');
   });
 
-  it('should navigate to /dashboard on successful registration', () => {
+  it('should navigate to /vehicules on successful registration', () => {
     const router = TestBed.inject(Router);
     const navSpy = spyOn(router, 'navigate').and.returnValue(Promise.resolve(true));
     authServiceSpy.register.and.returnValue(of({ access_token: 'at', refresh_token: 'rt', user: { id: 1, email: 'test@intersig.ma', prenom: 'Test', nom: 'User', role: 'USER' as const, dashboardConfig: null, actif: true } }));
     component.registerForm.setValue({ prenom: 'Test', nom: 'User', email: 'test@intersig.ma', password: 'testtest' });
     component.onSubmit();
-    expect(navSpy).toHaveBeenCalledWith(['/dashboard']);
+    expect(navSpy).toHaveBeenCalledWith(['/vehicules']);
   });
 
   it('should display 422 error message', () => {

@@ -1,8 +1,8 @@
-import { Component, inject, signal, computed } from '@angular/core';
+import { Component, inject, signal, computed, DestroyRef } from '@angular/core';
 import { DecimalPipe } from '@angular/common';
 import { ActivatedRoute } from '@angular/router';
-import { toSignal } from '@angular/core/rxjs-interop';
-import { tap, catchError, of } from 'rxjs';
+import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
+import { catchError, of, switchMap, tap } from 'rxjs';
 import { LucideAngularModule } from 'lucide-angular';
 import { PneuService } from '../pneu.service';
 import { Pneu } from '../../../shared/models/pneu.model';
@@ -16,10 +16,9 @@ import {
   SevBadgeComponent,
 } from '../../../shared/ui';
 import { PneuDetailsTabComponent } from './tabs/details-tab.component';
-import { PneuInspectionsTabComponent } from './tabs/inspections-tab.component';
-import { PneuHistoriqueTabComponent } from './tabs/historique-pneu-tab.component';
+import { EditPneuModalComponent } from '../edit-pneu-modal.component';
 
-type TabId = 'overview' | 'activite' | 'inspections' | 'historique';
+type TabId = 'overview' | 'inspections';
 
 @Component({
   selector: 'app-pneu-detail',
@@ -30,8 +29,7 @@ type TabId = 'overview' | 'activite' | 'inspections' | 'historique';
     BreadcrumbComponent, TabGroupComponent,
     CardComponent, KpiCardComponent,
     SkeletonComponent, EmptyStateComponent, SevBadgeComponent,
-    PneuDetailsTabComponent, PneuInspectionsTabComponent,
-    PneuHistoriqueTabComponent,
+    PneuDetailsTabComponent, EditPneuModalComponent,
   ],
   template: `
     <div class="pneu-detail-page">
@@ -47,9 +45,11 @@ type TabId = 'overview' | 'activite' | 'inspections' | 'historique';
         <!-- Header -->
         <div class="pneu-detail__header">
           <div class="pneu-detail__header-main">
-            <!-- Tire icon -->
+            <!-- Tire icon / photo -->
             <div class="pneu-detail__icon">
-              <lucide-icon name="circle" [size]="36" color="#fff" />
+              <img [src]="pneu()!.photoUrl || 'assets/tire-default.svg'"
+                   [alt]="pneu()!.nSerie ?? 'pneu'"
+                   class="pneu-detail__icon-img" />
             </div>
 
             <!-- Info block -->
@@ -69,6 +69,12 @@ type TabId = 'overview' | 'activite' | 'inspections' | 'historique';
                 }
               </div>
             </div>
+
+            <!-- Éditer button -->
+            <button class="btn-edit" type="button" (click)="showEdit.set(true)">
+              <lucide-icon name="edit" [size]="14" />
+              Éditer
+            </button>
           </div>
 
           <!-- Tab group -->
@@ -82,13 +88,12 @@ type TabId = 'overview' | 'activite' | 'inspections' | 'historique';
         <!-- Tab content -->
         <div class="pneu-detail__content">
 
-          <!-- KPI row (visible on overview & activite) -->
-          @if (activeTab() === 'overview' || activeTab() === 'activite') {
+          <!-- KPI row (visible on overview) -->
+          @if (activeTab() === 'overview') {
             <div class="pneu-detail__kpi-row">
               <app-kpi-card
                 label="Pression"
                 [value]="pneu()!.pressionPsi != null ? (pneu()!.pressionPsi! + ' PSI') : '—'"
-                [accent]="true"
               />
               <app-kpi-card
                 label="Profondeur"
@@ -132,24 +137,20 @@ type TabId = 'overview' | 'activite' | 'inspections' | 'historique';
             </div>
           }
 
-          <!-- Activité (inspections table) -->
-          @if (activeTab() === 'activite') {
-            <app-card title="Activité du pneu">
-              <app-pneu-inspections-tab [pneuId]="pneu()!.id" />
-            </app-card>
-          }
-
           <!-- Inspections (full form) -->
           @if (activeTab() === 'inspections') {
             <app-pneu-details-tab [pneu]="pneu()!" />
           }
 
-          <!-- Historique -->
-          @if (activeTab() === 'historique') {
-            <app-pneu-historique-tab [pneuId]="pneu()!.id" />
-          }
-
         </div>
+
+        <!-- Edit modal -->
+        @if (showEdit()) {
+          <app-edit-pneu-modal
+            [pneu]="pneu()!"
+            (saved)="onPneuEdited($event)"
+            (close)="showEdit.set(false)" />
+        }
 
       } @else {
         <app-empty-state message="Pneu introuvable" />
@@ -180,17 +181,26 @@ type TabId = 'overview' | 'activite' | 'inspections' | 'historique';
       align-items: center;
       gap: 20px;
       padding-bottom: 16px;
+      width: 100%;
     }
 
     .pneu-detail__icon {
       width: 80px;
       height: 80px;
       border-radius: 12px;
-      background: var(--color-primary);
+      background: #F3F4F6;
+      border: 1px solid var(--color-border);
       display: flex;
       align-items: center;
       justify-content: center;
       flex-shrink: 0;
+      overflow: hidden;
+    }
+    .pneu-detail__icon-img {
+      width: 100%;
+      height: 100%;
+      object-fit: contain;
+      padding: 6px;
     }
 
     .pneu-detail__info { flex: 1; }
@@ -228,9 +238,29 @@ type TabId = 'overview' | 'activite' | 'inspections' | 'historique';
       color: var(--color-danger, #EF4444);
     }
 
+    /* ── Edit button ─────────────────────────────────────── */
+    .btn-edit {
+      height: 36px;
+      padding: 0 14px;
+      border: 1px solid var(--color-border);
+      border-radius: 8px;
+      background: white;
+      font-family: 'Montserrat', sans-serif;
+      font-size: 13px;
+      font-weight: 600;
+      color: #374151;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      margin-left: auto;
+      flex-shrink: 0;
+    }
+    .btn-edit:hover { background: #F9FAFB; }
+
     /* ── Content ─────────────────────────────────────────── */
     .pneu-detail__content {
-      padding: 24px 32px 40px;
+      padding: 24px 48px 40px;
       display: flex;
       flex-direction: column;
       gap: 20px;
@@ -245,8 +275,8 @@ type TabId = 'overview' | 'activite' | 'inspections' | 'historique';
     /* ── 2-col grid ──────────────────────────────────────── */
     .pneu-detail__grid-2 {
       display: grid;
-      grid-template-columns: 1fr 1fr;
-      gap: 20px;
+      grid-template-columns: 3fr 2fr;
+      gap: 24px;
     }
 
     /* ── Spec list ───────────────────────────────────────── */
@@ -281,40 +311,44 @@ type TabId = 'overview' | 'activite' | 'inspections' | 'historique';
 export class PneuDetailComponent {
   private route = inject(ActivatedRoute);
   private pneuService = inject(PneuService);
+  private destroyRef = inject(DestroyRef);
 
   activeTab = signal<TabId>('overview');
   loading = signal(true);
+  showEdit = signal(false);
+
+  pneu = signal<Pneu | null>(null);
 
   tabs = [
     { label: "Vue d'ensemble" },
-    { label: 'Activité' },
     { label: 'Inspections' },
-    { label: 'Historique' },
   ];
 
-  readonly tabIds: TabId[] = ['overview', 'activite', 'inspections', 'historique'];
+  readonly tabIds: TabId[] = ['overview', 'inspections'];
 
   activeTabIndex = computed(() => this.tabIds.indexOf(this.activeTab()));
 
-  pneu = toSignal<Pneu | null>(
-    (() => {
-      const idParam = this.route.snapshot.paramMap.get('id');
-      const pneuId = idParam ? Number(idParam) : NaN;
-      if (isNaN(pneuId) || pneuId <= 0) { this.loading.set(false); return of(null); }
-      return this.pneuService.get(pneuId).pipe(
-        tap({ next: () => this.loading.set(false), error: () => this.loading.set(false) }),
-        catchError(() => of(null)),
-      );
-    })(),
-    { initialValue: null },
-  );
+  constructor() {
+    this.route.paramMap.pipe(
+      tap(() => { this.loading.set(true); this.pneu.set(null); }),
+      switchMap(pm => {
+        const pneuId = Number(pm.get('id'));
+        if (isNaN(pneuId) || pneuId <= 0) { this.loading.set(false); return of(null); }
+        return this.pneuService.get(pneuId).pipe(
+          tap({ next: () => this.loading.set(false), error: () => this.loading.set(false) }),
+          catchError(() => { this.loading.set(false); return of(null); }),
+        );
+      }),
+      takeUntilDestroyed(this.destroyRef),
+    ).subscribe(data => this.pneu.set(data));
+  }
 
   breadcrumbItems = computed(() => {
     const p = this.pneu();
     return [
       { label: 'Véhicules', route: '/vehicules' },
       ...(p ? [{ label: p.vehiculeCode ?? p.vehicule?.code ?? '—', route: `/vehicules/${p.vehiculeId ?? p.vehicule?.id}` }] : []),
-      { label: 'Pneus' },
+      ...(p ? [{ label: 'Pneus', route: `/vehicules/${p.vehiculeId ?? p.vehicule?.id}`, queryParams: { tab: 'pneus' } as Record<string, string> }] : [{ label: 'Pneus' }]),
       ...(p ? [{ label: `P${p.position} — ${p.marque ?? p.nSerie ?? 'Pneu'}` }] : []),
     ];
   });
@@ -353,5 +387,10 @@ export class PneuDetailComponent {
 
   onTabChange(index: number): void {
     this.activeTab.set(this.tabIds[index] ?? 'overview');
+  }
+
+  onPneuEdited(updated: Pneu): void {
+    this.pneu.set(updated);
+    this.showEdit.set(false);
   }
 }

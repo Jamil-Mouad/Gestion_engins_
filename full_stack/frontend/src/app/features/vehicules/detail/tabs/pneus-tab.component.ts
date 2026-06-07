@@ -3,7 +3,7 @@ import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { CommonModule } from '@angular/common';
 import { PneuService } from '../../../pneus/pneu.service';
 import { Pneu } from '../../../../shared/models/pneu.model';
-import { Attelage, VehiculeType, isCamionType } from '../../../../shared/models/vehicule.model';
+import { Attelage, VehiculeType, isCamionTracteur } from '../../../../shared/models/vehicule.model';
 import { AxleSchemaComponent } from '../../../../shared/ui/axle-schema/axle-schema.component';
 import { TireCardComponent } from '../../../pneus/tire-card/tire-card.component';
 import { EmptyStateComponent } from '../../../../shared/ui/empty-state/empty-state.component';
@@ -186,7 +186,7 @@ import { AxleSchemaComponent as _AxleSchemaRef } from '../../../../shared/ui/axl
     <!-- Ajouter modal -->
     @if (showAjouterModal()) {
       <app-ajouter-pneu-modal
-        [vehiculeId]="vehiculeId"
+        [vehiculeId]="effectiveVehiculeId()"
         [availablePositions]="emptyPositions()"
         [maxPosition]="totalPositions()"
         (saved)="onModalSaved()"
@@ -201,8 +201,8 @@ import { AxleSchemaComponent as _AxleSchemaRef } from '../../../../shared/ui/axl
     .pneus-tab__toggle-btn--active { background: var(--color-primary); color: #fff; }
 
     .pneus-tab__columns { display: flex; gap: 24px; align-items: flex-start; }
-    .pneus-tab__left { flex: 1; }
-    .pneus-tab__right { width: 320px; display: flex; flex-direction: column; gap: 16px; flex-shrink: 0; }
+    .pneus-tab__left { flex: 1; min-width: 0; }
+    .pneus-tab__right { width: 280px; display: flex; flex-direction: column; gap: 16px; flex-shrink: 0; }
 
     .pneus-tab__card { background: var(--color-surface); border-radius: 12px; border: 1px solid var(--color-border); padding: 20px; }
     .pneus-tab__card-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px; flex-wrap: wrap; gap: 8px; }
@@ -226,14 +226,14 @@ import { AxleSchemaComponent as _AxleSchemaRef } from '../../../../shared/ui/axl
     .pneus-tab__resume-label { font-family: 'Open Sans', sans-serif; color: var(--color-text-muted); }
     .pneus-tab__resume-value { font-family: 'Montserrat', sans-serif; font-weight: 600; color: var(--color-text); }
 
-    .btn-secondary-sm { height: 32px; padding: 0 14px; border: 1px solid var(--color-border); border-radius: 6px; background: var(--color-surface); font-family: 'Open Sans', sans-serif; font-size: 13px; font-weight: 500; color: var(--color-text); cursor: pointer; transition: background 0.15s; white-space: nowrap; }
+    .btn-secondary-sm { flex: 1 1 auto; min-width: 0; height: 32px; padding: 0 10px; border: 1px solid var(--color-border); border-radius: 6px; background: var(--color-surface); font-family: 'Open Sans', sans-serif; font-size: 12px; font-weight: 500; color: var(--color-text); cursor: pointer; transition: background 0.15s; white-space: nowrap; }
     .btn-secondary-sm:hover:not(:disabled) { background: var(--color-surface-2); }
     .btn-secondary-sm:disabled { opacity: 0.4; cursor: not-allowed; }
 
-    .btn-primary-sm { height: 32px; padding: 0 14px; border: none; border-radius: 6px; background: var(--color-primary); font-family: 'Open Sans', sans-serif; font-size: 13px; font-weight: 600; color: #fff; cursor: pointer; transition: opacity 0.15s; white-space: nowrap; }
+    .btn-primary-sm { flex: 1 1 auto; min-width: 0; height: 32px; padding: 0 10px; border: none; border-radius: 6px; background: var(--color-primary); font-family: 'Open Sans', sans-serif; font-size: 12px; font-weight: 600; color: #fff; cursor: pointer; transition: opacity 0.15s; white-space: nowrap; }
     .btn-primary-sm:hover:not(:disabled) { opacity: 0.88; }
     .btn-primary-sm:disabled { opacity: 0.4; cursor: not-allowed; }
-    .btn-danger-sm { height: 32px; padding: 0 14px; border: 1px solid #FECACA; border-radius: 6px; background: #FEF2F2; font-family: 'Open Sans', sans-serif; font-size: 13px; font-weight: 500; color: #B91C1C; cursor: pointer; white-space: nowrap; }
+    .btn-danger-sm { flex: 1 1 auto; min-width: 0; height: 32px; padding: 0 10px; border: 1px solid #FECACA; border-radius: 6px; background: #FEF2F2; font-family: 'Open Sans', sans-serif; font-size: 12px; font-weight: 500; color: #B91C1C; cursor: pointer; white-space: nowrap; }
     .btn-danger-sm:hover:not(:disabled) { background: #FEE2E2; }
     .btn-danger-sm:disabled { opacity: 0.4; cursor: not-allowed; }
   `],
@@ -263,7 +263,7 @@ export class PneusTabComponent implements OnChanges {
     return this.tires().find(t => t.position === pos) ?? null;
   });
 
-  showToggle = computed(() => isCamionType(this.vehiculeType));
+  showToggle = computed(() => isCamionTracteur(this.vehiculeType));
 
   contextLabel = computed(() => {
     if (this.activePartie() === 'remorque' && this.currentAttelage) {
@@ -304,6 +304,12 @@ export class PneusTabComponent implements OnChanges {
         : null;
     return { montees: t.length, total: totalPositions, alertes, avgKm, urgentTire };
   });
+
+  effectiveVehiculeId = computed(() =>
+    this.activePartie() === 'remorque' && this.currentAttelage
+      ? this.currentAttelage.semiId
+      : this.vehiculeId
+  );
 
   availablePositionsForPermuter = computed(() => {
     const current = this.selectedPneu();
@@ -351,6 +357,11 @@ export class PneusTabComponent implements OnChanges {
   onModalSaved(): void {
     this.showPermuterModal.set(false);
     this.showRemplacerModal.set(false);
+    this.showAjouterModal.set(false);
+    const id = this.activePartie() === 'remorque' && this.currentAttelage
+      ? this.currentAttelage.semiId
+      : this.vehiculeId;
+    this.pneuService.invalidateByVehicule(id);
     this.loadTires();
   }
 

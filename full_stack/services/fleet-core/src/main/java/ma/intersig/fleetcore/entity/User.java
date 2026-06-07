@@ -32,6 +32,9 @@ public class User {
     @Column(nullable = false, length = 32)
     private String role = "USER";
 
+    @Column(length = 20)
+    private String telephone;
+
     @Column(name = "created_at", insertable = false, updatable = false)
     private java.time.OffsetDateTime createdAt;
 
@@ -54,6 +57,8 @@ public class User {
     public void setActif(Boolean actif) { this.actif = actif; }
     public String getRole() { return role; }
     public void setRole(String role) { this.role = role; }
+    public String getTelephone() { return telephone; }
+    public void setTelephone(String telephone) { this.telephone = telephone; }
     public java.time.OffsetDateTime getCreatedAt() { return createdAt; }
     public java.time.OffsetDateTime getUpdatedAt() { return updatedAt; }
 }

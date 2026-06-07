@@ -11,6 +11,8 @@ import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
+import java.util.List;
+
 @Tag(name = "Relevés Compteur", description = "Odometer and hour meter readings")
 @RestController
 @RequestMapping("/api/v1")
@@ -20,6 +22,16 @@ public class ReleveCompteurController {
 
     public ReleveCompteurController(ReleveCompteurService releveService) {
         this.releveService = releveService;
+    }
+
+    @Operation(summary = "List odometer readings, optionally filtered by vehicle")
+    @GetMapping("/releves-compteur")
+    public ResponseEntity<List<ReleveCompteurDto>> list(
+            @RequestParam(value = "vehicule_id", required = false) Long vehiculeId) {
+        if (vehiculeId == null) {
+            return ResponseEntity.ok(List.of());
+        }
+        return ResponseEntity.ok(releveService.listByVehicule(vehiculeId));
     }
 
     @Operation(summary = "Record an odometer or hour meter reading")

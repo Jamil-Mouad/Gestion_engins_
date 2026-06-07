@@ -1,7 +1,8 @@
-import { Component, Input, Output, EventEmitter, inject, signal, computed, OnChanges, SimpleChanges, DestroyRef } from '@angular/core';
-import { DatePipe } from '@angular/common';
+import { Component, input, Output, EventEmitter, inject, signal, computed, DestroyRef } from '@angular/core';
+import { DatePipe, DecimalPipe } from '@angular/common';
 import { RouterLink } from '@angular/router';
-import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
+import { takeUntilDestroyed, toObservable } from '@angular/core/rxjs-interop';
+import { switchMap, of } from 'rxjs';
 import { VehiculeDetail, Attelage, isCamionType, isCamionTracteur } from '../../../../shared/models/vehicule.model';
 import { VehiculeService } from '../../vehicule.service';
 import { CardComponent } from '../../../../shared/ui/card/card.component';
@@ -20,10 +21,17 @@ interface ComplianceItem {
   status?: 'ok' | 'warn' | 'late' | 'neutral';
 }
 
+interface KpiTile {
+  label: string;
+  value: string;
+  unit: string;
+  highlight?: boolean;
+}
+
 @Component({
   selector: 'app-infos-tab',
   standalone: true,
-  imports: [CardComponent, DatePipe, RouterLink, AssignSemiModalComponent, ConfirmDeleteModalComponent],
+  imports: [CardComponent, DatePipe, DecimalPipe, RouterLink, AssignSemiModalComponent, ConfirmDeleteModalComponent],
   template: `
     <div class="infos-page">
       <div [class]="isCamion() ? 'infos-grid' : 'infos-grid infos-grid--single'">
@@ -41,24 +49,24 @@ interface ComplianceItem {
 
           @if (showAttelage()) {
             <app-card title="Attelage">
-              @if (vehicule.currentAttelage) {
+              @if (vehicule().currentAttelage) {
                 <div class="attelage-current">
                   <div class="attelage-current__info">
                     @if (isCamion()) {
                       <span class="attelage-current__label">Semi-remorque attelée</span>
                       <a class="attelage-current__code attelage-current__code--link"
-                         [routerLink]="['/vehicules', vehicule.currentAttelage.semiId]">
-                        {{ vehicule.currentAttelage.semiCode }}
+                         [routerLink]="['/vehicules', vehicule().currentAttelage!.semiId]">
+                        {{ vehicule().currentAttelage!.semiCode }}
                       </a>
                     } @else {
                       <span class="attelage-current__label">Tracteur attelé</span>
                       <a class="attelage-current__code attelage-current__code--link"
-                         [routerLink]="['/vehicules', vehicule.currentAttelage.tracteurId]">
-                        {{ vehicule.currentAttelage.tracteurCode }}
+                         [routerLink]="['/vehicules', vehicule().currentAttelage!.tracteurId]">
+                        {{ vehicule().currentAttelage!.tracteurCode }}
                       </a>
                     }
                     <span class="attelage-current__since">
-                      Depuis le {{ vehicule.currentAttelage.dateDebut | date:'dd/MM/yyyy' }}
+                      Depuis le {{ vehicule().currentAttelage!.dateDebut | date:'dd/MM/yyyy' }}
                     </span>
                   </div>
                   @if (isCamion()) {
@@ -82,7 +90,11 @@ interface ComplianceItem {
                   <table class="attelage-history__table">
                     <thead>
                       <tr>
-                        <th>Semi-remorque</th>
+                        @if (isCamion()) {
+                          <th>Semi-remorque</th>
+                        } @else {
+                          <th>Tracteur</th>
+                        }
                         <th>Début</th>
                         <th>Fin</th>
                       </tr>
@@ -91,7 +103,11 @@ interface ComplianceItem {
                       @for (a of terminatedHistory(); track a.id) {
                         <tr>
                           <td class="mono">
-                            <a class="attelage-history__link" [routerLink]="['/vehicules', a.semiId]">{{ a.semiCode }}</a>
+                            @if (isCamion()) {
+                              <a class="attelage-history__link" [routerLink]="['/vehicules', a.semiId]">{{ a.semiCode }}</a>
+                            } @else {
+                              <a class="attelage-history__link" [routerLink]="['/vehicules', a.tracteurId]">{{ a.tracteurCode }}</a>
+                            }
                           </td>
                           <td>{{ a.dateDebut | date:'dd/MM/yyyy' }}</td>
                           <td>{{ a.dateFin | date:'dd/MM/yyyy' }}</td>
@@ -130,13 +146,26 @@ interface ComplianceItem {
                 }
               </div>
             </app-card>
+
+            <app-card title="KPIs véhicule">
+              <div class="kpi-grid">
+                @for (tile of kpiTiles(); track tile.label) {
+                  <div class="kpi-tile" [class.kpi-tile--highlight]="tile.highlight">
+                    <span class="kpi-tile__label">{{ tile.label }}</span>
+                    <span class="kpi-tile__value">
+                      {{ tile.value }}<span class="kpi-tile__unit"> {{ tile.unit }}</span>
+                    </span>
+                  </div>
+                }
+              </div>
+            </app-card>
           </div>
         }
       </div>
 
       @if (showAssignModal()) {
         <app-assign-semi-modal
-          [tracteurId]="vehicule.id"
+          [tracteurId]="vehicule().id"
           (saved)="onAttelageSaved()"
           (close)="showAssignModal.set(false)"
         />
@@ -144,7 +173,7 @@ interface ComplianceItem {
 
       @if (showDetachConfirm()) {
         <app-confirm-delete-modal
-          [confirmMessage]="detachConfirmMessage"
+          [confirmMessage]="detachConfirmMessage()"
           (confirm)="onDetachConfirmed()"
           (cancel)="showDetachConfirm.set(false)" />
       }
@@ -164,6 +193,15 @@ interface ComplianceItem {
     .info-row__label { font-family: 'Open Sans',sans-serif; font-size: 13px; color: #6B7280; }
     .info-row__value { font-family: 'Open Sans',sans-serif; font-size: 13px; color: #111827; font-weight: 500; }
     .info-row__value.mono { font-family: 'JetBrains Mono',monospace; }
+
+    /* KPI tiles */
+    .kpi-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; }
+    .kpi-tile { background: #F9FAFB; border: 1px solid var(--color-border); border-radius: 8px; padding: 12px 14px; display: flex; flex-direction: column; gap: 4px; }
+    .kpi-tile--highlight { border-color: #FDE68A; background: #FFFBEB; }
+    .kpi-tile__label { font-family: 'Montserrat',sans-serif; font-size: 10px; font-weight: 700; color: #6B7280; text-transform: uppercase; letter-spacing: 0.06em; }
+    .kpi-tile__value { font-family: 'JetBrains Mono',monospace; font-size: 18px; font-weight: 700; color: #111827; line-height: 1.1; }
+    .kpi-tile--highlight .kpi-tile__value { color: #92400E; }
+    .kpi-tile__unit { font-family: 'Open Sans',sans-serif; font-size: 12px; font-weight: 400; color: #6B7280; }
 
     /* Compliance rows */
     .compliance-rows { display: flex; flex-direction: column; }
@@ -208,11 +246,14 @@ interface ComplianceItem {
     /* Responsive */
     @media (max-width: 900px) {
       .infos-grid { grid-template-columns: 1fr; }
+      .kpi-grid { grid-template-columns: 1fr 1fr; }
     }
   `],
 })
-export class InfosTabComponent implements OnChanges {
-  @Input({ required: true }) vehicule!: VehiculeDetail;
+export class InfosTabComponent {
+  // Signal input — reactive to every parent change (fixes #3 attelage + #8 compliance refresh)
+  vehicule = input.required<VehiculeDetail>();
+
   @Output() attelageChanged = new EventEmitter<void>();
 
   private vehiculeService = inject(VehiculeService);
@@ -222,30 +263,33 @@ export class InfosTabComponent implements OnChanges {
   showDetachConfirm = signal(false);
   history = signal<Attelage[]>([]);
 
-  isCamion = computed(() => isCamionType(this.vehicule?.type));
-  isCamionTracteurType = computed(() => isCamionTracteur(this.vehicule?.type));
-  isSemiRemorque = computed(() => this.vehicule?.type === 'semi_remorque');
+  isCamion = computed(() => isCamionType(this.vehicule()?.type));
+  isCamionTracteurType = computed(() => isCamionTracteur(this.vehicule()?.type));
+  isSemiRemorque = computed(() => this.vehicule()?.type === 'semi_remorque');
   showAttelage = computed(() => this.isCamionTracteurType() || this.isSemiRemorque());
   terminatedHistory = computed(() => this.history().filter(a => a.dateFin !== null));
 
-  ngOnChanges(changes: SimpleChanges): void {
-    if (changes['vehicule'] && this.vehicule?.id && (isCamionTracteur(this.vehicule?.type) || this.vehicule?.type === 'semi_remorque')) {
-      this.vehiculeService.listAttelages(this.vehicule.id).pipe(
-        takeUntilDestroyed(this.destroyRef),
-      ).subscribe({
-        next: (list) => this.history.set(list),
-      });
-    }
+  // When the vehicule input changes, reload the attelage history (switchMap prevents stale requests)
+  constructor() {
+    toObservable(this.vehicule).pipe(
+      switchMap(v => {
+        if (v?.id && (isCamionTracteur(v.type) || v.type === 'semi_remorque')) {
+          return this.vehiculeService.listAttelages(v.id);
+        }
+        return of([] as Attelage[]);
+      }),
+      takeUntilDestroyed(this.destroyRef),
+    ).subscribe({ next: (list) => this.history.set(list) });
   }
 
-  get detachConfirmMessage(): string {
-    const a = this.vehicule?.currentAttelage;
+  detachConfirmMessage = computed(() => {
+    const a = this.vehicule()?.currentAttelage;
     if (!a) return '';
     return `Êtes-vous sûr de détacher ${a.semiCode} depuis le ${a.dateDebut} ?`;
-  }
+  });
 
   onDetachConfirmed(): void {
-    const attelage = this.vehicule?.currentAttelage;
+    const attelage = this.vehicule()?.currentAttelage;
     if (!attelage) return;
     this.showDetachConfirm.set(false);
     const today = new Date().toISOString().split('T')[0];
@@ -253,7 +297,7 @@ export class InfosTabComponent implements OnChanges {
       attelage.id, today, attelage.tracteurId, attelage.semiId,
     ).pipe(takeUntilDestroyed(this.destroyRef)).subscribe({
       next: () => {
-        this.vehiculeService.invalidateDetail(this.vehicule.id);
+        this.vehiculeService.invalidateDetail(this.vehicule().id);
         this.attelageChanged.emit();
       },
     });
@@ -261,12 +305,12 @@ export class InfosTabComponent implements OnChanges {
 
   onAttelageSaved(): void {
     this.showAssignModal.set(false);
-    this.vehiculeService.invalidateDetail(this.vehicule.id);
+    this.vehiculeService.invalidateDetail(this.vehicule().id);
     this.attelageChanged.emit();
   }
 
   infoRows = computed<InfoRow[]>(() => {
-    const v = this.vehicule;
+    const v = this.vehicule();
     const cd = v?.camionDetails;
     return [
       { label: 'Type', value: v?.type },
@@ -279,11 +323,11 @@ export class InfosTabComponent implements OnChanges {
       { label: 'Chauffeur affecté', value: cd ? [cd.chauffeurPrenom, cd.chauffeurNom].filter(Boolean).join(' ') || null : null },
       { label: 'Carnet de circulation — expiration', value: cd?.carnetCirculationExpiration },
       { label: 'Métrologie — expiration', value: cd?.metrologieExpiration },
-    ].filter(r => r.value !== null && r.value !== undefined);
+    ];
   });
 
   complianceItems = computed<ComplianceItem[]>(() => {
-    const cd = this.vehicule?.camionDetails;
+    const cd = this.vehicule()?.camionDetails;
     if (!cd) return [];
 
     const today = new Date();
@@ -304,6 +348,20 @@ export class InfosTabComponent implements OnChanges {
       { label: 'Extincteur — date d\'expiration', value: cd.extincteurExpiration, status: getExpiryStatus(cd.extincteurExpiration) },
       { label: 'Visite technique — Tracteur', value: cd.visiteTechTracteurExpiration, status: getExpiryStatus(cd.visiteTechTracteurExpiration) },
       { label: 'Visite technique — Semi-remorque', value: cd.visiteTechSemiExpiration, status: getExpiryStatus(cd.visiteTechSemiExpiration) },
+    ];
+  });
+
+  kpiTiles = computed<KpiTile[]>(() => {
+    const cd = this.vehicule()?.camionDetails;
+    if (!cd) return [];
+    const fmt = (n: number | null | undefined, fallback = '—') =>
+      n != null ? n.toLocaleString('fr-FR') : fallback;
+    return [
+      { label: 'Voyages / mois',       value: fmt(cd.voyagesMois),             unit: '',    highlight: false },
+      { label: 'KM parcourus',         value: fmt(cd.kmParcourus),             unit: 'km',  highlight: false },
+      { label: 'KM cumulés',           value: fmt((cd.compteurKm ?? 0) + (cd.kmParcourus ?? 0)), unit: 'km', highlight: false },
+      { label: 'Conso. gasoil / mois', value: fmt(cd.consoGasoilLitresMois),   unit: 'L',   highlight: false },
+      { label: '% Conso. (vs flotte)', value: cd.pctConsoVsFlotte != null ? cd.pctConsoVsFlotte.toFixed(1) : '—', unit: '%', highlight: cd.pctConsoVsFlotte != null },
     ];
   });
 }

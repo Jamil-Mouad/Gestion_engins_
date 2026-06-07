@@ -3,8 +3,10 @@ package ma.intersig.fleetcore.sse;
 import ma.intersig.fleetcore.event.EntityChangedEvent;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import org.springframework.context.event.EventListener;
+import org.springframework.scheduling.annotation.Async;
 import org.springframework.stereotype.Component;
+import org.springframework.transaction.event.TransactionPhase;
+import org.springframework.transaction.event.TransactionalEventListener;
 import org.springframework.web.servlet.mvc.method.annotation.SseEmitter;
 
 import java.io.IOException;
@@ -18,7 +20,7 @@ public class SseBroadcaster {
     private final List<SseEmitter> emitters = new CopyOnWriteArrayList<>();
 
     public SseEmitter register() {
-        SseEmitter emitter = new SseEmitter(Long.MAX_VALUE);
+        SseEmitter emitter = new SseEmitter(300_000L);
         emitters.add(emitter);
         Runnable remove = () -> emitters.remove(emitter);
         emitter.onCompletion(remove);
@@ -27,7 +29,8 @@ public class SseBroadcaster {
         return emitter;
     }
 
-    @EventListener
+    @Async
+    @TransactionalEventListener(phase = TransactionPhase.AFTER_COMMIT)
     public void onEntityChanged(EntityChangedEvent event) {
         String eventName = event.getEntityType() + ".changed";
         String data = String.format("{\"entityType\":\"%s\",\"entityId\":%d,\"action\":\"%s\"}",

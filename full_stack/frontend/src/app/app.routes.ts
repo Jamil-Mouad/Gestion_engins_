@@ -59,6 +59,11 @@ export const appRoutes: Routes = [
     loadComponent: () => import('./features/vidanges/vidanges.component').then(m => m.VidangesComponent),
   },
   {
+    path: 'historique',
+    canActivate: [authGuard],
+    loadComponent: () => import('./features/historique/historique.component').then(m => m.HistoriqueComponent),
+  },
+  {
     path: 'notifications',
     canActivate: [authGuard],
     loadComponent: () => import('./features/notifications/notifications.component').then(m => m.NotificationsComponent),

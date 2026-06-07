@@ -34,28 +34,30 @@ import { DoubleClickGuardDirective } from '../../../shared/directives/double-cli
 
         <!-- ══ TAB: INFOS ══ -->
         @if (activeTab() === 'infos') {
-          <div class="form-group">
-            <label>Code</label>
-            <input formControlName="code" placeholder="CAM-001" readonly class="field-readonly" />
-          </div>
-
-          <div class="form-group">
-            <label>Type</label>
-            <input formControlName="type" readonly class="field-readonly" />
-          </div>
-
-          @if (isSemiRemorqueSelected()) {
+          <!-- Row 1: Code / Type / Config essieux semi (or empty) -->
+          <div class="form-row">
             <div class="form-group">
-              <label>Config essieux (semi)</label>
-              <select formControlName="configAxleSemi">
-                <option [ngValue]="null">— Non défini —</option>
-                <option value="plateau-2x2">Plateau 2×2 (4 positions)</option>
-                <option value="semi-2-essieux">Semi 2 essieux (8 positions)</option>
-                <option value="semi-3-essieux">Semi 3 essieux (12 positions)</option>
-              </select>
+              <label>Code</label>
+              <input formControlName="code" placeholder="CAM-001" readonly class="field-readonly" />
             </div>
-          }
+            <div class="form-group">
+              <label>Type</label>
+              <input formControlName="type" readonly class="field-readonly" />
+            </div>
+            @if (isSemiRemorqueSelected()) {
+              <div class="form-group">
+                <label>Config essieux (semi)</label>
+                <select formControlName="configAxleSemi">
+                  <option [ngValue]="null">— Non défini —</option>
+                  <option value="plateau-2x2">Plateau 2×2 (4 positions)</option>
+                  <option value="semi-2-essieux">Semi 2 essieux (8 positions)</option>
+                  <option value="semi-3-essieux">Semi 3 essieux (12 positions)</option>
+                </select>
+              </div>
+            }
+          </div>
 
+          <!-- Row 2: Marque / Modèle / Matricule -->
           <div class="form-row">
             <div class="form-group">
               <label>Marque</label>
@@ -65,20 +67,18 @@ import { DoubleClickGuardDirective } from '../../../shared/directives/double-cli
               <label>Modèle</label>
               <input formControlName="modele" placeholder="FH16" />
             </div>
-          </div>
-
-          <div class="form-row">
             <div class="form-group">
               <label>Matricule</label>
               <input formControlName="matricule" placeholder="A-123-456" />
             </div>
+          </div>
+
+          <!-- Row 3: N° Chassis / Année / Date mise en service -->
+          <div class="form-row">
             <div class="form-group">
               <label>N° Chassis</label>
               <input formControlName="nChassis" placeholder="WDB123…" />
             </div>
-          </div>
-
-          <div class="form-row">
             <div class="form-group">
               <label>Année</label>
               <input formControlName="annee" type="number" placeholder="2020" />
@@ -89,6 +89,7 @@ import { DoubleClickGuardDirective } from '../../../shared/directives/double-cli
             </div>
           </div>
 
+          <!-- Row 4: Statut / Carburant -->
           <div class="form-row">
             <div class="form-group">
               <label>Statut</label>
@@ -128,6 +129,7 @@ import { DoubleClickGuardDirective } from '../../../shared/directives/double-cli
           @if (isCamionTypeSelected()) {
             <div class="camion-subform">
               <h3>Détails camion</h3>
+              <!-- Row: Capacité / Config axe / Compteur km / Compteur heures -->
               <div class="form-row">
                 <div class="form-group">
                   <label>Capacité (tonnes)</label>
@@ -141,8 +143,6 @@ import { DoubleClickGuardDirective } from '../../../shared/directives/double-cli
                     <option value="plateau-2x2">Plateau 2x2</option>
                   </select>
                 </div>
-              </div>
-              <div class="form-row">
                 <div class="form-group">
                   <label>Compteur km</label>
                   <input formControlName="compteurKm" type="number" placeholder="0" />
@@ -152,14 +152,16 @@ import { DoubleClickGuardDirective } from '../../../shared/directives/double-cli
                   <input formControlName="compteurHeures" type="number" placeholder="0" />
                 </div>
               </div>
+              <!-- Row: KPI — Voyages/mois / KM parcourus -->
+              <h3>KPIs véhicule</h3>
               <div class="form-row">
                 <div class="form-group">
-                  <label>Chauffeur — prénom</label>
-                  <input formControlName="chauffeurPrenom" placeholder="Hassan" />
+                  <label>Voyages / mois</label>
+                  <input formControlName="voyagesMois" type="number" placeholder="0" min="0" />
                 </div>
                 <div class="form-group">
-                  <label>Chauffeur — nom</label>
-                  <input formControlName="chauffeurNom" placeholder="Benali" />
+                  <label>KM parcourus (mensuel)</label>
+                  <input formControlName="kmParcourus" type="number" placeholder="0" min="0" />
                 </div>
               </div>
             </div>
@@ -179,6 +181,10 @@ import { DoubleClickGuardDirective } from '../../../shared/directives/double-cli
                 <label>Visite technique — Semi-remorque</label>
                 <input formControlName="visiteTechSemiExpiration" type="date" />
               </div>
+              <div class="form-group">
+                <label>Extincteur — date d'expiration</label>
+                <input formControlName="extincteurExpiration" type="date" />
+              </div>
             </div>
             <div class="form-row">
               <div class="form-group">
@@ -190,19 +196,15 @@ import { DoubleClickGuardDirective } from '../../../shared/directives/double-cli
                 <input formControlName="metrologieExpiration" type="date" />
               </div>
             </div>
-            <div class="form-group">
-              <label>Extincteur — date d'expiration</label>
-              <input formControlName="extincteurExpiration" type="date" />
-            </div>
           </div>
 
           <div class="doc-section">
             <h3 class="doc-section__title">Batterie</h3>
-            <div class="form-group">
-              <label>Batterie — Modèle</label>
-              <input formControlName="batterieModele" placeholder="Bosch S5 A08" />
-            </div>
             <div class="form-row">
+              <div class="form-group">
+                <label>Batterie — Modèle</label>
+                <input formControlName="batterieModele" placeholder="Bosch S5 A08" />
+              </div>
               <div class="form-group">
                 <label>Batterie — Date d'achat</label>
                 <input formControlName="batterieDateAchat" type="date" />
@@ -219,6 +221,20 @@ import { DoubleClickGuardDirective } from '../../../shared/directives/double-cli
             <div class="form-group">
               <label>Conso. gasoil (litres / mois)</label>
               <input formControlName="consoGasoilLitresMois" type="number" placeholder="0" />
+            </div>
+          </div>
+
+          <div class="doc-section">
+            <h3 class="doc-section__title">Chauffeur affecté</h3>
+            <div class="form-row">
+              <div class="form-group">
+                <label>Prénom</label>
+                <input formControlName="chauffeurPrenom" placeholder="Hassan" />
+              </div>
+              <div class="form-group">
+                <label>Nom</label>
+                <input formControlName="chauffeurNom" placeholder="Benali" />
+              </div>
             </div>
           </div>
         }
@@ -248,7 +264,7 @@ import { DoubleClickGuardDirective } from '../../../shared/directives/double-cli
     .form-group { display: flex; flex-direction: column; gap: 4px; }
     .form-group label { font-family: 'Montserrat', sans-serif; font-size: 11px; font-weight: 600; color: var(--color-text-muted); text-transform: uppercase; letter-spacing: 0.05em; }
     .form-group input, .form-group select { height: 40px; padding: 0 12px; border: 1px solid var(--color-border); border-radius: var(--radius-sm); background: var(--color-surface); font-family: 'Open Sans', sans-serif; font-size: 14px; color: var(--color-text); }
-    .form-row { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 12px; }
+    .form-row { display: grid; grid-template-columns: repeat(auto-fit, minmax(170px, 1fr)); gap: 12px; }
 
     /* Camion subform */
     .camion-subform { border-top: 1px solid var(--color-border); padding-top: 12px; margin-top: 4px; display: flex; flex-direction: column; gap: 12px; }
@@ -340,6 +356,9 @@ export class EditVehiculeModalComponent implements OnInit {
     compteurHeures: [null as number | null],
     chauffeurPrenom: ['' as string | null],
     chauffeurNom: ['' as string | null],
+    // KPI fields
+    voyagesMois: [null as number | null],
+    kmParcourus: [null as number | null],
     // ── Documents (regulatory + battery) ──
     visiteTechTracteurExpiration: [null as string | null],
     visiteTechSemiExpiration: [null as string | null],
@@ -384,6 +403,9 @@ export class EditVehiculeModalComponent implements OnInit {
       compteurHeures: cd?.compteurHeures ?? null,
       chauffeurPrenom: cd?.chauffeurPrenom ?? '',
       chauffeurNom: cd?.chauffeurNom ?? '',
+      // KPI
+      voyagesMois: cd?.voyagesMois ?? null,
+      kmParcourus: cd?.kmParcourus ?? null,
       // Documents
       visiteTechTracteurExpiration: cd?.visiteTechTracteurExpiration ?? null,
       visiteTechSemiExpiration: cd?.visiteTechSemiExpiration ?? null,
@@ -448,6 +470,8 @@ export class EditVehiculeModalComponent implements OnInit {
         compteurHeures: fv.compteurHeures ?? null,
         chauffeurPrenom: fv.chauffeurPrenom || null,
         chauffeurNom: fv.chauffeurNom || null,
+        voyagesMois: fv.voyagesMois ?? null,
+        kmParcourus: fv.kmParcourus ?? null,
         visiteTechTracteurExpiration: fv.visiteTechTracteurExpiration || null,
         visiteTechSemiExpiration: fv.visiteTechSemiExpiration || null,
         carnetCirculationExpiration: fv.carnetCirculationExpiration || null,
