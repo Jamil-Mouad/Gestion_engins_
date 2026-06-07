@@ -35,6 +35,8 @@ import { CommonModule } from '@angular/common';
       z-index: 1000;
     }
     .modal-dialog {
+      position: relative;
+      z-index: 1;
       background: var(--color-surface);
       border-radius: var(--radius-lg);
       box-shadow: 0 24px 60px rgba(17, 24, 39, 0.2);
