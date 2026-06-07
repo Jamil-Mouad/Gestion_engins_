@@ -1,5 +1,6 @@
 import { Component, inject, signal, computed, DestroyRef } from '@angular/core';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
+import { take } from 'rxjs';
 import { LucideAngularModule } from 'lucide-angular';
 import { ToastrService } from 'ngx-toastr';
 import { ComposantService } from './composant.service';
@@ -13,9 +14,9 @@ import {
   FilterChipComponent,
   DataTableHeaderComponent,
   DataTableRowComponent,
-  ExportExcelModalComponent,
 } from '../../shared/ui';
-import { exportToXlsx } from '../../shared/utils/export-xlsx';
+import { ExcelExportService } from '../../shared/services/excel-export.service';
+import { downloadBlobAs } from '../../shared/utils/download-blob';
 
 // ── Column configuration ──────────────────────────────────────────────────────
 
@@ -72,7 +73,6 @@ const PARTIE_LABELS: Record<string, string> = {
     DataTableRowComponent,
     ComposantFormModalComponent,
     ColumnManagerModalComponent,
-    ExportExcelModalComponent,
   ],
   template: `
     <div class="comp-page" style="animation: screenEnter 400ms ease both">
@@ -311,9 +311,9 @@ const PARTIE_LABELS: Record<string, string> = {
         <div class="table-footer">
           <div></div>
           <div class="table-actions">
-            <button class="btn-export" (click)="openExportModal()" type="button" title="Exporter en Excel">
+            <button class="btn-export" type="button" (click)="onExport()" [disabled]="exporting()" title="Exporter en Excel">
               <lucide-icon name="download" [size]="14" />
-              Export Excel
+              {{ exporting() ? 'Exportation…' : 'Export Excel' }}
             </button>
             <button class="btn-settings" type="button" title="Gérer les colonnes" (click)="showColManager.set(true)">
               <lucide-icon name="settings" [size]="15" />
@@ -358,14 +358,6 @@ const PARTIE_LABELS: Record<string, string> = {
           (cancel)="showColManager.set(false)" />
       }
 
-      @if (showExportModal()) {
-        <app-export-excel-modal
-          [allColumns]="exportColDefs"
-          [initialVisible]="exportDefaultColIds"
-          [filterSummary]="exportFilterSummary()"
-          (exported)="onExportConfirmed($event)"
-          (cancel)="showExportModal.set(false)" />
-      }
 
     </div>
   `,
@@ -457,6 +449,7 @@ const PARTIE_LABELS: Record<string, string> = {
 })
 export class ComposantsComponent {
   private composantService = inject(ComposantService);
+  private excelExportService = inject(ExcelExportService);
   private toastr = inject(ToastrService);
   private destroyRef = inject(DestroyRef);
 
@@ -478,18 +471,7 @@ export class ComposantsComponent {
     return this.visibleColIds().map(id => byId.get(id)!).filter(Boolean);
   });
   showColManager = signal(false);
-  showExportModal = signal(false);
-
-  /** Export column defs exclude image and actions */
-  readonly exportColDefs = COMP_COL_DEFS.filter(c => c.id !== 'image' && c.id !== 'actions');
-  readonly exportDefaultColIds = COMP_DEFAULT_COL_IDS.filter(id => id !== 'image' && id !== 'actions');
-
-  exportFilterSummary = computed(() => {
-    const parts: string[] = [];
-    if (this.partieFilter() !== 'all') parts.push(`Partie: ${PARTIE_LABELS[this.partieFilter()] ?? this.partieFilter()}`);
-    if (this.searchQuery().trim()) parts.push(`Recherche: "${this.searchQuery().trim()}"`);
-    return parts.length ? parts.join(' | ') : 'Aucun filtre actif';
-  });
+  exporting = signal(false);
 
   // ── Modals ────────────────────────────────────────────────────────────────────
   formCtx = signal<ComposantFormContext | null>(null);
@@ -620,35 +602,21 @@ export class ComposantsComponent {
   }
 
   // ── Export ────────────────────────────────────────────────────────────────────
-  openExportModal(): void {
-    this.showExportModal.set(true);
-  }
-
-  onExportConfirmed(colIds: string[]): void {
-    this.showExportModal.set(false);
-    const colDefs = colIds
-      .map(id => COMP_COL_DEFS.find(c => c.id === id))
-      .filter((c): c is ColumnDef => !!c);
-
-    const flattenNode = (node: ComposantNode): ComposantNode[] =>
-      [node, ...node.children.flatMap(child => flattenNode(child))];
-
-    const allNodes = this.filteredNodes().flatMap(n => flattenNode(n));
-
-    const rows = allNodes.map(node => {
-      const row: Record<string, unknown> = {};
-      for (const col of colDefs) {
-        switch (col.id) {
-          case 'reference':   row[col.id] = node.reference ?? ''; break;
-          case 'designation': row[col.id] = node.designation; break;
-          case 'partie':      row[col.id] = node.categorie ? (PARTIE_LABELS[node.categorie] ?? node.categorie) : ''; break;
-          case 'unite':       row[col.id] = node.unite ?? ''; break;
-          case 'stock':       row[col.id] = node.stock ?? ''; break;
-        }
-      }
-      return row;
+  onExport(): void {
+    if (this.exporting()) return;
+    this.exporting.set(true);
+    this.excelExportService.download({ entites: 'composants' }).pipe(
+      take(1),
+    ).subscribe({
+      next: (blob) => {
+        downloadBlobAs(blob, 'composants.xlsx');
+        this.exporting.set(false);
+      },
+      error: () => {
+        this.toastr.error('Erreur lors de l\'export Excel.');
+        this.exporting.set(false);
+      },
     });
-    exportToXlsx(rows, colDefs, 'composants.xlsx');
   }
 
   partieLabel(cat: ComposantCategorie | null): string {

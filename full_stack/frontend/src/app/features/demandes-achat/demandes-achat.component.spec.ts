@@ -2,6 +2,7 @@ import { TestBed } from '@angular/core/testing';
 import { provideHttpClient } from '@angular/common/http';
 import { provideHttpClientTesting, HttpTestingController } from '@angular/common/http/testing';
 import { provideRouter } from '@angular/router';
+import { provideToastr } from 'ngx-toastr';
 import { LucideAngularModule, Search, Download, Settings, GripVertical } from 'lucide-angular';
 
 import { DemandesAchatComponent } from './demandes-achat.component';
@@ -115,6 +116,7 @@ describe('DemandesAchatComponent', () => {
         provideHttpClient(),
         provideHttpClientTesting(),
         provideRouter([]),
+        provideToastr(),
       ],
     });
     httpMock = TestBed.inject(HttpTestingController);

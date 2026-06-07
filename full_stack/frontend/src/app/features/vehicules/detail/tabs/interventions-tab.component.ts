@@ -1,8 +1,9 @@
 import { Component, Input, OnInit, inject, signal, computed, DestroyRef } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
-import { catchError, of } from 'rxjs';
+import { catchError, of, take } from 'rxjs';
 import { LucideAngularModule } from 'lucide-angular';
+import { ToastrService } from 'ngx-toastr';
 import { Intervention, InterventionStatut } from '../../../../shared/models/intervention.model';
 import { InterventionService } from '../../../interventions/intervention.service';
 import { StatusLabelPipe } from '../../../../shared/pipes/status-label.pipe';
@@ -18,8 +19,8 @@ import { FilterChipComponent } from '../../../../shared/ui/filter-chip/filter-ch
 import { ColumnManagerModalComponent, ColumnDef } from '../../../vehicules/list/column-manager-modal.component';
 import { NewInterventionModalComponent } from '../../../interventions/new-intervention-modal.component';
 import { ImageLightboxComponent } from '../../../../shared/ui/image-lightbox/image-lightbox.component';
-import { ExportExcelModalComponent } from '../../../../shared/ui/export-excel-modal/export-excel-modal.component';
-import { exportToXlsx } from '../../../../shared/utils/export-xlsx';
+import { ExcelExportService } from '../../../../shared/services/excel-export.service';
+import { downloadBlobAs } from '../../../../shared/utils/download-blob';
 
 const LS_KEY = 'fleet.interventions-tab.columns';
 
@@ -47,7 +48,7 @@ function loadColIds(): string[] {
     BadgeComponent, EmptyStateComponent, SkeletonComponent,
     CardComponent, DataTableHeaderComponent, DataTableRowComponent,
     FilterChipComponent, ColumnManagerModalComponent, NewInterventionModalComponent,
-    ImageLightboxComponent, ExportExcelModalComponent,
+    ImageLightboxComponent,
   ],
   template: `
     <app-card title="Interventions">
@@ -71,9 +72,9 @@ function loadColIds(): string[] {
                 (click)="showColMgr.set(true)">
           <lucide-icon name="settings-2" [size]="15" />
         </button>
-        <button class="btn-export" type="button" title="Exporter Excel" (click)="openExportModal()">
+        <button class="btn-export" type="button" title="Exporter en Excel" (click)="onExport()" [disabled]="exporting()">
           <lucide-icon name="download" [size]="14" />
-          Export Excel
+          {{ exporting() ? 'Exportation…' : 'Export Excel' }}
         </button>
         <button class="btn-new-int" type="button" (click)="showNewModal.set(true)">
           <lucide-icon name="plus" [size]="14" />
@@ -186,14 +187,6 @@ function loadColIds(): string[] {
         (close)="showNewModal.set(false)" />
     }
 
-    @if (showExportModal()) {
-      <app-export-excel-modal
-        [allColumns]="exportColDefs"
-        [initialVisible]="exportDefaultColIds"
-        [filterSummary]="exportFilterSummary()"
-        (exported)="onExportConfirmed($event)"
-        (cancel)="showExportModal.set(false)" />
-    }
   `,
   styles: [`
     .int-toolbar { display: flex; align-items: center; gap: 10px; flex-wrap: nowrap; margin-bottom: 16px; }
@@ -277,6 +270,8 @@ export class InterventionsTabComponent implements OnInit {
   @Input() vehiculeCode = '';
 
   private interventionService = inject(InterventionService);
+  private excelExportService = inject(ExcelExportService);
+  private toastr = inject(ToastrService);
   private destroyRef = inject(DestroyRef);
 
   interventions = signal<Intervention[]>([]);
@@ -286,13 +281,10 @@ export class InterventionsTabComponent implements OnInit {
   showColMgr = signal(false);
   showNewModal = signal(false);
   expandedIds = signal<Set<number>>(new Set());
-  showExportModal = signal(false);
+  exporting = signal(false);
 
   readonly allCols = ALL_INT_COLS;
   readonly defaultIntColIds = DEFAULT_INT_COL_IDS;
-  /** Export column defs exclude photo */
-  readonly exportColDefs = ALL_INT_COLS.filter(c => c.id !== 'photo');
-  readonly exportDefaultColIds = DEFAULT_INT_COL_IDS.filter(id => id !== 'photo');
   visibleIds = signal<string[]>(loadColIds());
   visibleCols = computed<(ColumnDef & { id: string })[]>(() =>
     this.visibleIds()
@@ -311,13 +303,6 @@ export class InterventionsTabComponent implements OnInit {
     { label: 'Terminées', value: 'cloture' },
     { label: 'Ouvert',   value: 'ouvert' },
   ];
-
-  exportFilterSummary = computed(() => {
-    const parts: string[] = [];
-    if (this.statutFilter() !== 'all') parts.push(`Statut: ${this.statutFilter()}`);
-    if (this.searchQuery().trim()) parts.push(`Recherche: "${this.searchQuery().trim()}"`);
-    return parts.length ? parts.join(' | ') : 'Aucun filtre actif';
-  });
 
   filtered = computed(() => {
     const q = this.searchQuery().toLowerCase().trim();
@@ -365,32 +350,24 @@ export class InterventionsTabComponent implements OnInit {
     this.showColMgr.set(false);
   }
 
-  openExportModal(): void {
-    this.showExportModal.set(true);
-  }
-
-  onExportConfirmed(colIds: string[]): void {
-    this.showExportModal.set(false);
-    const colDefs = colIds
-      .map(id => ALL_INT_COLS.find(c => c.id === id))
-      .filter((c): c is ColumnDef => !!c && c.id !== 'photo');
-
-    const rows = this.filtered().map(iv => {
-      const row: Record<string, unknown> = {};
-      for (const col of colDefs) {
-        switch (col.id) {
-          case 'nBs':       row[col.id] = iv.nBs ?? ''; break;
-          case 'type':      row[col.id] = iv.typeIntervention.libelle; break;
-          case 'categorie': row[col.id] = iv.categorie; break;
-          case 'date':      row[col.id] = iv.dateDebut ? new Date(iv.dateDebut).toLocaleDateString('fr-FR') : ''; break;
-          case 'cout':      row[col.id] = iv.coutTotal ?? ''; break;
-          case 'statut':    row[col.id] = iv.statut; break;
-        }
-      }
-      return row;
+  onExport(): void {
+    if (this.exporting()) return;
+    this.exporting.set(true);
+    const filename = this.vehiculeCode
+      ? `interventions-${this.vehiculeCode}.xlsx`
+      : `interventions-${this.vehiculeId}.xlsx`;
+    this.excelExportService.download({ entites: 'interventions', vehiculeId: this.vehiculeId }).pipe(
+      take(1),
+    ).subscribe({
+      next: (blob) => {
+        downloadBlobAs(blob, filename);
+        this.exporting.set(false);
+      },
+      error: () => {
+        this.toastr.error('Erreur lors de l\'export Excel.');
+        this.exporting.set(false);
+      },
     });
-    const filename = this.vehiculeCode ? `interventions-${this.vehiculeCode}` : `interventions-${this.vehiculeId}`;
-    exportToXlsx(rows, colDefs, filename);
   }
 
   getStatusVariant(statut: InterventionStatut): 'success' | 'warning' | 'danger' | 'info' | 'secondary' {

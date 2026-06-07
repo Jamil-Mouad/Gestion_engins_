@@ -1,11 +1,11 @@
 import { Component, inject, signal, computed, DestroyRef } from '@angular/core';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { Subject, EMPTY } from 'rxjs';
-import { switchMap, map, catchError, debounceTime } from 'rxjs/operators';
+import { take, switchMap, map, catchError, debounceTime } from 'rxjs/operators';
 import { LucideAngularModule } from 'lucide-angular';
+import { ToastrService } from 'ngx-toastr';
 import { InterventionService } from './intervention.service';
 import { Intervention, InterventionStatut, InterventionCategorie } from '../../shared/models/intervention.model';
-import { Page } from '../../shared/models/pagination.model';
 import { DateFrPipe } from '../../shared/pipes/date-fr.pipe';
 import { CurrencyMadPipe } from '../../shared/pipes/currency-mad.pipe';
 import { EmptyStateComponent } from '../../shared/ui/empty-state/empty-state.component';
@@ -23,9 +23,9 @@ import {
   SevBadgeComponent,
   StatusBadgeComponent,
   ImageLightboxComponent,
-  ExportExcelModalComponent,
 } from '../../shared/ui';
-import { exportToXlsx } from '../../shared/utils/export-xlsx';
+import { ExcelExportService } from '../../shared/services/excel-export.service';
+import { downloadBlobAs } from '../../shared/utils/download-blob';
 
 type TabId = 'en_cours' | 'cloture' | 'all';
 type CategorieFilter = 'all' | InterventionCategorie;
@@ -70,7 +70,7 @@ function loadIntColIds(): string[] {
     SevBadgeComponent, StatusBadgeComponent,
     NewInterventionModalComponent, CloturerConfirmModalComponent,
     LucideAngularModule, ColumnManagerModalComponent,
-    ImageLightboxComponent, ExportExcelModalComponent,
+    ImageLightboxComponent,
   ],
   template: `
     <div class="int-page">
@@ -222,9 +222,9 @@ function loadIntColIds(): string[] {
             }
           </div>
           <div class="table-actions">
-            <button class="btn-export" (click)="openExportModal()" type="button" title="Exporter en Excel">
+            <button class="btn-export" type="button" (click)="onExport()" [disabled]="exporting()" title="Exporter en Excel">
               <lucide-icon name="download" [size]="14" />
-              Export Excel
+              {{ exporting() ? 'Exportation…' : 'Export Excel' }}
             </button>
             <button class="btn-settings" type="button" title="Gérer les colonnes" (click)="showColManager.set(true)">
               <lucide-icon name="settings" [size]="15" />
@@ -255,14 +255,6 @@ function loadIntColIds(): string[] {
           (cancel)="showColManager.set(false)" />
       }
 
-      @if (showExportModal()) {
-        <app-export-excel-modal
-          [allColumns]="exportColDefs"
-          [initialVisible]="visibleColIds()"
-          [filterSummary]="exportFilterSummary()"
-          (exported)="onExportConfirmed($event)"
-          (cancel)="showExportModal.set(false)" />
-      }
     </div>
   `,
   styles: [`
@@ -350,6 +342,8 @@ function loadIntColIds(): string[] {
 })
 export class InterventionsComponent {
   private interventionService = inject(InterventionService);
+  private excelExportService = inject(ExcelExportService);
+  private toastr = inject(ToastrService);
   private destroyRef = inject(DestroyRef);
 
   activeTabIndex = signal(0);
@@ -359,7 +353,7 @@ export class InterventionsComponent {
   loadError = signal(false);
   showNewModal = signal(false);
   showColManager = signal(false);
-  showExportModal = signal(false);
+  exporting = signal(false);
   cloturerIntervention = signal<Intervention | null>(null);
   interventions = signal<Intervention[]>([]);
   totalElements = signal<number | null>(null);
@@ -367,8 +361,6 @@ export class InterventionsComponent {
 
   readonly intColumnDefs = INT_COL_DEFS_MANAGEABLE;
   readonly intDefaultColIds = INT_DEFAULT_COL_IDS;
-  /** Columns available in the export modal (excludes pinned action col). */
-  readonly exportColDefs = INT_COL_DEFS_MANAGEABLE;
   visibleColIds = signal<string[]>(loadIntColIds());
   /** Always appends the pinned action column at the end. */
   visibleCols = computed<ColumnDef[]>(() => {
@@ -384,15 +376,6 @@ export class InterventionsComponent {
     { label: '', flex: 0, minWidth: 28 },
     ...this.visibleCols(),
   ]);
-
-  exportFilterSummary = computed(() => {
-    const parts: string[] = [];
-    const tabLabels = ['En cours', 'Terminées', 'Toutes'];
-    parts.push(`Onglet: ${tabLabels[this.activeTabIndex()]}`);
-    if (this.categorieFilter() !== 'all') parts.push(`Catégorie: ${this.categorieFilter()}`);
-    if (this.searchQuery) parts.push(`Recherche: "${this.searchQuery}"`);
-    return parts.join(' | ');
-  });
 
   private currentPage = 0;
   private readonly PAGE_SIZE = 6;
@@ -534,39 +517,20 @@ export class InterventionsComponent {
     this.fetchTrigger$.next({ page: 0, append: false, force: true });
   }
 
-  openExportModal(): void {
-    this.showExportModal.set(true);
-  }
-
-  onExportConfirmed(colIds: string[]): void {
-    this.showExportModal.set(false);
-    const colDefs = colIds
-      .map(id => INT_COL_DEFS.find(c => c.id === id))
-      .filter((c): c is ColumnDef => !!c);
-
-    this.interventionService.list({
-      size: 1000,
-      q: this.searchQuery || undefined,
-      statut: TAB_STATUTS[this.activeTabIndex()],
-      categorie: this.categorieFilter() === 'all' ? undefined : this.categorieFilter() as InterventionCategorie,
-    }).subscribe(page => {
-      const rows = page.content.map(iv => {
-        const row: Record<string, unknown> = {};
-        for (const col of colDefs) {
-          switch (col.id) {
-            case 'nBs':       row[col.id] = iv.nBs ?? ''; break;
-            case 'date':      row[col.id] = iv.dateDebut ? new Date(iv.dateDebut).toLocaleDateString('fr-FR') : ''; break;
-            case 'vehicule':  row[col.id] = iv.vehicule?.code ?? ''; break;
-            case 'categorie': row[col.id] = iv.categorie; break;
-            case 'composant': row[col.id] = iv.composant?.designation ?? iv.typeIntervention.libelle; break;
-            case 'cout':      row[col.id] = iv.coutTotal ?? ''; break;
-            case 'photo':     row[col.id] = iv.photoUrl ?? ''; break;
-            case 'statut':    row[col.id] = iv.statut; break;
-          }
-        }
-        return row;
-      });
-      exportToXlsx(rows, colDefs, 'interventions.xlsx');
+  onExport(): void {
+    if (this.exporting()) return;
+    this.exporting.set(true);
+    this.excelExportService.download({ entites: 'interventions' }).pipe(
+      take(1),
+    ).subscribe({
+      next: (blob) => {
+        downloadBlobAs(blob, 'interventions.xlsx');
+        this.exporting.set(false);
+      },
+      error: () => {
+        this.toastr.error('Erreur lors de l\'export Excel.');
+        this.exporting.set(false);
+      },
     });
   }
 }

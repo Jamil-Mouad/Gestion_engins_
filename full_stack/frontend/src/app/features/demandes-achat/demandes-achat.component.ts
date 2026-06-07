@@ -1,5 +1,7 @@
-import { Component, inject, signal, computed } from '@angular/core';
+import { Component, inject, signal, computed, DestroyRef } from '@angular/core';
+import { take } from 'rxjs';
 import { LucideAngularModule } from 'lucide-angular';
+import { ToastrService } from 'ngx-toastr';
 import { DemandeAchatService } from './demande-achat.service';
 import { DemandeAchat, DemandeStatut } from '../../shared/models/demande-achat.model';
 import { ColumnDef, ColumnManagerModalComponent } from '../vehicules/list/column-manager-modal.component';
@@ -12,10 +14,10 @@ import {
   SkeletonComponent,
   EmptyStateComponent,
   ImageLightboxComponent,
-  ExportExcelModalComponent,
 } from '../../shared/ui';
 import { NewDemandeModalComponent } from './new-demande-modal.component';
-import { exportToXlsx } from '../../shared/utils/export-xlsx';
+import { ExcelExportService } from '../../shared/services/excel-export.service';
+import { downloadBlobAs } from '../../shared/utils/download-blob';
 
 // ── Column configuration ──────────────────────────────────────────────────────
 
@@ -58,7 +60,6 @@ function loadDaColIds(): string[] {
     NewDemandeModalComponent,
     ColumnManagerModalComponent,
     ImageLightboxComponent,
-    ExportExcelModalComponent,
   ],
   template: `
     <div class="da-page">
@@ -183,9 +184,9 @@ function loadDaColIds(): string[] {
         <!-- Footer toolbar -->
         <div class="table-footer">
           <div class="table-actions">
-            <button class="btn-export" (click)="openExportModal()" type="button" title="Exporter en Excel">
+            <button class="btn-export" type="button" (click)="onExport()" [disabled]="exporting()" title="Exporter en Excel">
               <lucide-icon name="download" [size]="14" />
-              Export Excel
+              {{ exporting() ? 'Exportation…' : 'Export Excel' }}
             </button>
             <button class="btn-settings" type="button" title="Gérer les colonnes" (click)="showColManager.set(true)">
               <lucide-icon name="settings" [size]="15" />
@@ -208,14 +209,6 @@ function loadDaColIds(): string[] {
         <app-new-demande-modal (saved)="onDemandeCreated()" (close)="showNewDemande.set(false)" />
       }
 
-      @if (showExportModal()) {
-        <app-export-excel-modal
-          [allColumns]="daColumnDefs"
-          [initialVisible]="visibleColIds()"
-          [filterSummary]="exportFilterSummary()"
-          (exported)="onExportConfirmed($event)"
-          (cancel)="showExportModal.set(false)" />
-      }
     </div>
   `,
   styles: [`
@@ -399,6 +392,9 @@ function loadDaColIds(): string[] {
 })
 export class DemandesAchatComponent {
   private demandeService = inject(DemandeAchatService);
+  private excelExportService = inject(ExcelExportService);
+  private toastr = inject(ToastrService);
+  private destroyRef = inject(DestroyRef);
 
   // ── Data signals ──────────────────────────────────────────────────────────
   demandes = signal<DemandeAchat[]>([]);
@@ -411,6 +407,7 @@ export class DemandesAchatComponent {
 
   // ── Modals ────────────────────────────────────────────────────────────────
   showNewDemande = signal(false);
+  exporting = signal(false);
 
   // ── Dynamic columns ───────────────────────────────────────────────────────
   readonly daColumnDefs    = DA_COL_DEFS;
@@ -423,14 +420,6 @@ export class DemandesAchatComponent {
     return [...cols, DA_ACTION_COL];
   });
   showColManager = signal(false);
-  showExportModal = signal(false);
-
-  exportFilterSummary = computed(() => {
-    const parts: string[] = [];
-    if (this.activeTab() !== 'all') parts.push(`Statut: ${this.activeTab()}`);
-    if (this.searchQuery().trim()) parts.push(`Recherche: "${this.searchQuery().trim()}"`);
-    return parts.length ? parts.join(' | ') : 'Aucun filtre actif';
-  });
 
   // ── Derived ───────────────────────────────────────────────────────────────
   nouvelles = computed(() => this.demandes().filter(d => d.statut === 'Nouvelle').length);
@@ -512,32 +501,21 @@ export class DemandesAchatComponent {
   }
 
   // ── Export ────────────────────────────────────────────────────────────────
-  openExportModal(): void {
-    this.showExportModal.set(true);
-  }
-
-  onExportConfirmed(colIds: string[]): void {
-    this.showExportModal.set(false);
-    const colDefs = colIds
-      .map(id => DA_COL_DEFS.find(c => c.id === id))
-      .filter((c): c is ColumnDef => !!c && c.id !== 'photo');
-
-    const rows = this.filteredDemandes().map(d => {
-      const row: Record<string, unknown> = {};
-      for (const col of colDefs) {
-        switch (col.id) {
-          case 'id':        row[col.id] = d.code; break;
-          case 'date':      row[col.id] = this.formatDate(d.dateDemande); break;
-          case 'demandeur': row[col.id] = d.demandeurNom ?? `${d.demandeur.prenom} ${d.demandeur.nom}`; break;
-          case 'piece':     row[col.id] = d.composant?.designation ?? d.pieceLibre ?? ''; break;
-          case 'reference': row[col.id] = d.reference ?? ''; break;
-          case 'quantite':  row[col.id] = d.quantite; break;
-          case 'statut':    row[col.id] = d.statut; break;
-        }
-      }
-      return row;
+  onExport(): void {
+    if (this.exporting()) return;
+    this.exporting.set(true);
+    this.excelExportService.download({ entites: 'demandesAchat' }).pipe(
+      take(1),
+    ).subscribe({
+      next: (blob) => {
+        downloadBlobAs(blob, 'demandes-achat.xlsx');
+        this.exporting.set(false);
+      },
+      error: () => {
+        this.toastr.error('Erreur lors de l\'export Excel.');
+        this.exporting.set(false);
+      },
     });
-    exportToXlsx(rows, colDefs, 'demandes-achat.xlsx');
   }
 
   // ── Helpers ───────────────────────────────────────────────────────────────

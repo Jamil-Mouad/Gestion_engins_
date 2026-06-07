@@ -1,9 +1,10 @@
 import { Component, Input, inject, signal, computed, DestroyRef } from '@angular/core';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
-import { switchMap } from 'rxjs';
+import { switchMap, take } from 'rxjs';
 import { CommonModule, DecimalPipe } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { LucideAngularModule } from 'lucide-angular';
+import { ToastrService } from 'ngx-toastr';
 import { ComposantService } from '../../../composants/composant.service';
 import { ComposantNode, Composant, ComposantCategorie } from '../../../../shared/models/composant.model';
 import { SkeletonComponent } from '../../../../shared/ui/skeleton/skeleton.component';
@@ -15,6 +16,8 @@ import {
   DataTableRowComponent,
 } from '../../../../shared/ui';
 import { ColumnDef, ColumnManagerModalComponent } from '../../list/column-manager-modal.component';
+import { ExcelExportService } from '../../../../shared/services/excel-export.service';
+import { downloadBlobAs } from '../../../../shared/utils/download-blob';
 
 // ── Column configuration ────────────────────────────────────────────────────
 const COMP_TAB_LS_KEY = 'fleet.vehicule-composants.columns';
@@ -385,9 +388,9 @@ const CATEGORIE_LABELS: Record<string, string> = {
           <!-- Footer: export + column gear -->
           <div class="table-footer">
             <div class="table-actions">
-              <button class="btn-export" (click)="exportCsv()" type="button" title="Exporter en CSV">
+              <button class="btn-export" type="button" (click)="onExport()" [disabled]="exporting()" title="Exporter en Excel">
                 <lucide-icon name="download" [size]="14" />
-                Export Excel
+                {{ exporting() ? 'Exportation…' : 'Export Excel' }}
               </button>
               <button class="btn-settings" type="button" title="Gérer les colonnes" (click)="showColManager.set(true)">
                 <lucide-icon name="settings" [size]="15" />
@@ -623,6 +626,8 @@ const CATEGORIE_LABELS: Record<string, string> = {
 })
 export class ComposantsTabComponent {
   private composantService = inject(ComposantService);
+  private excelExportService = inject(ExcelExportService);
+  private toastr = inject(ToastrService);
   private destroyRef = inject(DestroyRef);
 
   /** Vehicle type this catalogue is scoped to (e.g. 'camion', 'balayeuse'). Empty = global view. */
@@ -676,6 +681,7 @@ export class ComposantsTabComponent {
     return [...managed, COMP_TAB_ACTION_COL];
   });
   showColManager = signal(false);
+  exporting = signal(false);
 
   readonly categorieOptions: { value: ComposantCategorie; label: string }[] = [
     { value: 'moteur', label: 'Moteur' },
@@ -747,44 +753,23 @@ export class ComposantsTabComponent {
   }
 
   // ── Export ────────────────────────────────────────────────────────────────
-  private csvCell(value: unknown): string {
-    return `"${String(value ?? '').replace(/"/g, '""')}"`;
-  }
-
-  private flattenTree(): ComposantNode[] {
-    const out: ComposantNode[] = [];
-    const walk = (nodes: ComposantNode[]) => {
-      for (const n of nodes) {
-        out.push(n);
-        if (n.children?.length) walk(n.children);
-      }
-    };
-    walk(this.tree());
-    return out;
-  }
-
-  exportCsv(): void {
-    const managedIds = this.tableColIds();
-    const managedCols = COMP_TAB_COL_DEFS.filter(c => managedIds.includes(c.id));
-    const header = managedCols.map(c => this.csvCell(c.label)).join(',');
-    const rows = this.flattenTree().map(n =>
-      managedCols.map(c => {
-        switch (c.id) {
-          case 'reference':   return this.csvCell(n.reference ?? '');
-          case 'designation': return this.csvCell(n.designation);
-          case 'categorie':   return this.csvCell(this.categorieLabel(n.categorie));
-          case 'unite':       return this.csvCell(n.unite ?? '');
-          case 'stock':       return this.csvCell(n.stock ?? '');
-          default:            return this.csvCell('');
-        }
-      }).join(',')
-    );
-    const csv = [header, ...rows].join('\n');
-    const blob = new Blob(['﻿' + csv], { type: 'text/csv;charset=utf-8;' });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url; a.download = 'composants-vehicule.csv'; a.click();
-    URL.revokeObjectURL(url);
+  onExport(): void {
+    if (this.exporting()) return;
+    this.exporting.set(true);
+    const params: { entites: string; vehiculeType?: string } = { entites: 'composants' };
+    if (this.vehiculeType) params.vehiculeType = this.vehiculeType;
+    this.excelExportService.download(params).pipe(
+      take(1),
+    ).subscribe({
+      next: (blob) => {
+        downloadBlobAs(blob, 'composants.xlsx');
+        this.exporting.set(false);
+      },
+      error: () => {
+        this.toastr.error('Erreur lors de l\'export Excel.');
+        this.exporting.set(false);
+      },
+    });
   }
 
   /** Upload + persist an image for the currently selected composant. */
