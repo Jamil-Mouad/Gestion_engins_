@@ -30,7 +30,7 @@ import { exportToXlsx } from '../../shared/utils/export-xlsx';
 type TabId = 'en_cours' | 'cloture' | 'all';
 type CategorieFilter = 'all' | InterventionCategorie;
 
-const TAB_STATUTS: (string | undefined)[] = ['open', 'closed', undefined];
+const TAB_STATUTS: (string | undefined)[] = ['en_cours', 'cloture', undefined];
 
 const INT_LS_KEY = 'fleet.interventions-global.columns';
 
