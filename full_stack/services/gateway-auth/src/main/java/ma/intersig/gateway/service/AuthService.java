@@ -94,6 +94,7 @@ public class AuthService {
                 user.getEmail(),
                 user.getPrenom(),
                 user.getNom(),
+                user.getRole(),
                 user.getFonction(),
                 user.getMatriculeEmp(),
                 user.getSite(),
@@ -127,7 +128,7 @@ public class AuthService {
         return new AuthResponse(
                 accessToken,
                 refreshToken,
-                new AuthResponse.UserDto(user.getId(), user.getEmail(), user.getPrenom(), user.getNom())
+                new AuthResponse.UserDto(user.getId(), user.getEmail(), user.getPrenom(), user.getNom(), user.getRole())
         );
     }
 }

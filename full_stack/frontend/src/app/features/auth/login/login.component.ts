@@ -1,7 +1,7 @@
 import { Component, signal, inject } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { ReactiveFormsModule, FormBuilder, Validators, AbstractControl, ValidationErrors, ValidatorFn } from '@angular/forms';
-import { Router, RouterLink } from '@angular/router';
+import { Router, RouterLink, ActivatedRoute } from '@angular/router';
 import { HttpErrorResponse } from '@angular/common/http';
 import { AuthService } from '../../../core/auth/auth.service';
 
@@ -23,6 +23,7 @@ export class LoginComponent {
   private fb = inject(FormBuilder);
   private auth = inject(AuthService);
   private router = inject(Router);
+  private route = inject(ActivatedRoute);
 
   tab = signal<'connexion' | 'inscription'>('connexion');
   loading = signal(false);
@@ -31,7 +32,7 @@ export class LoginComponent {
   showPassword = signal(false);
   showRegisterPassword = signal(false);
   showRegisterConfirm = signal(false);
-  isLoggedIn = this.auth.isLoggedIn;
+  isAuthenticated = this.auth.isAuthenticated;
 
   loginForm = this.fb.group({
     email: ['', [Validators.required, Validators.email]],
@@ -57,8 +58,16 @@ export class LoginComponent {
     this.loading.set(true);
     this.errorMessage.set('');
     const { email, password } = this.loginForm.value;
-    this.auth.login({ email: email!, password: password!, remember: this.remember() }).subscribe({
-      next: () => { this.loading.set(false); this.router.navigate(['/dashboard']); },
+    this.auth.login({ email: email!.trim().toLowerCase(), password: password!, remember: this.remember() }).subscribe({
+      next: () => {
+        this.loading.set(false);
+        const redirect = this.route.snapshot.queryParamMap.get('redirect');
+        const home = this.auth.user()?.role === 'MAGASIN' ? '/magasin' : '/vehicules';
+        const target = redirect && redirect.startsWith('/') && !redirect.startsWith('//')
+          ? redirect
+          : home;
+        void this.router.navigateByUrl(target);
+      },
       error: (err: HttpErrorResponse) => {
         this.loading.set(false);
         this.errorMessage.set(err.status === 401 ? 'Email ou mot de passe incorrect.' :
@@ -81,8 +90,8 @@ export class LoginComponent {
     this.loading.set(true);
     this.errorMessage.set('');
     const { prenom, nom, email, password } = this.registerForm.value;
-    this.auth.register({ prenom: prenom!, nom: nom!, email: email!, password: password! }).subscribe({
-      next: () => { this.loading.set(false); this.router.navigate(['/dashboard']); },
+    this.auth.register({ prenom: prenom!, nom: nom!, email: email!.trim().toLowerCase(), password: password! }).subscribe({
+      next: () => { this.loading.set(false); this.router.navigate(['/vehicules']); },
       error: (err: HttpErrorResponse) => {
         this.loading.set(false);
         this.errorMessage.set(err.status === 409 ? 'Un compte existe déjà avec cet email.' :

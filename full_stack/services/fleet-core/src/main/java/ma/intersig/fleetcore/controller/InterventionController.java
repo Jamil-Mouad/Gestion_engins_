@@ -3,6 +3,7 @@ package ma.intersig.fleetcore.controller;
 import ma.intersig.fleetcore.dto.request.CreateInterventionRequest;
 import ma.intersig.fleetcore.dto.response.InterventionDto;
 import ma.intersig.fleetcore.dto.response.PageResponse;
+import ma.intersig.fleetcore.dto.response.TypeInterventionRefDto;
 import ma.intersig.fleetcore.service.InterventionService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
@@ -31,16 +32,23 @@ public class InterventionController {
         this.interventionService = interventionService;
     }
 
+    @Operation(summary = "List available intervention types")
+    @GetMapping("/interventions/types")
+    public ResponseEntity<List<TypeInterventionRefDto>> listTypes() {
+        return ResponseEntity.ok(interventionService.listTypes());
+    }
+
     @Operation(summary = "List interventions with optional filters")
     @GetMapping("/interventions")
     public ResponseEntity<PageResponse<InterventionDto>> list(
+            @RequestParam(required = false) String q,
             @RequestParam(required = false) Long vehicule_id,
             @RequestParam(required = false) String categorie,
             @RequestParam(required = false) String statut,
             @RequestParam(required = false) OffsetDateTime date_from,
             @RequestParam(required = false) OffsetDateTime date_to,
-            @PageableDefault(size = 20) Pageable pageable) {
-        return ResponseEntity.ok(interventionService.list(vehicule_id, categorie, statut, date_from, date_to, pageable));
+            @PageableDefault(size = 20, sort = "dateDebut", direction = org.springframework.data.domain.Sort.Direction.DESC) Pageable pageable) {
+        return ResponseEntity.ok(interventionService.list(q, vehicule_id, categorie, statut, date_from, date_to, pageable));
     }
 
     @Operation(summary = "Create a new intervention")
@@ -89,7 +97,7 @@ public class InterventionController {
             @PathVariable Long id,
             @RequestParam(required = false) String categorie,
             @RequestParam(required = false) String statut,
-            @PageableDefault(size = 20) Pageable pageable) {
+            @PageableDefault(size = 20, sort = "dateDebut", direction = org.springframework.data.domain.Sort.Direction.DESC) Pageable pageable) {
         return ResponseEntity.ok(interventionService.listByVehicule(id, categorie, statut, pageable));
     }
 }

@@ -1,5 +1,6 @@
 import { Routes } from '@angular/router';
 import { authGuard } from './core/auth/auth.guard';
+import { roleGuard } from './core/auth/role.guard';
 
 export const appRoutes: Routes = [
   {
@@ -22,6 +23,61 @@ export const appRoutes: Routes = [
     path: 'dashboard',
     canActivate: [authGuard],
     loadComponent: () => import('./features/dashboard/dashboard.component').then(m => m.DashboardComponent),
+  },
+  {
+    path: 'vehicules',
+    canActivate: [authGuard],
+    loadComponent: () => import('./features/vehicules/list/vehicules-list.component').then(m => m.VehiculesListComponent),
+  },
+  {
+    path: 'vehicules/:id',
+    canActivate: [authGuard],
+    loadComponent: () => import('./features/vehicules/detail/vehicule-detail.component').then(m => m.VehiculeDetailComponent),
+  },
+  {
+    path: 'interventions',
+    canActivate: [authGuard],
+    loadComponent: () => import('./features/interventions/interventions.component').then(m => m.InterventionsComponent),
+  },
+  {
+    path: 'pneus/:id',
+    canActivate: [authGuard],
+    loadComponent: () => import('./features/pneus/detail/pneu-detail.component').then(m => m.PneuDetailComponent),
+  },
+  {
+    path: 'composants',
+    canActivate: [authGuard],
+    loadComponent: () => import('./features/composants/composants.component').then(m => m.ComposantsComponent),
+  },
+  {
+    path: 'notifications',
+    canActivate: [authGuard],
+    loadComponent: () => import('./features/notifications/notifications.component').then(m => m.NotificationsComponent),
+  },
+  {
+    path: 'profil',
+    canActivate: [authGuard],
+    loadComponent: () => import('./features/profil/profil.component').then(m => m.ProfilComponent),
+  },
+  {
+    path: 'import-export',
+    canActivate: [authGuard],
+    loadComponent: () => import('./features/import-export/import-export.component').then(m => m.ImportExportComponent),
+  },
+  {
+    path: 'demandes-achat',
+    canActivate: [authGuard],
+    loadComponent: () => import('./features/demandes-achat/demandes-achat.component').then(m => m.DemandesAchatComponent),
+  },
+  {
+    path: 'chatbot',
+    canActivate: [authGuard],
+    loadComponent: () => import('./features/chatbot/chatbot.component').then(m => m.ChatbotComponent),
+  },
+  {
+    path: 'magasin',
+    canActivate: [authGuard, roleGuard(['MAGASIN', 'FLEET_MANAGER'])],
+    loadChildren: () => import('./features/magasin/magasin.routes').then(m => m.MAGASIN_ROUTES),
   },
   { path: '', redirectTo: 'login', pathMatch: 'full' },
   { path: '**', redirectTo: 'login' },

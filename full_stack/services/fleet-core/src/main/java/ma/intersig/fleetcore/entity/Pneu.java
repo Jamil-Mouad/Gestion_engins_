@@ -23,8 +23,11 @@ public class Pneu {
     @JoinColumn(name = "composant_id")
     private Composant composant;
 
-    @Column(name = "n_serie", length = 40)
+    @Column(name = "n_serie", length = 60, unique = true)
     private String nSerie;
+
+    @Column(length = 40)
+    private String reference;
 
     @Column(length = 40)
     private String marque;
@@ -56,6 +59,9 @@ public class Pneu {
     @Column(nullable = false)
     private Boolean actif = true;
 
+    @Column(name = "photo_url", length = 500)
+    private String photoUrl;
+
     @Column(name = "created_at", insertable = false, updatable = false)
     private java.time.OffsetDateTime createdAt;
 
@@ -72,6 +78,8 @@ public class Pneu {
     public void setComposant(Composant composant) { this.composant = composant; }
     public String getNSerie() { return nSerie; }
     public void setNSerie(String nSerie) { this.nSerie = nSerie; }
+    public String getReference() { return reference; }
+    public void setReference(String reference) { this.reference = reference; }
     public String getMarque() { return marque; }
     public void setMarque(String marque) { this.marque = marque; }
     public LocalDate getDateMontage() { return dateMontage; }
@@ -93,4 +101,6 @@ public class Pneu {
     public void setActif(Boolean actif) { this.actif = actif; }
     public java.time.OffsetDateTime getCreatedAt() { return createdAt; }
     public java.time.OffsetDateTime getUpdatedAt() { return updatedAt; }
+    public String getPhotoUrl() { return photoUrl; }
+    public void setPhotoUrl(String photoUrl) { this.photoUrl = photoUrl; }
 }

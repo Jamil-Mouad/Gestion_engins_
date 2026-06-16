@@ -8,7 +8,7 @@ public record CreateVehiculeRequest(
         @NotBlank String code,
         @NotBlank String type,
         @NotBlank String marque,
-        @NotBlank String modele,
+        String modele,
         String matricule,
         String nChassis,
         Short annee,
@@ -18,5 +18,6 @@ public record CreateVehiculeRequest(
         String photoUrl,
         String chauffeurPrenom,
         String chauffeurNom,
-        @Valid CamionDetailsRequest camionDetails
+        @Valid CamionDetailsRequest camionDetails,
+        String configAxleSemi
 ) {}

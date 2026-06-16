@@ -34,7 +34,7 @@ class KpiControllerTest {
         registry.add("spring.datasource.password", postgres::getPassword);
         registry.add("spring.flyway.enabled", () -> "true");
         registry.add("spring.flyway.baseline-on-migrate", () -> "true");
-        registry.add("spring.flyway.locations", () -> "classpath:db/migrations");
+        registry.add("spring.flyway.locations", () -> "classpath:db/migrations-shared,classpath:db/migrations");
         registry.add("spring.jpa.hibernate.ddl-auto", () -> "validate");
         registry.add("spring.mail.host", () -> "localhost");
         registry.add("spring.mail.port", () -> "1025");

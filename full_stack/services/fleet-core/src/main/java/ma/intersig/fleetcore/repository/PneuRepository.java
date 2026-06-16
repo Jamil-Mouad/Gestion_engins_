@@ -22,8 +22,16 @@ public interface PneuRepository extends JpaRepository<Pneu, Long> {
 
     Optional<Pneu> findByVehiculeIdAndPositionAndActifTrue(Long vehiculeId, Short position);
 
+    // explicit JPQL: the nSerie field name trips up derived-query parsing
+    @Query("SELECT COUNT(p) > 0 FROM Pneu p WHERE p.nSerie = :nSerie AND p.id <> :id")
+    boolean existsByNSerieAndIdNot(@org.springframework.data.repository.query.Param("nSerie") String nSerie,
+                                   @org.springframework.data.repository.query.Param("id") Long id);
+
     @Query("SELECT p FROM Pneu p LEFT JOIN FETCH p.vehicule")
     List<Pneu> findAllWithVehicule();
+
+    @Query("SELECT p FROM Pneu p LEFT JOIN FETCH p.vehicule WHERE p.actif = false ORDER BY p.id")
+    List<Pneu> findAllAvailable();
 
     @Query("SELECT p FROM Pneu p LEFT JOIN FETCH p.vehicule WHERE p.status IN :statuses ORDER BY p.id")
     List<Pneu> findByStatusInWithVehicule(@org.springframework.data.repository.query.Param("statuses") List<String> statuses);

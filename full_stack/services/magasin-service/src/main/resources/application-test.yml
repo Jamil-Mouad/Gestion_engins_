@@ -1,0 +1,18 @@
+spring:
+  config:
+    activate:
+      on-profile: test
+  datasource:
+    url: jdbc:tc:postgresql:17:///fleettracker_test
+    username: test
+    password: test
+  jpa:
+    hibernate:
+      ddl-auto: validate
+  flyway:
+    enabled: true
+    baseline-on-migrate: true
+    table: flyway_schema_history_magasin
+    locations:
+      - classpath:db/migrations-shared
+      - classpath:db/migrations

@@ -3,10 +3,13 @@ package ma.intersig.fleetcore.service;
 import jakarta.persistence.EntityManager;
 import jakarta.persistence.Query;
 import ma.intersig.fleetcore.dto.response.KpiCoutsBreakdownDto;
+import ma.intersig.fleetcore.dto.response.KpiCostHistoryDto;
 import ma.intersig.fleetcore.dto.response.KpiDto;
+import ma.intersig.fleetcore.dto.response.KpiInterventionByStatusDto;
 import ma.intersig.fleetcore.dto.response.KpiTimeseriesPointDto;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.cache.annotation.Cacheable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -17,6 +20,7 @@ import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.sql.Date;
 
 @Service
 @Transactional(readOnly = true)
@@ -30,6 +34,7 @@ public class KpiService {
         this.entityManager = entityManager;
     }
 
+    @Cacheable("kpis")
     public KpiDto getHeadline() {
         Double disponibilite = querySingleDouble(
                 "SELECT COALESCE(AVG(taux_dispo), 0) FROM mv_kpis_dispo");
@@ -45,11 +50,86 @@ public class KpiService {
         Long kmCumules = querySingleLong(
                 "SELECT COALESCE(SUM(km_parcourus_mois), 0) FROM mv_kpis_km_mois");
 
+        Long totalVehicules = querySingleLong("SELECT COUNT(*) FROM vehicules WHERE actif = TRUE");
+        Long enService      = querySingleLong("SELECT COUNT(*) FROM vehicules WHERE actif = TRUE AND statut = 'in-service'");
+        Long enAtelier      = querySingleLong("SELECT COUNT(*) FROM vehicules WHERE actif = TRUE AND statut = 'workshop'");
+        Long enMaintenance  = querySingleLong("SELECT COUNT(*) FROM vehicules WHERE actif = TRUE AND statut = 'maintenance'");
+        Long horsService    = querySingleLong("SELECT COUNT(*) FROM vehicules WHERE actif = TRUE AND statut = 'out-of-service'");
+
+        String thisMonth = "DATE_TRUNC('month', CURRENT_DATE)";
+        BigDecimal coutInterventionsMois = querySingleBigDecimal(
+                "SELECT COALESCE(SUM(cout_total), 0) FROM interventions " +
+                "WHERE DATE_TRUNC('month', date_debut) = " + thisMonth);
+        BigDecimal coutMainOeuvre = querySingleBigDecimal(
+                "SELECT COALESCE(SUM(cout_main_oeuvre), 0) FROM interventions " +
+                "WHERE DATE_TRUNC('month', date_debut) = " + thisMonth);
+        BigDecimal coutPieces = querySingleBigDecimal(
+                "SELECT COALESCE(SUM(cout_pieces), 0) FROM interventions " +
+                "WHERE DATE_TRUNC('month', date_debut) = " + thisMonth);
+        BigDecimal coutSousTraitance = querySingleBigDecimal(
+                "SELECT COALESCE(SUM(cout_sous_traitance), 0) FROM interventions " +
+                "WHERE DATE_TRUNC('month', date_debut) = " + thisMonth);
+
+        Long interventionsOuvertes = querySingleLong(
+                "SELECT COUNT(*) FROM interventions WHERE date_fin IS NULL");
+        Long vidangesEnRetard = querySingleLong(
+                "SELECT COUNT(*) FROM suivi_vidanges WHERE statut = 'en_retard'");
+        Long pneusWarnEmpty = querySingleLong(
+                "SELECT COUNT(*) FROM pneus WHERE status IN ('warn', 'empty')");
+        Long demandesEnAttente = querySingleLong(
+                "SELECT COUNT(*) FROM demandes_achat WHERE statut = 'Nouvelle'");
+
         return new KpiDto(
                 disponibilite,
                 coutMensuelMad,
                 kmParcourusMois != null ? kmParcourusMois : 0L,
-                kmCumules != null ? kmCumules : 0L
+                kmCumules != null ? kmCumules : 0L,
+                totalVehicules != null ? totalVehicules : 0L,
+                enService != null ? enService : 0L,
+                enAtelier != null ? enAtelier : 0L,
+                enMaintenance != null ? enMaintenance : 0L,
+                horsService != null ? horsService : 0L,
+                coutInterventionsMois,
+                coutMainOeuvre,
+                coutPieces,
+                coutSousTraitance,
+                interventionsOuvertes != null ? interventionsOuvertes : 0L,
+                vidangesEnRetard != null ? vidangesEnRetard : 0L,
+                pneusWarnEmpty != null ? pneusWarnEmpty : 0L,
+                demandesEnAttente != null ? demandesEnAttente : 0L
+        );
+    }
+
+    @Cacheable(value = "kpis", key = "'costHistory-' + #months")
+    public List<KpiCostHistoryDto> getCostHistory(int months) {
+        LocalDate cutoff = LocalDate.now().withDayOfMonth(1).minusMonths(Math.max(months - 1, 0));
+        Query query = entityManager.createNativeQuery(
+                "SELECT TO_CHAR(DATE_TRUNC('month', date_debut), 'YYYY-MM') AS month, " +
+                "       COALESCE(SUM(cout_total), 0) AS cout_total " +
+                "FROM interventions " +
+                "WHERE date_debut >= :cutoff " +
+                "GROUP BY DATE_TRUNC('month', date_debut) " +
+                "ORDER BY month ASC");
+        query.setParameter("cutoff", Date.valueOf(cutoff));
+
+        List<?> results = query.getResultList();
+        List<KpiCostHistoryDto> points = new ArrayList<>();
+        for (Object row : results) {
+            Object[] cols = (Object[]) row;
+            String month = (String) cols[0];
+            BigDecimal cout = cols[1] != null ? new BigDecimal(cols[1].toString()) : BigDecimal.ZERO;
+            points.add(new KpiCostHistoryDto(month, cout));
+        }
+        return points;
+    }
+
+    @Cacheable(value = "kpis", key = "'interventionsByStatus'")
+    public List<KpiInterventionByStatusDto> getInterventionsByStatus() {
+        Long enCours  = querySingleLong("SELECT COUNT(*) FROM interventions WHERE date_fin IS NULL");
+        Long cloture  = querySingleLong("SELECT COUNT(*) FROM interventions WHERE date_fin IS NOT NULL");
+        return List.of(
+                new KpiInterventionByStatusDto("en_cours", enCours != null ? enCours : 0L),
+                new KpiInterventionByStatusDto("cloture",  cloture  != null ? cloture  : 0L)
         );
     }
 
@@ -99,13 +179,18 @@ public class KpiService {
     }
 
     public String getLastRefresh() {
-        Query query = entityManager.createNativeQuery(
-                "SELECT last_refresh::text FROM kpi_matview_refresh WHERE matview_name = 'mv_kpis_dispo'");
-        List<?> results = query.getResultList();
-        if (results.isEmpty()) {
+        try {
+            Query query = entityManager.createNativeQuery(
+                    "SELECT last_refresh::text FROM kpi_matview_refresh WHERE matview_name = 'mv_kpis_dispo'");
+            List<?> results = query.getResultList();
+            if (results.isEmpty()) {
+                return null;
+            }
+            return (String) results.get(0);
+        } catch (RuntimeException e) {
+            log.warn("Failed to fetch KPI last refresh: {}", e.getMessage());
             return null;
         }
-        return (String) results.get(0);
     }
 
     public KpiDto getVehiculeKpis(Long vehiculeId) {
@@ -146,7 +231,10 @@ public class KpiService {
                 disponibilite,
                 coutTotal,
                 kmParcourus,
-                kmParcourus
+                kmParcourus,
+                0L, 0L, 0L, 0L, 0L,
+                coutTotal, BigDecimal.ZERO, BigDecimal.ZERO, BigDecimal.ZERO,
+                0L, 0L, 0L, 0L
         );
     }
 

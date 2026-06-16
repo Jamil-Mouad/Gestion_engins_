@@ -5,13 +5,11 @@ import ma.intersig.fleetcore.dto.response.DemandeAchatDto;
 import ma.intersig.fleetcore.dto.response.PageResponse;
 import ma.intersig.fleetcore.entity.Composant;
 import ma.intersig.fleetcore.entity.DemandeAchat;
-import ma.intersig.fleetcore.entity.Fournisseur;
 import ma.intersig.fleetcore.entity.User;
 import ma.intersig.fleetcore.exception.InvalidTransitionException;
 import ma.intersig.fleetcore.exception.ResourceNotFoundException;
 import ma.intersig.fleetcore.repository.ComposantRepository;
 import ma.intersig.fleetcore.repository.DemandeAchatRepository;
-import ma.intersig.fleetcore.repository.FournisseurRepository;
 import ma.intersig.fleetcore.repository.UserRepository;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
@@ -27,18 +25,15 @@ public class DemandeAchatService {
     private final DemandeAchatRepository demandeAchatRepository;
     private final UserRepository userRepository;
     private final ComposantRepository composantRepository;
-    private final FournisseurRepository fournisseurRepository;
     private final DemandeAchatCodeGenerator codeGenerator;
 
     public DemandeAchatService(DemandeAchatRepository demandeAchatRepository,
                                 UserRepository userRepository,
                                 ComposantRepository composantRepository,
-                                FournisseurRepository fournisseurRepository,
                                 DemandeAchatCodeGenerator codeGenerator) {
         this.demandeAchatRepository = demandeAchatRepository;
         this.userRepository = userRepository;
         this.composantRepository = composantRepository;
-        this.fournisseurRepository = fournisseurRepository;
         this.codeGenerator = codeGenerator;
     }
 
@@ -66,6 +61,7 @@ public class DemandeAchatService {
         }
 
         da.setPieceLibre(req.pieceLibre());
+        da.setReference(req.reference());
         if (req.quantite() != null && req.quantite() <= 0) {
             throw new ma.intersig.fleetcore.exception.BusinessException(
                     "Quantity must be positive", "INVALID_QUANTITE", 422);
@@ -73,12 +69,8 @@ public class DemandeAchatService {
         da.setQuantite(req.quantite() != null ? req.quantite() : 1);
         da.setMotif(req.motif());
         da.setUrgence(req.urgence());
-
-        if (req.fournisseurId() != null) {
-            Fournisseur fournisseur = fournisseurRepository.findById(req.fournisseurId())
-                    .orElseThrow(() -> new ResourceNotFoundException("Fournisseur not found", "FOURNISSEUR_NOT_FOUND"));
-            da.setFournisseur(fournisseur);
-        }
+        da.setDemandeurNom(req.demandeurNom());
+        da.setPhotoUrl(req.photoUrl());
 
         da.setStatut("Nouvelle");
         da = demandeAchatRepository.save(da);

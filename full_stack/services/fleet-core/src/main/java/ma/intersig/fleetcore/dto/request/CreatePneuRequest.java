@@ -1,11 +1,14 @@
 package ma.intersig.fleetcore.dto.request;
 
+import jakarta.validation.constraints.NotBlank;
+
 import java.math.BigDecimal;
 import java.time.LocalDate;
 
 public record CreatePneuRequest(
         short position,
-        String nSerie,
+        @NotBlank String nSerie,
+        @NotBlank String reference,
         String marque,
         LocalDate dateMontage,
         int expectedLifeKm,

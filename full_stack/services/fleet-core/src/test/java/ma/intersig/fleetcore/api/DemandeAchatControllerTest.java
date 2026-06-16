@@ -37,7 +37,7 @@ class DemandeAchatControllerTest {
         registry.add("spring.datasource.password", postgres::getPassword);
         registry.add("spring.flyway.enabled", () -> "true");
         registry.add("spring.flyway.baseline-on-migrate", () -> "true");
-        registry.add("spring.flyway.locations", () -> "classpath:db/migrations");
+        registry.add("spring.flyway.locations", () -> "classpath:db/migrations-shared,classpath:db/migrations");
         registry.add("spring.jpa.hibernate.ddl-auto", () -> "validate");
         registry.add("spring.mail.host", () -> "localhost");
         registry.add("spring.mail.port", () -> "1025");
@@ -98,7 +98,7 @@ class DemandeAchatControllerTest {
         .then()
                 .statusCode(200)
                 .body("statut", equalTo("Approuvée"))
-                .body("approbateurId", equalTo(2));
+                .body("approbateur.id", equalTo(2));
     }
 
     @Test

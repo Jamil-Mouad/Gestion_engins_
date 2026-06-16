@@ -1,0 +1,17 @@
+# Keep line endings deterministic so clones build the same on Windows/Linux.
+# CRLF in mvnw / shell entrypoints breaks Docker image builds.
+* text=auto eol=lf
+*.sh    text eol=lf
+mvnw    text eol=lf
+*.bat   text eol=crlf
+*.cmd   text eol=crlf
+
+# Binary assets — never normalize.
+*.jar    binary
+*.png    binary
+*.jpg    binary
+*.jpeg   binary
+*.webp   binary
+*.pdf    binary
+*.xlsx   binary
+*.sql.gz binary

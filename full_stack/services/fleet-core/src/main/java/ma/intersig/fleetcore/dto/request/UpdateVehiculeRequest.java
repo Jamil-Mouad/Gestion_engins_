@@ -6,7 +6,7 @@ import java.time.LocalDate;
 
 public record UpdateVehiculeRequest(
         @NotBlank String marque,
-        @NotBlank String modele,
+        String modele,
         String matricule,
         String nChassis,
         Short annee,
@@ -16,5 +16,6 @@ public record UpdateVehiculeRequest(
         String photoUrl,
         String chauffeurPrenom,
         String chauffeurNom,
-        @Valid CamionDetailsRequest camionDetails
+        @Valid CamionDetailsRequest camionDetails,
+        String configAxleSemi
 ) {}

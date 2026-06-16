@@ -1,0 +1,1 @@
+ALTER TABLE vehicules ADD COLUMN IF NOT EXISTS config_axle_semi VARCHAR(20);

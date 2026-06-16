@@ -5,16 +5,21 @@ import ma.intersig.fleetcore.dto.request.CreateInspectionRequest;
 import ma.intersig.fleetcore.dto.request.CreatePneuRequest;
 import ma.intersig.fleetcore.dto.request.PermuterPneuRequest;
 import ma.intersig.fleetcore.dto.request.RemplacerPneuRequest;
+import ma.intersig.fleetcore.dto.request.RemonterPneuRequest;
+import ma.intersig.fleetcore.dto.request.UpdatePneuRequest;
 import ma.intersig.fleetcore.dto.response.PageResponse;
 import ma.intersig.fleetcore.dto.response.PneuDto;
 import ma.intersig.fleetcore.dto.response.PneuInspectionDto;
+import ma.intersig.fleetcore.service.PneuFichePdfService;
 import ma.intersig.fleetcore.service.PneuService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.web.PageableDefault;
+import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
+import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
@@ -27,9 +32,11 @@ import java.util.Map;
 public class PneuController {
 
     private final PneuService pneuService;
+    private final PneuFichePdfService pneuFichePdfService;
 
-    public PneuController(PneuService pneuService) {
+    public PneuController(PneuService pneuService, PneuFichePdfService pneuFichePdfService) {
         this.pneuService = pneuService;
+        this.pneuFichePdfService = pneuFichePdfService;
     }
 
     @Operation(summary = "Assign a tire to a vehicle")
@@ -37,6 +44,12 @@ public class PneuController {
     public ResponseEntity<PneuDto> assign(@PathVariable Long id,
                                           @Valid @RequestBody CreatePneuRequest req) {
         return ResponseEntity.status(HttpStatus.CREATED).body(pneuService.assign(id, req));
+    }
+
+    @Operation(summary = "List tires available for remounting (soft-deleted)")
+    @GetMapping("/pneus/available")
+    public ResponseEntity<List<PneuDto>> listAvailable() {
+        return ResponseEntity.ok(pneuService.listAvailable());
     }
 
     @Operation(summary = "Get tire by ID")
@@ -51,6 +64,13 @@ public class PneuController {
         return ResponseEntity.ok(pneuService.listByVehicule(id));
     }
 
+    @Operation(summary = "Update tire fields (nSerie, marque, dateMontage, expectedLifeKm, pression, profondeur)")
+    @PatchMapping("/pneus/{id}")
+    public ResponseEntity<PneuDto> update(@PathVariable Long id,
+                                          @Valid @RequestBody UpdatePneuRequest req) {
+        return ResponseEntity.ok(pneuService.update(id, req));
+    }
+
     @Operation(summary = "Swap two tires between positions")
     @PatchMapping("/pneus/{id}/permuter")
     public ResponseEntity<Map<String, PneuDto>> permuter(@PathVariable Long id,
@@ -63,6 +83,24 @@ public class PneuController {
     public ResponseEntity<PneuDto> remplacer(@PathVariable Long id,
                                              @Valid @RequestBody RemplacerPneuRequest req) {
         return ResponseEntity.ok(pneuService.remplacer(id, req));
+    }
+
+    @Operation(summary = "Remount a previously removed tire at a new position")
+    @PatchMapping("/pneus/{id}/remonter")
+    public ResponseEntity<PneuDto> remonter(@PathVariable Long id,
+                                             @Valid @RequestBody RemonterPneuRequest req) {
+        return ResponseEntity.ok(pneuService.remonter(id, req));
+    }
+
+    @Operation(summary = "Download the printable « fiche pneu » PDF for a tire")
+    @GetMapping("/pneus/{id}/fiche.pdf")
+    public ResponseEntity<byte[]> fichePdf(@PathVariable Long id) {
+        byte[] pdf = pneuFichePdfService.generate(id);
+        return ResponseEntity.ok()
+                .contentType(MediaType.APPLICATION_PDF)
+                .header(HttpHeaders.CONTENT_DISPOSITION,
+                        "attachment; filename=\"fiche-pneu-" + id + ".pdf\"")
+                .body(pdf);
     }
 
     @Operation(summary = "List tires with wear alerts")
@@ -91,5 +129,12 @@ public class PneuController {
     @GetMapping("/pneus/{id}/activity-log")
     public ResponseEntity<List<PneuInspectionDto>> activityLog(@PathVariable Long id) {
         return ResponseEntity.ok(pneuService.listActivityLog(id));
+    }
+
+    @Operation(summary = "Soft-delete (deactivate) a tire")
+    @DeleteMapping("/pneus/{id}")
+    public ResponseEntity<Void> softDelete(@PathVariable Long id) {
+        pneuService.softDelete(id);
+        return ResponseEntity.noContent().build();
     }
 }

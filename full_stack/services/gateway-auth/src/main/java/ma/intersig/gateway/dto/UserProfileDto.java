@@ -7,6 +7,7 @@ public record UserProfileDto(
     String email,
     String prenom,
     String nom,
+    String role,
     String fonction,
     @JsonProperty("matricule_emp") String matriculeEmp,
     String site,

@@ -17,4 +17,6 @@ public interface ReleveCompteurRepository extends JpaRepository<ReleveCompteur, 
     @Query("SELECT r FROM ReleveCompteur r LEFT JOIN FETCH r.vehicule WHERE r.dateReleve >= :from AND r.dateReleve <= :to")
     List<ReleveCompteur> findAllWithVehiculeBetweenDates(@Param("from") java.time.OffsetDateTime from,
                                                          @Param("to") java.time.OffsetDateTime to);
+
+    List<ReleveCompteur> findByVehiculeIdOrderByDateReleveDesc(Long vehiculeId);
 }

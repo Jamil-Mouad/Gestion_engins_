@@ -37,7 +37,7 @@ class InterventionControllerTest {
         registry.add("spring.datasource.password", postgres::getPassword);
         registry.add("spring.flyway.enabled", () -> "true");
         registry.add("spring.flyway.baseline-on-migrate", () -> "true");
-        registry.add("spring.flyway.locations", () -> "classpath:db/migrations");
+        registry.add("spring.flyway.locations", () -> "classpath:db/migrations-shared,classpath:db/migrations");
         registry.add("spring.jpa.hibernate.ddl-auto", () -> "validate");
         registry.add("spring.mail.host", () -> "localhost");
         registry.add("spring.mail.port", () -> "1025");
@@ -54,7 +54,7 @@ class InterventionControllerTest {
         Long vehiculeId = createTestVehicule();
         Map<String, Object> body = Map.of(
                 "vehiculeId", vehiculeId,
-                "typeId", 1,
+                "typeInterventionId", 1,
                 "categorie", "corrective",
                 "dateDebut", "2026-05-05T08:00:00Z",
                 "coutPieces", 1500.00,
@@ -80,7 +80,7 @@ class InterventionControllerTest {
         Long vehiculeId = createTestVehicule();
         Map<String, Object> body = Map.of(
                 "vehiculeId", vehiculeId,
-                "typeId", 1,
+                "typeInterventionId", 1,
                 "categorie", "preventive",
                 "dateDebut", "2026-05-01T08:00:00Z",
                 "coutPieces", 500.00,
@@ -115,7 +115,7 @@ class InterventionControllerTest {
 
         Map<String, Object> corrective = Map.of(
                 "vehiculeId", vehiculeId,
-                "typeId", 1,
+                "typeInterventionId", 1,
                 "categorie", "corrective",
                 "dateDebut", "2026-05-01T08:00:00Z",
                 "coutPieces", 100.00,
@@ -125,7 +125,7 @@ class InterventionControllerTest {
 
         Map<String, Object> preventive = Map.of(
                 "vehiculeId", vehiculeId,
-                "typeId", 1,
+                "typeInterventionId", 1,
                 "categorie", "preventive",
                 "dateDebut", "2026-05-02T08:00:00Z",
                 "coutPieces", 200.00,
@@ -164,6 +164,7 @@ class InterventionControllerTest {
         Map<String, Object> camionDetails = Map.of("capaciteTonnes", 20.0, "configAxle", "4x2");
         Map<String, Object> body = Map.of(
                 "code", "CI-" + (System.currentTimeMillis() % 10000000L),
+                "nChassis", "NCH-" + System.nanoTime(),
                 "type", "camion",
                 "marque", "IVECO",
                 "modele", "Stralis",

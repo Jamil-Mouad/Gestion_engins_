@@ -1,5 +1,6 @@
 package ma.intersig.fleetcore.repository;
 
+import ma.intersig.fleetcore.entity.Camion;
 import ma.intersig.fleetcore.entity.Vehicule;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
@@ -17,19 +18,30 @@ public interface VehiculeRepository extends JpaRepository<Vehicule, Long> {
     Page<Vehicule> findByActifTrue(Pageable pageable);
 
     @Query("SELECT v FROM Vehicule v WHERE v.actif = true AND (" +
-            "LOWER(v.code) LIKE LOWER(CONCAT('%', :q, '%')) OR " +
-            "LOWER(v.marque) LIKE LOWER(CONCAT('%', :q, '%')) OR " +
-            "LOWER(v.modele) LIKE LOWER(CONCAT('%', :q, '%')))")
+            "LOWER(v.code)    LIKE LOWER(CONCAT('%', :q, '%')) OR " +
+            "LOWER(v.marque)  LIKE LOWER(CONCAT('%', :q, '%')) OR " +
+            "LOWER(v.modele)  LIKE LOWER(CONCAT('%', :q, '%')) OR " +
+            "LOWER(COALESCE(v.matricule,'')) LIKE LOWER(CONCAT('%', :q, '%')) OR " +
+            "LOWER(COALESCE(v.nChassis,''))  LIKE LOWER(CONCAT('%', :q, '%')))")
     Page<Vehicule> search(@Param("q") String q, Pageable pageable);
 
     @Query("SELECT v FROM Vehicule v WHERE v.actif = true " +
             "AND (:type IS NULL OR v.type = :type) " +
             "AND (:statut IS NULL OR v.statut = :statut) " +
-            "AND (:q IS NULL OR LOWER(v.code) LIKE LOWER(CONCAT('%', :q, '%')) " +
-            "     OR LOWER(v.marque) LIKE LOWER(CONCAT('%', :q, '%')) " +
-            "     OR LOWER(v.modele) LIKE LOWER(CONCAT('%', :q, '%')))")
+            "AND (LOWER(v.code)    LIKE LOWER(CONCAT('%', :q, '%')) " +
+            "  OR LOWER(v.marque)  LIKE LOWER(CONCAT('%', :q, '%')) " +
+            "  OR LOWER(v.modele)  LIKE LOWER(CONCAT('%', :q, '%')) " +
+            "  OR LOWER(COALESCE(v.matricule,'')) LIKE LOWER(CONCAT('%', :q, '%')) " +
+            "  OR LOWER(COALESCE(v.nChassis,''))  LIKE LOWER(CONCAT('%', :q, '%')))")
     Page<Vehicule> searchWithFilters(@Param("q") String q, @Param("type") String type,
                                      @Param("statut") String statut, Pageable pageable);
+
+    @Query("SELECT v FROM Vehicule v WHERE v.actif = true " +
+            "AND (:type IS NULL OR v.type = :type) " +
+            "AND (:statut IS NULL OR v.statut = :statut)")
+    Page<Vehicule> findByTypeAndStatutOptional(@Param("type") String type,
+                                               @Param("statut") String statut,
+                                               Pageable pageable);
 
     @Query("SELECT v FROM Vehicule v WHERE v.actif = true AND v.type = :type")
     Page<Vehicule> findByTypeAndActifTrue(@Param("type") String type, Pageable pageable);
@@ -40,7 +52,7 @@ public interface VehiculeRepository extends JpaRepository<Vehicule, Long> {
     @Query("SELECT v FROM Vehicule v WHERE v.actif = true AND v.type = :type AND v.statut = :statut")
     Page<Vehicule> findByTypeAndStatutAndActifTrue(@Param("type") String type, @Param("statut") String statut, Pageable pageable);
 
-    Optional<Vehicule> findByCodeAndIdNot(String code, Long id);
+    Optional<Vehicule> findByCodeAndTypeAndIdNot(String code, String type, Long id);
 
     Optional<Vehicule> findByMatriculeAndIdNot(String matricule, Long id);
 
@@ -51,4 +63,11 @@ public interface VehiculeRepository extends JpaRepository<Vehicule, Long> {
 
     @Query("SELECT v FROM Vehicule v WHERE v.actif = true")
     List<Vehicule> findAllActive();
+
+    /**
+     * Sum of conso_gasoil_litres_mois for all active camion/camion_tracteur vehicles that have a value set.
+     * Used to compute % conso vs flotte.
+     */
+    @Query("SELECT COALESCE(SUM(c.consoGasoilLitresMois), 0) FROM Camion c WHERE c.actif = true AND c.consoGasoilLitresMois IS NOT NULL")
+    java.math.BigDecimal sumConsoGasoilActiveCamions();
 }

@@ -5,6 +5,8 @@ import ma.intersig.fleetcore.dto.request.CreateInspectionRequest;
 import ma.intersig.fleetcore.dto.request.CreatePneuRequest;
 import ma.intersig.fleetcore.dto.request.PermuterPneuRequest;
 import ma.intersig.fleetcore.dto.request.RemplacerPneuRequest;
+import ma.intersig.fleetcore.dto.request.RemonterPneuRequest;
+import ma.intersig.fleetcore.dto.request.UpdatePneuRequest;
 import ma.intersig.fleetcore.dto.response.PageResponse;
 import ma.intersig.fleetcore.dto.response.PneuDto;
 import ma.intersig.fleetcore.dto.response.PneuInspectionDto;
@@ -65,6 +67,82 @@ public class PneuService {
                 .toList();
     }
 
+    @Transactional(readOnly = true)
+    public List<PneuDto> listAvailable() {
+        return pneuRepository.findAllAvailable().stream()
+                .map(PneuDto::from)
+                .toList();
+    }
+
+    public PneuDto remonter(Long pneuId, RemonterPneuRequest req) {
+        Pneu pneu = pneuRepository.findById(pneuId)
+                .orElseThrow(() -> new ResourceNotFoundException("Pneu not found", "PNEU_NOT_FOUND"));
+
+        if (Boolean.TRUE.equals(pneu.getActif())) {
+            throw new BusinessException("Pneu is already active", "PNEU_ALREADY_ACTIVE", 422);
+        }
+
+        Vehicule vehicule = vehiculeRepository.findById(req.vehiculeId())
+                .orElseThrow(() -> new ResourceNotFoundException("Vehicle not found", "VEHICLE_NOT_FOUND"));
+
+        pneuRepository.findByVehiculeIdAndPositionAndActifTrue(req.vehiculeId(), req.position())
+                .ifPresent(existing -> {
+                    throw new BusinessException(
+                            "Position " + req.position() + " is already occupied", "POSITION_OCCUPIED", 422);
+                });
+
+        // Refuse to remount a tire that has exceeded its expected life
+        Integer kmRestant = pneu.getKmRestant();
+        if (kmRestant == null || kmRestant <= 0) {
+            throw new BusinessException(
+                "Pneu is exhausted (kmRestant=" + (kmRestant != null ? kmRestant : "null")
+                    + ") and cannot be remounted", "PNEU_EXHAUSTED", 422);
+        }
+
+        pneu.setVehicule(vehicule);
+        pneu.setPosition(req.position());
+        pneu.setActif(true);
+        pneu.setKmMontage(getVehiculeKm(vehicule));
+
+        // Pre-set status; the DB trigger (update_pneu_status) will override on save
+        if (kmRestant <= 5000) {
+            pneu.setStatus("warn");
+        } else {
+            pneu.setStatus("ok");
+        }
+
+        pneu = pneuRepository.save(pneu);
+        createInspection(pneu, null, "Remounted", null);
+
+        entityManager.flush();
+        entityManager.refresh(pneu);
+
+        return PneuDto.from(pneu);
+    }
+
+    public PneuDto update(Long pneuId, UpdatePneuRequest req) {
+        Pneu pneu = pneuRepository.findById(pneuId)
+                .orElseThrow(() -> new ResourceNotFoundException("Pneu not found", "PNEU_NOT_FOUND"));
+
+        if (req.nSerie() != null) {
+            validateUniqueNSerie(req.nSerie(), pneuId);
+            pneu.setNSerie(req.nSerie());
+        }
+        if (req.reference() != null)      pneu.setReference(req.reference());
+        if (req.marque() != null)         pneu.setMarque(req.marque());
+        if (req.dateMontage() != null)    pneu.setDateMontage(req.dateMontage());
+        if (req.expectedLifeKm() != null) pneu.setExpectedLifeKm(req.expectedLifeKm());
+        if (req.pressionPsi() != null)    pneu.setPressionPsi(req.pressionPsi());
+        if (req.profondeur32e() != null)  pneu.setProfondeur32e(req.profondeur32e());
+        if (req.photoUrl() != null)       pneu.setPhotoUrl(req.photoUrl());
+
+        pneuRepository.save(pneu);
+        // Re-read to pick up trigger-updated status and generated km_restant
+        pneu = pneuRepository.findById(pneuId).orElseThrow();
+
+        return PneuDto.from(pneu);
+    }
+
     public PneuDto assign(Long vehiculeId, CreatePneuRequest req) {
         Vehicule vehicule = vehiculeRepository.findById(vehiculeId)
                 .orElseThrow(() -> new ResourceNotFoundException("Vehicle not found", "VEHICLE_NOT_FOUND"));
@@ -74,10 +152,13 @@ public class PneuService {
                     throw new BusinessException("Position " + req.position() + " is already occupied", "POSITION_OCCUPIED", 422);
                 });
 
+        validateUniqueNSerie(req.nSerie(), null);
+
         Pneu pneu = new Pneu();
         pneu.setVehicule(vehicule);
         pneu.setPosition(req.position());
         pneu.setNSerie(req.nSerie());
+        pneu.setReference(req.reference());
         pneu.setMarque(req.marque());
         pneu.setDateMontage(req.dateMontage());
         pneu.setExpectedLifeKm(req.expectedLifeKm());
@@ -142,6 +223,8 @@ public class PneuService {
 
         Vehicule vehicule = oldPneu.getVehicule();
 
+        validateUniqueNSerie(req.nSerie(), null);
+
         oldPneu.setActif(false);
         pneuRepository.save(oldPneu);
         entityManager.flush(); // force UPDATE before INSERT of new pneu at same position
@@ -152,6 +235,7 @@ public class PneuService {
         newPneu.setVehicule(vehicule);
         newPneu.setPosition(oldPneu.getPosition());
         newPneu.setNSerie(req.nSerie());
+        newPneu.setReference(req.reference());
         newPneu.setMarque(req.marque());
         newPneu.setDateMontage(req.dateMontage());
         newPneu.setExpectedLifeKm(req.expectedLifeKm());
@@ -223,6 +307,24 @@ public class PneuService {
         entityManager.refresh(pneu);
 
         return PneuDto.from(pneu);
+    }
+
+    public void softDelete(Long pneuId) {
+        Pneu pneu = pneuRepository.findById(pneuId)
+                .orElseThrow(() -> new ResourceNotFoundException("Pneu not found", "PNEU_NOT_FOUND"));
+        pneu.setActif(false);
+        pneuRepository.save(pneu);
+    }
+
+    private void validateUniqueNSerie(String nSerie, Long excludeId) {
+        if (nSerie == null || nSerie.isBlank()) {
+            return;
+        }
+        if (pneuRepository.existsByNSerieAndIdNot(nSerie, excludeId != null ? excludeId : -1L)) {
+            throw new BusinessException(
+                    "A tire with serial number '" + nSerie + "' already exists",
+                    "N_SERIE_ALREADY_EXISTS", 409);
+        }
     }
 
     private Integer getVehiculeKm(Vehicule vehicule) {

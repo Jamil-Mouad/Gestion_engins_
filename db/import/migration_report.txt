@@ -1,0 +1,27 @@
+Loading vehicules…
+  → 42 vehicules
+Loading pneus…
+  → 100 pneus
+Loading suivi_vidanges…
+  → 75 vidange records
+Seeding releves_compteur (initial counters)…
+  → 42 releves
+Loading interventions…
+  [WARN] Unknown type: 'c' — defaulting to Réparation (×43)
+  [WARN] Unknown type: 'C' — defaulting to Réparation (×829)
+  [WARN] Unknown type: 'P' — defaulting to Réparation (×143)
+  [WARN] Unknown type: '' — defaulting to Réparation (×32)
+  [WARN] Unknown type: 'p' — defaulting to Réparation (×12)
+  [WARN] Unknown type: 'vp' — defaulting to Réparation (×1)
+  → 1060 interventions (519 skipped)
+
+========== Import summary ==========
+  vehicules                 42/42 rows
+  pneus                     100/100 rows
+  suivi_vidanges            75/75 rows
+  releves_compteur          42/42 rows
+  interventions             1060/1579 rows  skipped 519
+  elapsed: 0.8s
+====================================
+
+Database bootstrapped. Next step: docker compose exec postgres psql -U intersig fleettracker -c "SELECT count(*) FROM vehicules;"

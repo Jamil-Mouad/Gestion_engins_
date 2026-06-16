@@ -37,7 +37,7 @@ class VehiculeControllerTest {
         registry.add("spring.datasource.password", postgres::getPassword);
         registry.add("spring.flyway.enabled", () -> "true");
         registry.add("spring.flyway.baseline-on-migrate", () -> "true");
-        registry.add("spring.flyway.locations", () -> "classpath:db/migrations");
+        registry.add("spring.flyway.locations", () -> "classpath:db/migrations-shared,classpath:db/migrations");
         registry.add("spring.jpa.hibernate.ddl-auto", () -> "validate");
         registry.add("spring.mail.host", () -> "localhost");
         registry.add("spring.mail.port", () -> "1025");
@@ -56,7 +56,7 @@ class VehiculeControllerTest {
                 "configAxle", "6x4"
         );
         Map<String, Object> body = Map.of(
-                "code", "CAM-TEST-001",
+                "code", "CAM-TEST-001", "nChassis", "NCH-CAM-TEST-001",
                 "type", "camion",
                 "marque", "IVECO",
                 "modele", "Stralis",
@@ -83,7 +83,7 @@ class VehiculeControllerTest {
     @Test
     void createChariot_returns201_without_camionDetails() {
         Map<String, Object> body = Map.of(
-                "code", "CHR-TEST-001",
+                "code", "CHR-TEST-001", "nChassis", "NCH-CHR-TEST-001",
                 "type", "chariot",
                 "marque", "Toyota",
                 "modele", "8FBN18",
@@ -106,7 +106,7 @@ class VehiculeControllerTest {
     @Test
     void createVehicule_duplicateCode_returns409() {
         Map<String, Object> body = Map.of(
-                "code", "CAM-DUP-001",
+                "code", "CAM-DUP-001", "nChassis", "NCH-CAM-DUP-001",
                 "type", "camion",
                 "marque", "IVECO",
                 "modele", "Stralis",
@@ -134,9 +134,76 @@ class VehiculeControllerTest {
     }
 
     @Test
+    void createVehicule_sameCodeDifferentType_returns201() {
+        // a camion_tracteur and its semi_remorque legitimately share ONE code
+        Map<String, Object> tracteur = Map.of(
+                "code", "PAIR-438", "nChassis", "NCH-PAIR-TRC",
+                "type", "camion_tracteur",
+                "marque", "Volvo",
+                "modele", "FH",
+                "statut", "in-service",
+                "camionDetails", Map.of("capaciteTonnes", 40.0, "configAxle", "6x4")
+        );
+        Map<String, Object> semi = Map.of(
+                "code", "PAIR-438", "nChassis", "NCH-PAIR-SMR",
+                "type", "semi_remorque",
+                "marque", "FABRINOV",
+                "modele", "",
+                "statut", "in-service"
+        );
+
+        given().contentType(ContentType.JSON).header("X-Authenticated-User-Id", "1")
+                .body(tracteur).when().post("/vehicules").then().statusCode(201);
+
+        given().contentType(ContentType.JSON).header("X-Authenticated-User-Id", "1")
+                .body(semi).when().post("/vehicules").then()
+                .statusCode(201)
+                .body("code", equalTo("PAIR-438"))
+                .body("type", equalTo("semi_remorque"));
+    }
+
+    @Test
+    void createCamion_metrologieDateControle_derivesExpirationPlus2Years() {
+        Map<String, Object> body = Map.of(
+                "code", "CAM-METRO-001", "nChassis", "NCH-CAM-METRO-001",
+                "type", "camion",
+                "marque", "ISUZU",
+                "modele", "NQR",
+                "statut", "in-service",
+                "camionDetails", Map.of(
+                        "capaciteTonnes", 6.0,
+                        "configAxle", "4x2",
+                        "metrologieDateControle", "2026-05-12"
+                )
+        );
+
+        given().contentType(ContentType.JSON).header("X-Authenticated-User-Id", "1")
+                .body(body).when().post("/vehicules").then()
+                .statusCode(201)
+                .body("camionDetails.metrologieDateControle", equalTo("2026-05-12"))
+                .body("camionDetails.metrologieExpiration", equalTo("2028-05-12"));
+    }
+
+    @Test
+    void createVehicule_missingNChassis_returns422() {
+        Map<String, Object> body = Map.of(
+                "code", "NOCHS-001",
+                "type", "voiture",
+                "marque", "Renault",
+                "modele", "Clio",
+                "statut", "in-service"
+        );
+
+        given().contentType(ContentType.JSON).header("X-Authenticated-User-Id", "1")
+                .body(body).when().post("/vehicules").then()
+                .statusCode(422)
+                .body("code", equalTo("N_CHASSIS_REQUIRED"));
+    }
+
+    @Test
     void softDelete_returns204_historyPreserved() {
         Map<String, Object> body = Map.of(
-                "code", "CAM-DEL-001",
+                "code", "CAM-DEL-001", "nChassis", "NCH-CAM-DEL-001",
                 "type", "camion",
                 "marque", "MAN",
                 "modele", "TGX",
@@ -174,7 +241,7 @@ class VehiculeControllerTest {
     @Test
     void search_by_q_returns_matching() {
         Map<String, Object> body = Map.of(
-                "code", "CAM-SEARCH-001",
+                "code", "CAM-SEARCH-001", "nChassis", "NCH-CAM-SEARCH-001",
                 "type", "camion",
                 "marque", "Mercedes",
                 "modele", "Actros",
@@ -202,6 +269,70 @@ class VehiculeControllerTest {
     }
 
     @Test
+    void list_filterByType_camion_returns_only_camions() {
+        Map<String, Object> camionDetails = Map.of("capaciteTonnes", 20.0, "configAxle", "4x2");
+        given().contentType(ContentType.JSON).header("X-Authenticated-User-Id", "1")
+                .body(Map.of("code","CAM-FILT-001", "nChassis", "NCH-CAM-FILT-001","type","camion","marque","TestBrand","modele","M1","statut","in-service","camionDetails",camionDetails))
+                .when().post("/vehicules").then().statusCode(201);
+        given().contentType(ContentType.JSON).header("X-Authenticated-User-Id", "1")
+                .body(Map.of("code","VCL-FILT-001", "nChassis", "NCH-VCL-FILT-001","type","voiture","marque","Renault","modele","Clio","statut","in-service"))
+                .when().post("/vehicules").then().statusCode(201);
+
+        given().header("X-Authenticated-User-Id","1").queryParam("type","camion")
+                .when().get("/vehicules")
+                .then().statusCode(200)
+                .body("content.findAll { it.type == 'camion' }.size()", greaterThanOrEqualTo(1))
+                .body("content.findAll { it.type != 'camion' }.size()", equalTo(0));
+    }
+
+    @Test
+    void list_filterByType_camionTracteur_returns_only_tracteurs() {
+        Map<String, Object> camionDetails = Map.of("capaciteTonnes", 25.0, "configAxle", "6x4");
+        given().contentType(ContentType.JSON).header("X-Authenticated-User-Id", "1")
+                .body(Map.of("code","TRC-FILT-001", "nChassis", "NCH-TRC-FILT-001","type","camion_tracteur","marque","VOLVO","modele","FH","statut","in-service","camionDetails",camionDetails))
+                .when().post("/vehicules").then().statusCode(201);
+        given().contentType(ContentType.JSON).header("X-Authenticated-User-Id", "1")
+                .body(Map.of("code","CAM-FILT-002", "nChassis", "NCH-CAM-FILT-002","type","camion","marque","Isuzu","modele","NLR","statut","in-service",
+                        "camionDetails",Map.of("capaciteTonnes",8.0,"configAxle","4x2")))
+                .when().post("/vehicules").then().statusCode(201);
+
+        given().header("X-Authenticated-User-Id","1").queryParam("type","camion_tracteur")
+                .when().get("/vehicules")
+                .then().statusCode(200)
+                .body("content.findAll { it.type == 'camion_tracteur' }.size()", greaterThanOrEqualTo(1))
+                .body("content.findAll { it.type != 'camion_tracteur' }.size()", equalTo(0));
+    }
+
+    @Test
+    void list_filterByStatut_returns_only_matching_statut() {
+        Map<String, Object> camionDetails = Map.of("capaciteTonnes", 15.0, "configAxle", "4x2");
+        given().contentType(ContentType.JSON).header("X-Authenticated-User-Id", "1")
+                .body(Map.of("code","CAM-STA-001", "nChassis", "NCH-CAM-STA-001","type","camion","marque","Ford","modele","Cargo","statut","maintenance","camionDetails",camionDetails))
+                .when().post("/vehicules").then().statusCode(201);
+
+        given().header("X-Authenticated-User-Id","1").queryParam("statut","maintenance")
+                .when().get("/vehicules")
+                .then().statusCode(200)
+                .body("content.findAll { it.statut == 'maintenance' }.size()", greaterThanOrEqualTo(1))
+                .body("content.findAll { it.statut != 'maintenance' }.size()", equalTo(0));
+    }
+
+    @Test
+    void list_searchByMatricule_returnsMatch() {
+        Map<String, Object> camionDetails = Map.of("capaciteTonnes", 18.0, "configAxle", "4x2");
+        given().contentType(ContentType.JSON).header("X-Authenticated-User-Id", "1")
+                .body(Map.of("code","CAM-MAT-001", "nChassis", "NCH-CAM-MAT-001","type","camion","marque","Scania","modele","R410",
+                        "statut","in-service","matricule","55XYZ789","camionDetails",camionDetails))
+                .when().post("/vehicules").then().statusCode(201);
+
+        given().header("X-Authenticated-User-Id","1").queryParam("q","55XYZ")
+                .when().get("/vehicules")
+                .then().statusCode(200)
+                .body("content", hasSize(greaterThanOrEqualTo(1)))
+                .body("content[0].code", equalTo("CAM-MAT-001"));
+    }
+
+    @Test
     void request_without_gateway_header_returns401() {
         given()
                 .contentType(ContentType.JSON)
@@ -214,7 +345,7 @@ class VehiculeControllerTest {
     @Test
     void patchStatut_missing_statut_returns400() {
         Map<String, Object> createBody = Map.of(
-                "code", "CAM-PATCH-001",
+                "code", "CAM-PATCH-001", "nChassis", "NCH-CAM-PATCH-001",
                 "type", "camion",
                 "marque", "Volvo",
                 "modele", "FH",

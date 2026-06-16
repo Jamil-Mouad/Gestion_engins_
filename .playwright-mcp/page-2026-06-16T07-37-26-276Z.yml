@@ -1,0 +1,38 @@
+- main [ref=e3]:
+  - generic [ref=e5]:
+    - generic [ref=e7]:
+      - generic [ref=e8]:
+        - img "INTERSIG" [ref=e9]
+        - img [ref=e11]
+      - generic [ref=e13]: INTERSIG
+      - generic [ref=e14]: GROUPE KARKACHI & FATH
+      - generic [ref=e15]: FleetTracker
+      - paragraph [ref=e16]: Pilotage maintenance de votre parc industriel — suivi véhicules, interventions & KPIs en temps réel.
+    - generic [ref=e18]:
+      - generic [ref=e19]:
+        - button "Connexion" [ref=e20] [cursor=pointer]
+        - button "Inscription" [ref=e21] [cursor=pointer]
+      - generic [ref=e22]:
+        - heading "Bienvenue" [level=2] [ref=e23]
+        - paragraph [ref=e24]: Connectez-vous à votre espace FleetTracker
+        - generic [ref=e25]:
+          - generic [ref=e26]: ADRESSE EMAIL
+          - generic [ref=e27]:
+            - img [ref=e28]
+            - textbox "ADRESSE EMAIL" [ref=e31]:
+              - /placeholder: email@intersig.ma
+        - generic [ref=e32]:
+          - generic [ref=e33]: MOT DE PASSE
+          - generic [ref=e34]:
+            - textbox "MOT DE PASSE" [ref=e35]:
+              - /placeholder: ••••••••
+            - button [ref=e36] [cursor=pointer]:
+              - img [ref=e37]
+        - generic [ref=e40]:
+          - generic [ref=e41] [cursor=pointer]:
+            - checkbox "Se souvenir de moi" [ref=e42]
+            - generic [ref=e44]: Se souvenir
+          - link "Mot de passe oublié ?" [ref=e45] [cursor=pointer]:
+            - /url: /forgot-password
+        - button "Se connecter →" [ref=e46] [cursor=pointer]
+        - generic [ref=e47]: v1.0 · INTERSIG · 2026

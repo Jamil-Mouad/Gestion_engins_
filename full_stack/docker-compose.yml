@@ -8,7 +8,10 @@ services:
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
     volumes:
       - db_data:/var/lib/postgresql/data
-      - ../db/migrations:/docker-entrypoint-initdb.d:ro
+      # Seed the whole database (schema + real data + flyway history) from the
+      # gzipped pg_dump on first init. The services then find every migration
+      # already applied and Flyway no-ops. Replaces the bare V1-V11 init mount.
+      - ../db/seed:/docker-entrypoint-initdb.d:ro
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-intersig} -d fleettracker"]
       interval: 10s
@@ -34,6 +37,13 @@ services:
       MAIL_USERNAME: ${MAIL_USERNAME:-}
       MAIL_PASSWORD: ${MAIL_PASSWORD:-}
       FLYWAY_LOCATIONS: filesystem:/db/migrations
+      # The shared V1-V11 schema is created by the db init mount, so baseline
+      # instead of re-applying it here.
+      SPRING_FLYWAY_BASELINE_ON_MIGRATE: "true"
+      SPRING_FLYWAY_BASELINE_VERSION: "11"
+      # The seed dump's flyway history is shared across all services, so this
+      # service sees migrations it doesn't own (fleet-core/magasin) as "missing".
+      SPRING_FLYWAY_IGNORE_MIGRATION_PATTERNS: "*:missing"
     volumes:
       - ../db/migrations:/db/migrations:ro
     expose:
@@ -54,8 +64,82 @@ services:
       MAIL_PORT: ${MAIL_PORT:-587}
       MAIL_USERNAME: ${MAIL_USERNAME:-}
       MAIL_PASSWORD: ${MAIL_PASSWORD:-}
+      # Bind on all interfaces inside the isolated container network so the
+      # gateway can reach it (host deployments keep the 127.0.0.1 default).
+      SERVER_ADDRESS: 0.0.0.0
+      # Persist uploaded vehicle photos and seed the ones shipped in the repo.
+      APP_UPLOAD_DIR: /data/uploads/vehicule-photos
+      # Shared flyway history carries other services' migrations — ignore them.
+      SPRING_FLYWAY_IGNORE_MIGRATION_PATTERNS: "*:missing"
+    volumes:
+      - ./services/fleet-core/data/uploads/vehicule-photos:/data/uploads/vehicule-photos
     expose:
       - "8081"
+
+  magasin-service:
+    build:
+      context: ./services/magasin-service
+    restart: unless-stopped
+    depends_on:
+      db:
+        condition: service_healthy
+    environment:
+      POSTGRES_URL: jdbc:postgresql://db:5432/fleettracker
+      POSTGRES_USER: ${POSTGRES_USER:-intersig}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      SERVER_ADDRESS: 0.0.0.0
+      # Shared flyway history carries other services' migrations — ignore them.
+      SPRING_FLYWAY_IGNORE_MIGRATION_PATTERNS: "*:missing"
+    expose:
+      - "8084"
+
+  ai-engine:
+    build:
+      context: ./services/ai-engine
+    restart: unless-stopped
+    depends_on:
+      db:
+        condition: service_healthy
+      ollama-init:
+        condition: service_completed_successfully
+    environment:
+      DB_URL: postgresql://${POSTGRES_USER:-intersig}:${POSTGRES_PASSWORD}@db:5432/fleettracker
+      OLLAMA_BASE_URL: http://ollama:11434/v1
+      OLLAMA_MODEL: ${OLLAMA_MODEL:-gemma4:e2b}
+      EMBED_MODEL: ${EMBED_MODEL:-sentence-transformers/paraphrase-multilingual-MiniLM-L12-v2}
+    expose:
+      - "8090"
+    healthcheck:
+      test: ["CMD-SHELL", "curl -f http://localhost:8090/ai/health || exit 1"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  ollama:
+    image: ollama/ollama:latest
+    restart: unless-stopped
+    # Internal only — ai-engine reaches it via the compose network (ollama:11434).
+    # Not published to the host to avoid clashing with a host Ollama install.
+    expose:
+      - "11434"
+    volumes:
+      - ollama_models:/root/.ollama
+    healthcheck:
+      test: ["CMD-SHELL", "ollama list || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 12
+
+  # One-shot: pulls the chat model on first run (cached in the ollama_models volume).
+  ollama-init:
+    image: ollama/ollama:latest
+    depends_on:
+      ollama:
+        condition: service_healthy
+    environment:
+      OLLAMA_HOST: http://ollama:11434
+    entrypoint: ["/bin/sh", "-c", "ollama pull ${OLLAMA_MODEL:-gemma4:e2b}"]
+    restart: "no"
 
   gateway-proxy:
     build:
@@ -64,12 +148,26 @@ services:
     depends_on:
       - gateway-auth
       - fleet-core
+      - magasin-service
+      - ai-engine
     ports:
       - "8080:8080"
     environment:
       JWT_SECRET: ${JWT_SECRET}
       GATEWAY_AUTH_URI: http://gateway-auth:8086
       FLEET_CORE_URI: http://fleet-core:8081
+      MAGASIN_URI: http://magasin-service:8084
+      AI_ENGINE_URI: http://ai-engine:8090
+
+  frontend:
+    build:
+      context: ./frontend
+    restart: unless-stopped
+    depends_on:
+      - gateway-proxy
+    ports:
+      - "${FRONTEND_PORT:-80}:80"
 
 volumes:
   db_data:
+  ollama_models:

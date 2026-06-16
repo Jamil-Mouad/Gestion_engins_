@@ -15,10 +15,17 @@ public class Composant {
     @JoinColumn(name = "parent_id")
     private Composant parent;
 
+    // NULL = template node (per-type starter tree); a value makes the node
+    // part of that vehicle's own composant tree (V123).
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "vehicule_id")
+    private Vehicule vehicule;
+
     @Column(nullable = false, columnDefinition = "SMALLINT")
     private Short niveau;
 
-    @Column(unique = true, length = 40)
+    // unique per (vehicule_id, reference) — see V123
+    @Column(length = 40)
     private String reference;
 
     @Column(nullable = false, length = 120)
@@ -33,6 +40,13 @@ public class Composant {
 
     @Column(name = "prix_unitaire", precision = 10, scale = 2)
     private BigDecimal prixUnitaire;
+
+    @Column(name = "image_url", length = 500)
+    private String imageUrl;
+
+    // NULL = shared baseline (visible for all types); a value scopes the node to that vehicle type.
+    @Column(name = "vehicule_type", length = 30)
+    private String vehiculeType;
 
     @Column(columnDefinition = "INTEGER DEFAULT 0")
     private Integer stock;
@@ -58,6 +72,8 @@ public class Composant {
     public void setId(Long id) { this.id = id; }
     public Composant getParent() { return parent; }
     public void setParent(Composant parent) { this.parent = parent; }
+    public Vehicule getVehicule() { return vehicule; }
+    public void setVehicule(Vehicule vehicule) { this.vehicule = vehicule; }
     public Short getNiveau() { return niveau; }
     public void setNiveau(Short niveau) { this.niveau = niveau; }
     public String getReference() { return reference; }
@@ -72,6 +88,10 @@ public class Composant {
     public void setMarque(String marque) { this.marque = marque; }
     public BigDecimal getPrixUnitaire() { return prixUnitaire; }
     public void setPrixUnitaire(BigDecimal prixUnitaire) { this.prixUnitaire = prixUnitaire; }
+    public String getImageUrl() { return imageUrl; }
+    public void setImageUrl(String imageUrl) { this.imageUrl = imageUrl; }
+    public String getVehiculeType() { return vehiculeType; }
+    public void setVehiculeType(String vehiculeType) { this.vehiculeType = vehiculeType; }
     public Integer getStock() { return stock; }
     public void setStock(Integer stock) { this.stock = stock; }
     public Boolean getActif() { return actif; }

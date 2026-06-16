@@ -39,10 +39,6 @@ public class DemandeAchat {
     @Column(length = 10)
     private String urgence;
 
-    @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "fournisseur_id")
-    private Fournisseur fournisseur;
-
     @Column(nullable = false, length = 15)
     private String statut;
 
@@ -58,6 +54,13 @@ public class DemandeAchat {
 
     @Column(name = "bon_commande_url")
     private String bonCommandeUrl;
+
+    /** Free-text worker name (the person who actually requests the purchase, separate from the logged-in admin). */
+    @Column(name = "demandeur_nom", length = 150)
+    private String demandeurNom;
+
+    @Column(name = "photo_url", length = 500)
+    private String photoUrl;
 
     @Column(name = "created_at", insertable = false, updatable = false)
     private OffsetDateTime createdAt;
@@ -85,8 +88,6 @@ public class DemandeAchat {
     public void setMotif(String motif) { this.motif = motif; }
     public String getUrgence() { return urgence; }
     public void setUrgence(String urgence) { this.urgence = urgence; }
-    public Fournisseur getFournisseur() { return fournisseur; }
-    public void setFournisseur(Fournisseur fournisseur) { this.fournisseur = fournisseur; }
     public String getStatut() { return statut; }
     public void setStatut(String statut) { this.statut = statut; }
     public User getApprobateur() { return approbateur; }
@@ -97,6 +98,10 @@ public class DemandeAchat {
     public void setRaisonRejet(String raisonRejet) { this.raisonRejet = raisonRejet; }
     public String getBonCommandeUrl() { return bonCommandeUrl; }
     public void setBonCommandeUrl(String bonCommandeUrl) { this.bonCommandeUrl = bonCommandeUrl; }
+    public String getDemandeurNom() { return demandeurNom; }
+    public void setDemandeurNom(String demandeurNom) { this.demandeurNom = demandeurNom; }
+    public String getPhotoUrl() { return photoUrl; }
+    public void setPhotoUrl(String photoUrl) { this.photoUrl = photoUrl; }
     public OffsetDateTime getCreatedAt() { return createdAt; }
     public OffsetDateTime getUpdatedAt() { return updatedAt; }
 }

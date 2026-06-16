@@ -9,6 +9,7 @@ public record CamionDetailsRequest(
         LocalDate visiteTechTracteurExpiration,
         LocalDate visiteTechSemiExpiration,
         LocalDate carnetCirculationExpiration,
+        LocalDate metrologieDateControle,
         LocalDate metrologieExpiration,
         LocalDate extincteurExpiration,
         String batterieModele,
@@ -18,5 +19,8 @@ public record CamionDetailsRequest(
         Integer compteurKm,
         Integer compteurHeures,
         String chauffeurPrenom,
-        String chauffeurNom
+        String chauffeurNom,
+        // KPI fields (editable)
+        Integer voyagesMois,
+        Integer kmParcourus
 ) {}

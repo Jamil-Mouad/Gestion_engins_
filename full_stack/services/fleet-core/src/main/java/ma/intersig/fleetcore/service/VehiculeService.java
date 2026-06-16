@@ -2,13 +2,19 @@ package ma.intersig.fleetcore.service;
 
 import ma.intersig.fleetcore.dto.request.CreateVehiculeRequest;
 import ma.intersig.fleetcore.dto.request.UpdateVehiculeRequest;
+import ma.intersig.fleetcore.dto.response.AttelageDto;
 import ma.intersig.fleetcore.dto.response.PageResponse;
 import ma.intersig.fleetcore.dto.response.VehiculeDto;
 import ma.intersig.fleetcore.entity.Camion;
 import ma.intersig.fleetcore.entity.Vehicule;
+import ma.intersig.fleetcore.event.EntityChangedEvent;
 import ma.intersig.fleetcore.exception.BusinessException;
 import ma.intersig.fleetcore.exception.ResourceNotFoundException;
+import ma.intersig.fleetcore.repository.TracteurSemiAssignmentRepository;
 import ma.intersig.fleetcore.repository.VehiculeRepository;
+import org.springframework.cache.annotation.CacheEvict;
+import org.springframework.cache.annotation.Cacheable;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
@@ -24,18 +30,34 @@ public class VehiculeService {
             "in-service", "workshop", "maintenance", "out-of-service"
     );
 
-    private final VehiculeRepository vehiculeRepository;
+    private static boolean isCamionType(String type) {
+        return "camion".equalsIgnoreCase(type) || "camion_tracteur".equalsIgnoreCase(type);
+    }
 
-    public VehiculeService(VehiculeRepository vehiculeRepository) {
+    private final VehiculeRepository vehiculeRepository;
+    private final ApplicationEventPublisher eventPublisher;
+    private final TracteurSemiAssignmentRepository attelageRepo;
+    private final ComposantService composantService;
+
+    public VehiculeService(VehiculeRepository vehiculeRepository,
+                           ApplicationEventPublisher eventPublisher,
+                           TracteurSemiAssignmentRepository attelageRepo,
+                           ComposantService composantService) {
         this.vehiculeRepository = vehiculeRepository;
+        this.eventPublisher = eventPublisher;
+        this.attelageRepo = attelageRepo;
+        this.composantService = composantService;
     }
 
     @Transactional(readOnly = true)
+    @Cacheable(value = "vehicules-page", key = "#q + '-' + #type + '-' + #statut + '-' + #pageable.pageNumber + '-' + #pageable.pageSize + '-' + #pageable.sort")
     public PageResponse<VehiculeDto> list(String q, String type, String statut, Pageable pageable) {
         Page<Vehicule> page;
         String qNorm = (q != null && !q.isBlank()) ? q : null;
-        if (qNorm != null || type != null || statut != null) {
+        if (qNorm != null) {
             page = vehiculeRepository.searchWithFilters(qNorm, type, statut, pageable);
+        } else if (type != null || statut != null) {
+            page = vehiculeRepository.findByTypeAndStatutOptional(type, statut, pageable);
         } else {
             page = vehiculeRepository.findByActifTrue(pageable);
         }
@@ -43,23 +65,50 @@ public class VehiculeService {
     }
 
     @Transactional(readOnly = true)
+    @Cacheable(value = "vehicules", key = "#id")
     public VehiculeDto getById(Long id) {
         Vehicule v = vehiculeRepository.findById(id)
                 .orElseThrow(() -> new ResourceNotFoundException("Vehicle not found", "VEHICLE_NOT_FOUND"));
-        return VehiculeDto.from(v);
+
+        AttelageDto currentAttelage = null;
+        if (isCamionType(v.getType())) {
+            currentAttelage = attelageRepo
+                .findByTracteurIdAndDateFinIsNullAndActifTrue(id)
+                .map(AttelageDto::from)
+                .orElse(null);
+        } else if ("semi_remorque".equals(v.getType())) {
+            currentAttelage = attelageRepo
+                .findBySemiIdAndDateFinIsNullAndActifTrue(id)
+                .map(AttelageDto::from)
+                .orElse(null);
+        }
+
+        // Compute % conso vs flotte for camion types that have a conso value set
+        java.math.BigDecimal pctConsoVsFlotte = null;
+        if (v instanceof Camion camionV && camionV.getConsoGasoilLitresMois() != null) {
+            java.math.BigDecimal fleetTotal = vehiculeRepository.sumConsoGasoilActiveCamions();
+            pctConsoVsFlotte = ma.intersig.fleetcore.dto.response.CamionDetailsDto.computePct(
+                    camionV.getConsoGasoilLitresMois(), fleetTotal);
+        }
+
+        return VehiculeDto.from(v, currentAttelage, pctConsoVsFlotte);
     }
 
+    @CacheEvict(value = {"vehicules-page", "vehicules"}, allEntries = true)
     public VehiculeDto create(CreateVehiculeRequest req) {
-        validateUniqueConstraints(req.code(), req.matricule(), req.nChassis(), null);
+        if (req.nChassis() == null || req.nChassis().isBlank()) {
+            throw new BusinessException("Chassis number is required", "N_CHASSIS_REQUIRED", 422);
+        }
+        validateUniqueConstraints(req.code(), req.type(), req.matricule(), req.nChassis(), null);
 
-        if ("camion".equalsIgnoreCase(req.type()) && req.camionDetails() == null) {
+        if (isCamionType(req.type()) && req.camionDetails() == null) {
             throw new BusinessException("camionDetails is required when type is camion", "CAMION_DETAILS_REQUIRED", 422);
         }
 
         Vehicule vehicule = new Vehicule();
         mapRequestToEntity(req, vehicule);
 
-        if ("camion".equalsIgnoreCase(req.type()) && req.camionDetails() != null) {
+        if (isCamionType(req.type()) && req.camionDetails() != null) {
             Camion camion = new Camion();
             mapBaseFields(req, camion);
             mapCamionDetails(req.camionDetails(), camion);
@@ -80,17 +129,22 @@ public class VehiculeService {
             vehicule = vehiculeRepository.save(vehicule);
         }
 
-        return VehiculeDto.from(vehicule);
+        // every vehicle starts with its own copy of the per-type starter tree
+        composantService.copyTemplateToVehicle(vehicule);
+
+        eventPublisher.publishEvent(new EntityChangedEvent(this, "vehicule", vehicule.getId(), "create"));
+        return VehiculeDto.from(vehicule, null);
     }
 
+    @CacheEvict(value = {"vehicules-page", "vehicules"}, allEntries = true)
     public VehiculeDto update(Long id, UpdateVehiculeRequest req) {
         Vehicule vehicule = vehiculeRepository.findById(id)
                 .orElseThrow(() -> new ResourceNotFoundException("Vehicle not found", "VEHICLE_NOT_FOUND"));
 
         validateStatut(req.statut());
-        validateUniqueConstraints(null, req.matricule(), req.nChassis(), id);
+        validateUniqueConstraints(null, null, req.matricule(), req.nChassis(), id);
         vehicule.setMarque(req.marque());
-        vehicule.setModele(req.modele());
+        vehicule.setModele(req.modele() != null ? req.modele() : "");
         vehicule.setMatricule(req.matricule());
         vehicule.setNChassis(req.nChassis());
         vehicule.setAnnee(req.annee());
@@ -98,6 +152,7 @@ public class VehiculeService {
         vehicule.setStatut(req.statut());
         vehicule.setDateMiseService(req.dateMiseService());
         vehicule.setPhotoUrl(req.photoUrl());
+        vehicule.setConfigAxleSemi(req.configAxleSemi());
 
         if (vehicule instanceof Camion camion && req.camionDetails() != null) {
             mapCamionDetails(req.camionDetails(), camion);
@@ -110,7 +165,8 @@ public class VehiculeService {
         }
 
         vehicule = vehiculeRepository.save(vehicule);
-        return VehiculeDto.from(vehicule);
+        eventPublisher.publishEvent(new EntityChangedEvent(this, "vehicule", vehicule.getId(), "update"));
+        return VehiculeDto.from(vehicule, null);
     }
 
     private void validateStatut(String statut) {
@@ -119,26 +175,32 @@ public class VehiculeService {
         }
     }
 
+    @CacheEvict(value = {"vehicules-page", "vehicules"}, allEntries = true)
     public VehiculeDto patchStatut(Long id, String statut) {
         validateStatut(statut);
         Vehicule vehicule = vehiculeRepository.findById(id)
                 .orElseThrow(() -> new ResourceNotFoundException("Vehicle not found", "VEHICLE_NOT_FOUND"));
         vehicule.setStatut(statut);
         vehicule = vehiculeRepository.save(vehicule);
-        return VehiculeDto.from(vehicule);
+        eventPublisher.publishEvent(new EntityChangedEvent(this, "vehicule", vehicule.getId(), "update"));
+        return VehiculeDto.from(vehicule, null);
     }
 
+    @CacheEvict(value = {"vehicules-page", "vehicules"}, allEntries = true)
     public void softDelete(Long id) {
         Vehicule vehicule = vehiculeRepository.findById(id)
                 .orElseThrow(() -> new ResourceNotFoundException("Vehicle not found", "VEHICLE_NOT_FOUND"));
         vehicule.setActif(false);
         vehiculeRepository.save(vehicule);
+        eventPublisher.publishEvent(new EntityChangedEvent(this, "vehicule", id, "delete"));
     }
 
-    private void validateUniqueConstraints(String code, String matricule, String nChassis, Long excludeId) {
+    private void validateUniqueConstraints(String code, String type, String matricule, String nChassis, Long excludeId) {
+        // a code may be shared across types (tracteur + semi pair share one
+        // fleet code) — uniqueness is per (code, type)
         if (code != null && !code.isBlank()) {
-            vehiculeRepository.findByCodeAndIdNot(code, excludeId != null ? excludeId : -1L).ifPresent(v -> {
-                throw new BusinessException("Code already exists", "CODE_ALREADY_EXISTS", 409);
+            vehiculeRepository.findByCodeAndTypeAndIdNot(code, type, excludeId != null ? excludeId : -1L).ifPresent(v -> {
+                throw new BusinessException("Code already exists for this vehicle type", "CODE_ALREADY_EXISTS", 409);
             });
         }
         if (matricule != null && !matricule.isBlank()) {
@@ -162,7 +224,7 @@ public class VehiculeService {
         v.setCode(req.code());
         v.setType(req.type());
         v.setMarque(req.marque());
-        v.setModele(req.modele());
+        v.setModele(req.modele() != null ? req.modele() : "");
         v.setMatricule(req.matricule());
         v.setNChassis(req.nChassis());
         v.setAnnee(req.annee());
@@ -170,8 +232,12 @@ public class VehiculeService {
         v.setStatut(req.statut());
         v.setDateMiseService(req.dateMiseService());
         v.setPhotoUrl(req.photoUrl());
+        if (req.configAxleSemi() != null) {
+            v.setConfigAxleSemi(req.configAxleSemi());
+        }
     }
 
+    @CacheEvict(value = {"vehicules-page", "vehicules"}, allEntries = true)
     public void updateCamionChauffeur(Long vehiculeId, String nom, String prenom) {
         Vehicule v = vehiculeRepository.findById(vehiculeId)
                 .orElseThrow(() -> new ResourceNotFoundException("Vehicle not found", "VEHICLE_NOT_FOUND"));
@@ -181,6 +247,7 @@ public class VehiculeService {
         if (nom != null) camion.setChauffeurNom(nom);
         if (prenom != null) camion.setChauffeurPrenom(prenom);
         vehiculeRepository.save(camion);
+        eventPublisher.publishEvent(new EntityChangedEvent(this, "vehicule", vehiculeId, "update"));
     }
 
     private void mapCamionDetails(ma.intersig.fleetcore.dto.request.CamionDetailsRequest details, Camion c) {
@@ -189,11 +256,20 @@ public class VehiculeService {
         if (details.visiteTechTracteurExpiration() != null) c.setVisiteTechTracteurExpiration(details.visiteTechTracteurExpiration());
         if (details.visiteTechSemiExpiration() != null) c.setVisiteTechSemiExpiration(details.visiteTechSemiExpiration());
         if (details.carnetCirculationExpiration() != null) c.setCarnetCirculationExpiration(details.carnetCirculationExpiration());
+        if (details.metrologieDateControle() != null) c.setMetrologieDateControle(details.metrologieDateControle());
         if (details.metrologieExpiration() != null) c.setMetrologieExpiration(details.metrologieExpiration());
+        // métrologie is valid 2 years from the control date — derive when not given
+        if (c.getMetrologieDateControle() != null && c.getMetrologieExpiration() == null) {
+            c.setMetrologieExpiration(c.getMetrologieDateControle().plusYears(2));
+        }
         if (details.extincteurExpiration() != null) c.setExtincteurExpiration(details.extincteurExpiration());
         if (details.batterieModele() != null) c.setBatterieModele(details.batterieModele());
         if (details.batterieDateAchat() != null) c.setBatterieDateAchat(details.batterieDateAchat());
         if (details.batterieDateControle() != null) c.setBatterieDateControle(details.batterieDateControle());
         if (details.consoGasoilLitresMois() != null) c.setConsoGasoilLitresMois(details.consoGasoilLitresMois());
+        if (details.voyagesMois() != null) c.setVoyagesMois(details.voyagesMois());
+        if (details.kmParcourus() != null) c.setKmParcourus(details.kmParcourus());
+        if (details.chauffeurPrenom() != null) c.setChauffeurPrenom(details.chauffeurPrenom());
+        if (details.chauffeurNom() != null) c.setChauffeurNom(details.chauffeurNom());
     }
 }

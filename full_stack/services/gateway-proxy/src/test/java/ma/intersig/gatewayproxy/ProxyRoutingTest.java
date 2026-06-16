@@ -18,7 +18,7 @@ import static com.github.tomakehurst.wiremock.client.WireMock.*;
                 "spring.cloud.gateway.routes[0].predicates[0]=Path=/api/v1/**",
                 "spring.cloud.gateway.routes[1].id=gateway-auth",
                 "spring.cloud.gateway.routes[1].uri=http://localhost:${wiremock.server.port}",
-                "spring.cloud.gateway.routes[1].predicates[0]=Path=/api/auth/**",
+                "spring.cloud.gateway.routes[1].predicates[0]=Path=/api/v1/auth/**",
                 "app.jwt.secret=" + TestTokenHelper.SECRET
         }
 )
@@ -83,10 +83,10 @@ class ProxyRoutingTest {
 
     @Test
     void auth_route_is_permit_all_without_bearer_token() {
-        stubFor(post(urlPathEqualTo("/api/auth/login"))
+        stubFor(post(urlPathEqualTo("/api/v1/auth/login"))
                 .willReturn(ok("{\"token\":\"abc\"}")));
 
-        client.post().uri("/api/auth/login")
+        client.post().uri("/api/v1/auth/login")
                 .exchange()
                 .expectStatus().isOk();
     }

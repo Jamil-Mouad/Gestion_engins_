@@ -7,9 +7,9 @@ import java.time.OffsetDateTime;
 
 public record InterventionDto(
         Long id,
-        Long vehiculeId,
-        Short typeId,
-        Long composantId,
+        VehiculeRefDto vehicule,
+        TypeInterventionRefDto typeIntervention,
+        ComposantRefDto composant,
         String categorie,
         String partie,
         String nBs,
@@ -22,14 +22,17 @@ public record InterventionDto(
         BigDecimal coutTotal,
         String observations,
         Long demandeAchatId,
-        OffsetDateTime createdAt
+        OffsetDateTime createdAt,
+        String statut,
+        String photoUrl
 ) {
     public static InterventionDto from(Intervention i) {
+        String statut = i.getDateFin() != null ? "cloture" : "en_cours";
         return new InterventionDto(
                 i.getId(),
-                i.getVehicule() != null ? i.getVehicule().getId() : null,
-                i.getTypeIntervention() != null ? i.getTypeIntervention().getId() : null,
-                i.getComposant() != null ? i.getComposant().getId() : null,
+                VehiculeRefDto.from(i.getVehicule()),
+                TypeInterventionRefDto.from(i.getTypeIntervention()),
+                ComposantRefDto.from(i.getComposant()),
                 i.getCategorie(),
                 i.getPartie(),
                 i.getNBs(),
@@ -42,7 +45,9 @@ public record InterventionDto(
                 i.getCoutTotal(),
                 i.getObservations(),
                 i.getDemandeAchat() != null ? i.getDemandeAchat().getId() : null,
-                i.getCreatedAt()
+                i.getCreatedAt(),
+                statut,
+                i.getPhotoUrl()
         );
     }
 }

@@ -17,7 +17,10 @@ class ExportServiceTest {
             mock(InterventionRepository.class),
             mock(PneuRepository.class),
             mock(SuiviVidangeRepository.class),
-            mock(ReleveCompteurRepository.class)
+            mock(ReleveCompteurRepository.class),
+            mock(ComposantRepository.class),
+            mock(DemandeAchatRepository.class),
+            mock(TracteurSemiAssignmentRepository.class)
     );
 
     @Test

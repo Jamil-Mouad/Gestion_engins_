@@ -1,0 +1,145 @@
+- generic [ref=e2]:
+  - banner [ref=e48]:
+    - link "INTERSIG INTERSIG FleetTracker" [ref=e49] [cursor=pointer]:
+      - /url: /vehicules
+      - img "INTERSIG" [ref=e50]
+      - img [ref=e52]
+      - generic [ref=e54]:
+        - generic [ref=e55]: INTERSIG
+        - generic [ref=e56]: FleetTracker
+    - generic [ref=e57]:
+      - link "Véhicules" [ref=e59] [cursor=pointer]:
+        - /url: /vehicules
+        - generic [ref=e60]: Véhicules
+      - link "Interventions" [ref=e62] [cursor=pointer]:
+        - /url: /interventions
+        - generic [ref=e63]: Interventions
+      - link "Composants" [ref=e65] [cursor=pointer]:
+        - /url: /composants
+        - generic [ref=e66]: Composants
+      - link "Demandes" [ref=e68] [cursor=pointer]:
+        - /url: /demandes-achat
+        - generic [ref=e69]: Demandes
+      - link "Magasin" [ref=e71] [cursor=pointer]:
+        - /url: /magasin
+        - generic [ref=e72]: Magasin
+      - link "Chat AI" [ref=e74] [cursor=pointer]:
+        - /url: /chatbot
+        - generic [ref=e75]: Chat AI
+      - link "Import" [ref=e77] [cursor=pointer]:
+        - /url: /import-export
+        - generic [ref=e78]: Import
+    - generic [ref=e79]:
+      - button "Notifications" [ref=e82] [cursor=pointer]:
+        - img [ref=e83]
+      - generic [ref=e87] [cursor=pointer]:
+        - generic [ref=e88]: AD
+        - img [ref=e90]
+  - main [ref=e3]:
+    - generic [ref=e93]:
+      - generic "Véhicules" [ref=e94]:
+        - generic [ref=e95]:
+          - generic [ref=e96]:
+            - heading "Véhicules" [level=1] [ref=e97]
+            - generic [ref=e98]: (42)
+          - generic [ref=e99]:
+            - generic [ref=e101]:
+              - button "Tableau" [ref=e102] [cursor=pointer]:
+                - img [ref=e104]
+                - generic [ref=e106]: Tableau
+              - button "Cartes" [ref=e107] [cursor=pointer]:
+                - img [ref=e109]
+                - generic [ref=e114]: Cartes
+            - button "Ajouter un véhicule" [ref=e115] [cursor=pointer]:
+              - img [ref=e117]
+              - text: Ajouter un véhicule
+      - generic [ref=e118]:
+        - generic [ref=e119]:
+          - generic [ref=e120]:
+            - img [ref=e122]
+            - textbox "Rechercher par code, matricule, marque…" [ref=e125]
+          - generic [ref=e126]:
+            - generic [ref=e127]:
+              - generic [ref=e128]: "Type :"
+              - button "Camion" [ref=e130] [cursor=pointer]
+              - button "Camion (Tracteur)" [ref=e132] [cursor=pointer]
+              - button "Semi-remorque" [ref=e134] [cursor=pointer]
+              - button "Voiture" [ref=e136] [cursor=pointer]
+              - button "Chariot" [ref=e138] [cursor=pointer]
+              - button "Chargeur" [ref=e140] [cursor=pointer]
+              - button "Bus" [ref=e142] [cursor=pointer]
+              - button "Balayeuse" [ref=e144] [cursor=pointer]
+              - button "Pick-up" [ref=e146] [cursor=pointer]
+            - generic [ref=e147]:
+              - generic [ref=e148]: "Statut :"
+              - button "En service" [ref=e150] [cursor=pointer]
+              - button "Atelier" [ref=e152] [cursor=pointer]
+              - button "Maintenance" [ref=e154] [cursor=pointer]
+              - button "Hors service" [ref=e156] [cursor=pointer]
+        - generic [ref=e157]:
+          - generic [ref=e159]:
+            - generic [ref=e160]: Photo
+            - generic [ref=e161]: Code
+            - generic [ref=e162]: Type
+            - generic [ref=e163]: Marque / Modèle
+            - generic [ref=e164]: Matricule
+            - generic [ref=e165]: Compteur
+            - generic [ref=e166]: Statut
+          - generic [ref=e168] [cursor=pointer]:
+            - img "photo" [ref=e172]
+            - generic [ref=e174]: VCL-007
+            - generic [ref=e175]: Voiture
+            - generic [ref=e176]: Berlingo
+            - generic [ref=e178]: 50313-A-6
+            - generic [ref=e180]: —
+            - generic [ref=e184]: En service
+          - generic [ref=e186] [cursor=pointer]:
+            - img "photo" [ref=e190]
+            - generic [ref=e192]: CAM-405
+            - generic [ref=e193]: Camion
+            - generic [ref=e194]: ISUZU fh16
+            - generic [ref=e196]: 22128-W-6
+            - generic [ref=e198]: —
+            - generic [ref=e202]: En service
+          - generic [ref=e204] [cursor=pointer]:
+            - img [ref=e207]
+            - generic [ref=e213]: SRM-410
+            - generic [ref=e214]: Semi-remorque
+            - generic [ref=e215]: MAN
+            - generic [ref=e217]: 28659-D-1
+            - generic [ref=e219]: —
+            - generic [ref=e223]: En service
+          - generic [ref=e225] [cursor=pointer]:
+            - img [ref=e228]
+            - generic [ref=e234]: SRM-404
+            - generic [ref=e235]: Semi-remorque
+            - generic [ref=e236]: VOLVO
+            - generic [ref=e238]: 68125-A-6
+            - generic [ref=e240]: —
+            - generic [ref=e244]: En service
+          - generic [ref=e246] [cursor=pointer]:
+            - img [ref=e249]
+            - generic [ref=e255]: CHG-413
+            - generic [ref=e256]: Chargeur
+            - generic [ref=e257]: Caterpillar
+            - generic [ref=e259]: —
+            - generic [ref=e261]: —
+            - generic [ref=e265]: En service
+          - generic [ref=e267] [cursor=pointer]:
+            - img [ref=e270]
+            - generic [ref=e276]: CHG-413B
+            - generic [ref=e277]: Chargeur
+            - generic [ref=e278]: Caterpillar
+            - generic [ref=e280]: —
+            - generic [ref=e282]: —
+            - generic [ref=e286]: En service
+        - generic [ref=e287]:
+          - generic [ref=e288]:
+            - generic [ref=e289]: Affichage 1–6 sur 42
+            - button "Charger plus" [ref=e290] [cursor=pointer]
+          - generic [ref=e291]:
+            - button "Export Excel" [ref=e292] [cursor=pointer]:
+              - img [ref=e294]
+              - text: Export Excel
+            - button "Gérer les colonnes" [ref=e297] [cursor=pointer]:
+              - img [ref=e299]

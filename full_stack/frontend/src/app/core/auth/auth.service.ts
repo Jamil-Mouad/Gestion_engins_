@@ -1,21 +1,34 @@
-import { Injectable, signal, computed } from '@angular/core';
-import { HttpClient } from '@angular/common/http';
+import { Injectable, signal, computed, inject } from '@angular/core';
+import { HttpClient, HttpErrorResponse } from '@angular/common/http';
 import { Observable, of, throwError } from 'rxjs';
-import { tap, catchError, finalize, shareReplay } from 'rxjs/operators';
-import { User, AuthResponse, RefreshResponse } from '../models/user.model';
+import { tap, catchError, finalize, shareReplay, map, switchMap } from 'rxjs/operators';
+import { Router } from '@angular/router';
+import { User } from '../../shared/models/user.model';
+
+interface AuthResponse {
+  access_token: string;
+  refresh_token: string;
+  user: User;
+}
+
+interface RefreshResponse {
+  access_token: string;
+}
 
 @Injectable({ providedIn: 'root' })
 export class AuthService {
   private readonly API = '/api/v1/auth';
-  readonly currentUser = signal<User | null>(null);
-  readonly isLoggedIn = computed(() => this.currentUser() !== null);
+  private readonly USER_CACHE_KEY = 'auth.user';
+  private http = inject(HttpClient);
+  private router = inject(Router);
+
+  private _user = signal<User | null>(null);
+  readonly user = this._user.asReadonly();
+  readonly isAuthenticated = computed(() => this._user() !== null);
   readonly isBootstrapping = signal(true);
 
-  private inflightRefresh$: Observable<RefreshResponse> | null = null;
-
-  constructor(private http: HttpClient) {
-    this.rehydrate();
-  }
+  private refreshInFlight$: Observable<string> | null = null;
+  private me$: Observable<User> | null = null;
 
   private getStoredToken(key: string): string | null {
     return localStorage.getItem(key) ?? sessionStorage.getItem(key);
@@ -35,17 +48,52 @@ export class AuthService {
     return localStorage.getItem('access_token') !== null;
   }
 
-  private rehydrate(): void {
-    if (this.getStoredToken('access_token')) {
-      this.getMe().pipe(
-        finalize(() => this.isBootstrapping.set(false))
-      ).subscribe({
-        next: () => {},
-        error: () => this.clearTokens()
-      });
-    } else {
-      this.isBootstrapping.set(false);
+  private loadCachedUser(): void {
+    try {
+      const raw = localStorage.getItem(this.USER_CACHE_KEY) ?? sessionStorage.getItem(this.USER_CACHE_KEY);
+      if (raw) {
+        this._user.set(JSON.parse(raw) as User);
+      }
+    } catch {
+      // corrupt cache — ignore, /me will repopulate it
     }
+  }
+
+  private rehydrate(): void {
+    if (!this.getStoredToken('access_token')) {
+      this.isBootstrapping.set(false);
+      return;
+    }
+    // Don't block the login page with a bootstrap round-trip
+    if (window.location.pathname === '/login') {
+      this.isBootstrapping.set(false);
+      return;
+    }
+    // Restore the user object from storage so the top bar renders immediately on F5
+    // before the async /auth/me round-trip completes.
+    this.loadCachedUser();
+    const source$ = this.hasExpiredToken()
+      ? this.refresh().pipe(switchMap(() => this.getMe()))
+      : this.getMe();
+    source$.pipe(
+      finalize(() => this.isBootstrapping.set(false))
+    ).subscribe({
+      next: () => {},
+      // Only wipe tokens on a definitive auth failure (401/403).
+      // Leave tokens intact for transient network errors so a hard-reload
+      // during a backend blip doesn't log the user out.
+      error: (err: HttpErrorResponse) => {
+        if (err?.status === 401 || err?.status === 403) {
+          this.clearTokens();
+        }
+        // Reset so the next call retries fresh instead of replaying the cached failure.
+        this.me$ = null;
+      },
+    });
+  }
+
+  constructor() {
+    this.rehydrate();
   }
 
   register(data: { prenom: string; nom: string; email: string; password: string }): Observable<AuthResponse> {
@@ -61,25 +109,26 @@ export class AuthService {
     );
   }
 
-  refresh(): Observable<RefreshResponse> {
-    if (this.inflightRefresh$) {
-      return this.inflightRefresh$;
+  refresh(): Observable<string> {
+    if (this.refreshInFlight$) {
+      return this.refreshInFlight$;
     }
     const refreshToken = this.getStoredToken('refresh_token');
     if (!refreshToken) {
       return throwError(() => new Error('No refresh token'));
     }
     const remember = this.isRemembered();
-    this.inflightRefresh$ = this.http.post<RefreshResponse>(`${this.API}/refresh`, { refresh_token: refreshToken }).pipe(
+    this.refreshInFlight$ = this.http.post<RefreshResponse>(`${this.API}/refresh`, { refresh_token: refreshToken }).pipe(
       tap(res => {
         this.setStoredToken('access_token', res.access_token, remember);
       }),
-      shareReplay(1),
+      map(res => res.access_token),
+      shareReplay({ bufferSize: 1, refCount: true }),
       finalize(() => {
-        this.inflightRefresh$ = null;
+        this.refreshInFlight$ = null;
       })
     );
-    return this.inflightRefresh$;
+    return this.refreshInFlight$;
   }
 
   logout(): Observable<void> {
@@ -90,13 +139,25 @@ export class AuthService {
   }
 
   getMe(): Observable<User> {
-    return this.http.get<User>(`${this.API}/me`).pipe(
-      tap(user => this.currentUser.set(user))
-    );
+    if (!this.me$) {
+      this.me$ = this.http.get<User>(`${this.API}/me`).pipe(
+        tap(user => this._user.set(user)),
+        shareReplay({ bufferSize: 1, refCount: true })
+      );
+    }
+    return this.me$;
   }
 
   changePassword(data: { current_password: string; new_password: string }): Observable<void> {
     return this.http.put<void>(`${this.API}/me/password`, data);
+  }
+
+  patchUser(partial: Partial<User>): void {
+    const current = this._user();
+    if (!current) return;
+    const merged = { ...current, ...partial };
+    this._user.set(merged);
+    this.setStoredToken(this.USER_CACHE_KEY, JSON.stringify(merged), this.isRemembered());
   }
 
   requestPasswordReset(email: string): Observable<void> {
@@ -111,17 +172,38 @@ export class AuthService {
     return this.http.post<void>(`${this.API}/password-reset/confirm`, data);
   }
 
+  hasStoredToken(): boolean {
+    return this.getStoredToken('access_token') !== null;
+  }
+
+  hasExpiredToken(): boolean {
+    const token = this.getStoredToken('access_token');
+    if (!token) return true;
+    try {
+      const payload = JSON.parse(atob(token.split('.')[1]));
+      const exp = payload.exp;
+      if (!exp) return true;
+      return Date.now() >= exp * 1000;
+    } catch {
+      return true;
+    }
+  }
+
   private storeTokens(res: AuthResponse, remember: boolean): void {
     this.setStoredToken('access_token', res.access_token, remember);
     this.setStoredToken('refresh_token', res.refresh_token, remember);
-    this.currentUser.set(res.user);
+    this.setStoredToken(this.USER_CACHE_KEY, JSON.stringify(res.user), remember);
+    this._user.set(res.user);
   }
 
   clearTokens(): void {
     localStorage.removeItem('access_token');
     localStorage.removeItem('refresh_token');
+    localStorage.removeItem(this.USER_CACHE_KEY);
     sessionStorage.removeItem('access_token');
     sessionStorage.removeItem('refresh_token');
-    this.currentUser.set(null);
+    sessionStorage.removeItem(this.USER_CACHE_KEY);
+    this._user.set(null);
+    this.me$ = null;
   }
 }

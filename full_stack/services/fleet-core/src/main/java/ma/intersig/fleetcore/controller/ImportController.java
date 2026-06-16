@@ -38,13 +38,15 @@ public class ImportController {
     @PostMapping("/excel")
     public ResponseEntity<ImportReportDto> importExcel(
             @RequestParam("file") MultipartFile file,
-            @RequestParam("mapping") String mappingJson,
+            @RequestParam(value = "mapping", required = false) String mappingJson,
             @RequestParam("entite") String entite,
             @CurrentUserId Long userId) {
         if (file == null || file.isEmpty()) {
             return ResponseEntity.badRequest().build();
         }
-        Map<Integer, String> mapping = parseMapping(mappingJson);
+        Map<Integer, String> mapping = (mappingJson != null && !mappingJson.isBlank())
+                ? parseMapping(mappingJson)
+                : null;
         ImportReportDto report = importService.importGeneral(file, mapping, entite, userId);
         return ResponseEntity.ok(report);
     }
