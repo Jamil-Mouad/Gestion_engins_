@@ -2,9 +2,11 @@ import { Component, input, Output, EventEmitter, inject, signal, computed, Destr
 import { DatePipe, DecimalPipe } from '@angular/common';
 import { RouterLink } from '@angular/router';
 import { takeUntilDestroyed, toObservable } from '@angular/core/rxjs-interop';
-import { switchMap, of } from 'rxjs';
+import { switchMap, of, catchError } from 'rxjs';
 import { VehiculeDetail, Attelage, isCamionType, isCamionTracteur } from '../../../../shared/models/vehicule.model';
 import { VehiculeService } from '../../vehicule.service';
+import { MagasinApiService } from '../../../magasin/services/magasin-api.service';
+import { VehiculeKpi } from '../../../magasin/models/magasin.model';
 import { CardComponent } from '../../../../shared/ui/card/card.component';
 import { AssignSemiModalComponent } from '../assign-semi-modal.component';
 import { ConfirmDeleteModalComponent } from '../../../../shared/ui/confirm-delete-modal/confirm-delete-modal.component';
@@ -166,6 +168,7 @@ interface KpiTile {
       @if (showAssignModal()) {
         <app-assign-semi-modal
           [tracteurId]="vehicule().id"
+          [tracteurCode]="vehicule().code"
           (saved)="onAttelageSaved()"
           (close)="showAssignModal.set(false)"
         />
@@ -257,11 +260,14 @@ export class InfosTabComponent {
   @Output() attelageChanged = new EventEmitter<void>();
 
   private vehiculeService = inject(VehiculeService);
+  private magasinApi = inject(MagasinApiService);
   private destroyRef = inject(DestroyRef);
 
   showAssignModal = signal(false);
   showDetachConfirm = signal(false);
   history = signal<Attelage[]>([]);
+  // Live fuel KPIs from magasin-service; null falls back to the legacy stored values
+  magasinKpi = signal<VehiculeKpi | null>(null);
 
   isCamion = computed(() => isCamionType(this.vehicule()?.type));
   isCamionTracteurType = computed(() => isCamionTracteur(this.vehicule()?.type));
@@ -280,6 +286,20 @@ export class InfosTabComponent {
       }),
       takeUntilDestroyed(this.destroyRef),
     ).subscribe({ next: (list) => this.history.set(list) });
+
+    // Dynamic fuel KPIs from the magasin fuel log; on error/missing data the
+    // tiles keep showing the legacy stored values.
+    toObservable(this.vehicule).pipe(
+      switchMap(v => {
+        if (v?.code && isCamionType(v.type)) {
+          return this.magasinApi.vehiculeKpis(v.code, v.type).pipe(
+            catchError(() => of(null)),
+          );
+        }
+        return of(null);
+      }),
+      takeUntilDestroyed(this.destroyRef),
+    ).subscribe({ next: kpi => this.magasinKpi.set(kpi) });
   }
 
   detachConfirmMessage = computed(() => {
@@ -312,7 +332,7 @@ export class InfosTabComponent {
   infoRows = computed<InfoRow[]>(() => {
     const v = this.vehicule();
     const cd = v?.camionDetails;
-    return [
+    const rows: InfoRow[] = [
       { label: 'Type', value: v?.type },
       { label: 'Marque', value: v?.marque },
       { label: 'Modèle', value: v?.modele },
@@ -320,10 +340,17 @@ export class InfosTabComponent {
       { label: 'N° Chassis', value: v?.nChassis, mono: true },
       { label: 'Capacité', value: cd?.capaciteTonnes != null ? `${cd.capaciteTonnes} t` : null },
       { label: 'Carburant', value: v?.carburant },
-      { label: 'Chauffeur affecté', value: cd ? [cd.chauffeurPrenom, cd.chauffeurNom].filter(Boolean).join(' ') || null : null },
-      { label: 'Carnet de circulation — expiration', value: cd?.carnetCirculationExpiration },
-      { label: 'Métrologie — expiration', value: cd?.metrologieExpiration },
     ];
+    // chauffeur / carnet / métrologie belong to the tracteur — a semi-remorque
+    // shows them on its attached tracteur's page, never on its own
+    if (!this.isSemiRemorque()) {
+      rows.push(
+        { label: 'Chauffeur affecté', value: cd ? [cd.chauffeurPrenom, cd.chauffeurNom].filter(Boolean).join(' ') || null : null },
+        { label: 'Carnet de circulation — expiration', value: cd?.carnetCirculationExpiration },
+        { label: 'Métrologie — expiration', value: cd?.metrologieExpiration },
+      );
+    }
+    return rows;
   });
 
   complianceItems = computed<ComplianceItem[]>(() => {
@@ -341,27 +368,55 @@ export class InfosTabComponent {
       return 'ok';
     };
 
-    return [
+    const items: ComplianceItem[] = [
       { label: 'Batterie — Modèle', value: cd.batterieModele, status: 'neutral' },
       { label: 'Batterie — Date d\'achat', value: cd.batterieDateAchat, status: 'neutral' },
       { label: 'Dernier contrôle batterie', value: cd.batterieDateControle, status: cd.batterieDateControle ? 'ok' : 'neutral' },
       { label: 'Extincteur — date d\'expiration', value: cd.extincteurExpiration, status: getExpiryStatus(cd.extincteurExpiration) },
-      { label: 'Visite technique — Tracteur', value: cd.visiteTechTracteurExpiration, status: getExpiryStatus(cd.visiteTechTracteurExpiration) },
-      { label: 'Visite technique — Semi-remorque', value: cd.visiteTechSemiExpiration, status: getExpiryStatus(cd.visiteTechSemiExpiration) },
     ];
+
+    // the visite rows adapt to the vehicle type: a plain camion has ONE
+    // visite technique; only a camion_tracteur also carries its attached
+    // semi's visite (stored on the tracteur row)
+    if (this.isCamionTracteurType()) {
+      const semiCode = this.vehicule()?.currentAttelage?.semiCode;
+      items.push(
+        { label: 'Visite technique — Tracteur', value: cd.visiteTechTracteurExpiration, status: getExpiryStatus(cd.visiteTechTracteurExpiration) },
+        { label: semiCode ? `Visite technique — Semi-remorque (${semiCode})` : 'Visite technique — Semi-remorque',
+          value: cd.visiteTechSemiExpiration, status: getExpiryStatus(cd.visiteTechSemiExpiration) },
+      );
+    } else {
+      items.push(
+        { label: 'Visite technique — Camion', value: cd.visiteTechTracteurExpiration, status: getExpiryStatus(cd.visiteTechTracteurExpiration) },
+      );
+    }
+    return items;
   });
 
   kpiTiles = computed<KpiTile[]>(() => {
     const cd = this.vehicule()?.camionDetails;
     if (!cd) return [];
+    const k = this.magasinKpi();
     const fmt = (n: number | null | undefined, fallback = '—') =>
-      n != null ? n.toLocaleString('fr-FR') : fallback;
-    return [
-      { label: 'Voyages / mois',       value: fmt(cd.voyagesMois),             unit: '',    highlight: false },
-      { label: 'KM parcourus',         value: fmt(cd.kmParcourus),             unit: 'km',  highlight: false },
-      { label: 'KM cumulés',           value: fmt((cd.compteurKm ?? 0) + (cd.kmParcourus ?? 0)), unit: 'km', highlight: false },
-      { label: 'Conso. gasoil / mois', value: fmt(cd.consoGasoilLitresMois),   unit: 'L',   highlight: false },
-      { label: '% Conso. (vs flotte)', value: cd.pctConsoVsFlotte != null ? cd.pctConsoVsFlotte.toFixed(1) : '—', unit: '%', highlight: cd.pctConsoVsFlotte != null },
+      n != null ? Math.round(n).toLocaleString('fr-FR') : fallback;
+
+    // dynamic value from the fuel log first, legacy stored field as fallback
+    const voyages = k ? k.voyagesMois : cd.voyagesMois;
+    const kmParcourus = k?.kmParcourusMois ?? cd.kmParcourus;
+    const kmCumules = k?.kmCumules ?? ((cd.compteurKm ?? 0) + (cd.kmParcourus ?? 0));
+    const consoLitres = k && k.consoLitresMois > 0 ? k.consoLitresMois : cd.consoGasoilLitresMois;
+    const pctFlotte = k?.pctConsoVsFlotte ?? cd.pctConsoVsFlotte;
+
+    const tiles: KpiTile[] = [
+      { label: 'Voyages / mois',       value: fmt(voyages),     unit: '',   highlight: false },
+      { label: 'KM parcourus',         value: fmt(kmParcourus), unit: 'km', highlight: false },
+      { label: 'KM cumulés',           value: fmt(kmCumules),   unit: 'km', highlight: false },
+      { label: 'Conso. gasoil / mois', value: fmt(consoLitres), unit: 'L',  highlight: false },
+      { label: '% Conso. (vs flotte)', value: pctFlotte != null ? pctFlotte.toFixed(1) : '—', unit: '%', highlight: pctFlotte != null },
     ];
+    if (k?.consoMoyenneL100 != null) {
+      tiles.push({ label: 'Conso. moyenne', value: k.consoMoyenneL100.toFixed(1), unit: 'L/100km', highlight: false });
+    }
+    return tiles;
   });
 }

@@ -60,16 +60,6 @@ describe('ProfilService', () => {
     req.flush(mockUser);
   });
 
-  it('updatePassword() calls PATCH /api/v1/users/me/password', () => {
-    const passwords = { currentPassword: 'old', newPassword: 'new123', confirmPassword: 'new123' };
-    service.updatePassword(passwords).subscribe();
-
-    const req = httpMock.expectOne('/api/v1/users/me/password');
-    expect(req.request.method).toBe('PATCH');
-    expect(req.request.body).toEqual(passwords);
-    req.flush(null);
-  });
-
   it('getMe() handles 500 error', () => {
     let errored = false;
     service.getMe().subscribe({ next: () => fail(), error: (err) => { errored = true; expect(err.status).toBe(500); } });
@@ -81,16 +71,6 @@ describe('ProfilService', () => {
     let errored = false;
     service.updateMe({ email: 'bad' }).subscribe({ next: () => fail(), error: (err) => { errored = true; expect(err.status).toBe(400); } });
     httpMock.expectOne('/api/v1/users/me').flush('bad', { status: 400, statusText: 'Bad Request' });
-    expect(errored).toBeTrue();
-  });
-
-  it('updatePassword() handles 400 error (wrong current password)', () => {
-    let errored = false;
-    service.updatePassword({ currentPassword: 'wrong', newPassword: 'new', confirmPassword: 'new' }).subscribe({
-      next: () => fail(),
-      error: (err) => { errored = true; expect(err.status).toBe(400); },
-    });
-    httpMock.expectOne('/api/v1/users/me/password').flush('bad', { status: 400, statusText: 'Bad Request' });
     expect(errored).toBeTrue();
   });
 });

@@ -5,6 +5,7 @@ import ma.intersig.fleetcore.dto.request.PatchVehiculeStatutRequest;
 import ma.intersig.fleetcore.dto.request.UpdateVehiculeRequest;
 import ma.intersig.fleetcore.dto.response.PageResponse;
 import ma.intersig.fleetcore.dto.response.VehiculeDto;
+import ma.intersig.fleetcore.service.VehiculeFichePdfService;
 import ma.intersig.fleetcore.service.VehiculeService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
@@ -12,7 +13,9 @@ import jakarta.servlet.http.HttpServletResponse;
 import jakarta.validation.Valid;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.web.PageableDefault;
+import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
+import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
@@ -22,9 +25,12 @@ import org.springframework.web.bind.annotation.*;
 public class VehiculeController {
 
     private final VehiculeService vehiculeService;
+    private final VehiculeFichePdfService vehiculeFichePdfService;
 
-    public VehiculeController(VehiculeService vehiculeService) {
+    public VehiculeController(VehiculeService vehiculeService,
+                             VehiculeFichePdfService vehiculeFichePdfService) {
         this.vehiculeService = vehiculeService;
+        this.vehiculeFichePdfService = vehiculeFichePdfService;
     }
 
     @Operation(summary = "List vehicles with optional filters")
@@ -73,5 +79,16 @@ public class VehiculeController {
     public ResponseEntity<Void> softDelete(@PathVariable Long id) {
         vehiculeService.softDelete(id);
         return ResponseEntity.noContent().build();
+    }
+
+    @Operation(summary = "Download the printable « fiche véhicule » PDF")
+    @GetMapping("/{id}/fiche.pdf")
+    public ResponseEntity<byte[]> fichePdf(@PathVariable Long id) {
+        byte[] pdf = vehiculeFichePdfService.generate(id);
+        return ResponseEntity.ok()
+                .contentType(MediaType.APPLICATION_PDF)
+                .header(HttpHeaders.CONTENT_DISPOSITION,
+                        "attachment; filename=\"fiche-vehicule-" + id + ".pdf\"")
+                .body(pdf);
     }
 }

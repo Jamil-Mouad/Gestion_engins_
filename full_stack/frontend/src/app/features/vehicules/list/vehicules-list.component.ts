@@ -3,7 +3,10 @@ import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { DecimalPipe } from '@angular/common';
 import { Router } from '@angular/router';
 import { Subject, EMPTY } from 'rxjs';
-import { switchMap, map, catchError, debounceTime } from 'rxjs/operators';
+import { switchMap, map, catchError, debounceTime, take } from 'rxjs/operators';
+import { ExcelExportService } from '../../../shared/services/excel-export.service';
+import { downloadBlobAs } from '../../../shared/utils/download-blob';
+import { ToastrService } from 'ngx-toastr';
 import { LucideAngularModule } from 'lucide-angular';
 import { VehiculeService } from '../vehicule.service';
 import { Vehicule, VehiculeType, VehiculeStatut } from '../../../shared/models/vehicule.model';
@@ -19,6 +22,8 @@ import { DataTableRowComponent } from '../../../shared/ui/data-table/data-table-
 import { NewVehiculeModalComponent } from './new-vehicule-modal.component';
 import { SpinnerOverlayComponent } from '../../../shared/ui/spinner/spinner-overlay.component';
 import { ColumnDef, ALL_COLUMN_DEFS, DEFAULT_VISIBLE_IDS, ColumnManagerModalComponent } from './column-manager-modal.component';
+import { ExportExcelModalComponent, ExportColDef, ExportFilterDef, ExportResult } from '../../../shared/ui/export-excel-modal/export-excel-modal.component';
+import { ImageLightboxComponent } from '../../../shared/ui/image-lightbox/image-lightbox.component';
 
 type ViewMode = 'table' | 'cards';
 type TypeFilter = 'all' | VehiculeType;
@@ -35,6 +40,7 @@ type StatutFilter = 'all' | VehiculeStatut;
     PageHeaderComponent, ViewToggleComponent, FilterChipComponent,
     DataTableHeaderComponent, DataTableRowComponent,
     NewVehiculeModalComponent, SpinnerOverlayComponent, ColumnManagerModalComponent,
+    ExportExcelModalComponent, ImageLightboxComponent,
   ],
   template: `
     <app-spinner-overlay [show]="showSpinner()" />
@@ -86,7 +92,7 @@ type StatutFilter = 'all' | VehiculeStatut;
             @if (loading() && vehicles().length === 0) {
               <app-skeleton [rows]="6" height="52px" />
             } @else if (vehicles().length === 0) {
-              <app-empty-state icon="🚛" message="Aucun véhicule trouvé — essayez de modifier vos filtres." />
+              <app-empty-state icon="truck" message="Aucun véhicule trouvé — essayez de modifier vos filtres." />
             } @else {
               @for (v of vehicles(); track v.id; let i = $index) {
                 <app-data-table-row [idx]="i" [clickable]="true" (rowClicked)="navigateToDetail(v.id)">
@@ -107,7 +113,9 @@ type StatutFilter = 'all' | VehiculeStatut;
                         @case ('statut')        { <app-status-badge [status]="v.statut" [label]="v.statut | statusLabel" /> }
                         @case ('photo') {
                           @if (v.photoUrl) {
-                            <img [src]="v.photoUrl" alt="" style="height:36px;width:52px;object-fit:cover;border-radius:4px;display:block;" />
+                            <span (click)="$event.stopPropagation()">
+                              <app-image-lightbox [src]="v.photoUrl" />
+                            </span>
                           } @else {
                             <lucide-icon name="truck" [size]="20" />
                           }
@@ -133,9 +141,9 @@ type StatutFilter = 'all' | VehiculeStatut;
               </div>
             }
             <div class="table-actions">
-              <button class="btn-export" type="button" (click)="exportCsv()">
+              <button class="btn-export" type="button" (click)="onExport()" [disabled]="exporting()">
                 <lucide-icon name="download" [size]="14" />
-                Export Excel
+                {{ exporting() ? 'Exportation…' : 'Export Excel' }}
               </button>
               <button class="btn-settings" type="button" (click)="showColManager.set(true)" title="Gérer les colonnes">
                 <lucide-icon name="settings" [size]="16" />
@@ -149,7 +157,7 @@ type StatutFilter = 'all' | VehiculeStatut;
           @if (loading() && vehicles().length === 0) {
             <app-skeleton [rows]="4" height="120px" />
           } @else if (vehicles().length === 0) {
-            <app-empty-state icon="🚛" message="Aucun véhicule trouvé — essayez de modifier vos filtres." />
+            <app-empty-state icon="truck" message="Aucun véhicule trouvé — essayez de modifier vos filtres." />
           } @else {
             <div class="cards-grid">
               @for (v of vehicles(); track v.id) {
@@ -160,7 +168,8 @@ type StatutFilter = 'all' | VehiculeStatut;
                   </div>
                   <div class="vehicle-card__img-placeholder">
                     @if (v.photoUrl) {
-                      <img [src]="v.photoUrl" alt="" style="width:100%;height:80px;object-fit:cover;border-radius:8px;display:block;" />
+                      <app-image-lightbox [src]="v.photoUrl" [fill]="true" (click)="$event.stopPropagation()"
+                                          style="display:block;width:100%;height:80px;border-radius:8px;overflow:hidden;" />
                     } @else {
                       <lucide-icon name="truck" [size]="32" />
                     }
@@ -195,10 +204,20 @@ type StatutFilter = 'all' | VehiculeStatut;
           (cancel)="showColManager.set(false)"
         />
       }
+
+      @if (showExportModal()) {
+        <app-export-excel-modal
+          [allColumns]="exportColDefs"
+          [filterDefs]="exportFilterDefs"
+          [initialVisible]="exportDefaultColIds"
+          [initialFilters]="currentExportFilters()"
+          (exported)="onExportConfirmed($event)"
+          (cancel)="showExportModal.set(false)" />
+      }
     </div>
   `,
   styles: [`
-    .veh-list-page { background: #F5F5F5; min-height: calc(100vh - 72px); }
+    .veh-list-page { background: #F5F5F5; min-height: calc(100vh - 88px); }
     .veh-list-content { padding: 20px 32px 32px; }
 
     /* Search + filter card */
@@ -251,15 +270,26 @@ export class VehiculesListComponent {
   private vehiculeService = inject(VehiculeService);
   private router = inject(Router);
   private destroyRef = inject(DestroyRef);
+  private excelExportService = inject(ExcelExportService);
+  private toastr = inject(ToastrService);
 
   typeFilter = signal<TypeFilter>('all');
   statutFilter = signal<StatutFilter>('all');
   viewMode = signal<ViewMode>('table');
+
+  currentExportFilters = computed(() => {
+    const f: Record<string, string> = {};
+    if (this.typeFilter() !== 'all') f['type'] = this.typeFilter();
+    if (this.statutFilter() !== 'all') f['statut'] = this.statutFilter();
+    return f;
+  });
   loading = signal(true);
   loadingMore = signal(false);
   showAddModal = signal(false);
   showColManager = signal(false);
   showSpinner = signal(false);
+  exporting = signal(false);
+  showExportModal = signal(false);
 
   private readonly LS_KEY = 'fleet.vehicules.columns';
 
@@ -284,32 +314,57 @@ export class VehiculesListComponent {
     this.showColManager.set(false);
   }
 
-  exportCsv(): void {
-    const cols = this.visibleCols();
-    const header = cols.map(c => c.label).join(',');
-    const rows = this.vehicles().map(v =>
-      cols.map(c => {
-        switch (c.id) {
-          case 'code':          return v.code;
-          case 'type':          return v.type;
-          case 'marque_modele': return `${v.marque} ${v.modele}`;
-          case 'marque':        return v.marque;
-          case 'modele':        return v.modele;
-          case 'matricule':     return v.matricule ?? '';
-          case 'annee':         return v.annee?.toString() ?? '';
-          case 'n_chassis':     return (v as any).nChassis ?? '';
-          case 'carburant':     return (v as any).carburant ?? '';
-          case 'statut':        return v.statut;
-          default:              return '';
-        }
-      }).join(',')
-    );
-    const csv = [header, ...rows].join('\n');
-    const blob = new Blob(['﻿' + csv], { type: 'text/csv;charset=utf-8;' });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url; a.download = 'vehicules.csv'; a.click();
-    URL.revokeObjectURL(url);
+  readonly exportColDefs: ExportColDef[] = [
+    { id: 'code',       label: 'Code' },
+    { id: 'type',       label: 'Type' },
+    { id: 'marque',     label: 'Marque' },
+    { id: 'modele',     label: 'Modèle' },
+    { id: 'matricule',  label: 'Matricule' },
+    { id: 'n_chassis',  label: 'N° Chassis' },
+    { id: 'annee',      label: 'Année' },
+    { id: 'carburant',  label: 'Carburant' },
+    { id: 'statut',     label: 'Statut' },
+  ];
+  readonly exportDefaultColIds = ['code', 'type', 'marque', 'modele', 'matricule', 'statut'];
+  readonly exportFilterDefs: ExportFilterDef[] = [
+    {
+      key: 'statut', label: 'Statut', type: 'select',
+      options: [
+        { value: 'in-service',    label: 'En service'  },
+        { value: 'workshop',      label: 'Atelier'      },
+        { value: 'maintenance',   label: 'Maintenance'  },
+        { value: 'out-of-service',label: 'Hors service' },
+      ],
+    },
+    {
+      key: 'type', label: 'Type', type: 'select',
+      options: [
+        { value: 'camion',          label: 'Camion' },
+        { value: 'camion_tracteur', label: 'Camion Tracteur' },
+        { value: 'semi_remorque',   label: 'Semi-remorque' },
+        { value: 'chargeur',        label: 'Chargeur' },
+        { value: 'voiture',         label: 'Voiture' },
+      ],
+    },
+  ];
+
+  onExport(): void {
+    this.showExportModal.set(true);
+  }
+
+  onExportConfirmed(result: ExportResult): void {
+    this.showExportModal.set(false);
+    if (this.exporting()) return;
+    this.exporting.set(true);
+    this.excelExportService.download({
+      entites: 'vehicules',
+      columns: result.columns,
+      statut: result.filters['statut'],
+      vehiculeType: result.filters['type'],
+    }).pipe(take(1)).subscribe({
+      next: blob => { downloadBlobAs(blob, 'vehicules.xlsx'); this.exporting.set(false); },
+      error: () => { this.toastr.error('Erreur lors de l\'export Excel.'); this.exporting.set(false); },
+    });
   }
   private _spinnerTimer: ReturnType<typeof setTimeout> | null = null;
   private _spinnerEff = effect(() => {

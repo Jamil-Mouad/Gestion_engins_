@@ -19,6 +19,16 @@ spring:
           predicates:
             - Path=/api/v1/auth/**
 
+        # AI-Engine route — SSE streaming with circuit breaker
+        - id: ai-engine-sse
+          uri: ${AI_ENGINE_URI:http://localhost:8090}
+          predicates:
+            - Path=/api/ai/**
+          filters:
+            - RewritePath=/api/ai/(?<segment>.*), /ai/${segment}
+            - AddResponseHeader=X-Accel-Buffering, no
+            - CircuitBreaker=name=ai-engine-cb,fallbackUri=forward:/fallback/ai
+
         # SSE route — guard against global cache buffering the event stream
         - id: fleet-core-sse
           uri: ${FLEET_CORE_URI:http://localhost:8081}
@@ -26,6 +36,12 @@ spring:
             - Path=/api/v1/events/**
           filters:
             - AddResponseHeader=Cache-Control, no-store
+
+        # Magasin (gasoil) service — must stay above the fleet-core catch-all
+        - id: magasin
+          uri: ${MAGASIN_URI:http://localhost:8084}
+          predicates:
+            - Path=/api/v1/magasin/**
 
         # All other fleet-core routes
         - id: fleet-core
@@ -37,8 +53,21 @@ app:
   jwt:
     secret: ${JWT_SECRET:}
 
+resilience4j:
+  circuitbreaker:
+    instances:
+      ai-engine-cb:
+        sliding-window-size: 5
+        failure-rate-threshold: 60
+        wait-duration-in-open-state: 30s
+  timelimiter:
+    instances:
+      ai-engine-cb:
+        timeout-duration: 120s
+        cancel-running-future: false
+
 management:
   endpoints:
     web:
       exposure:
-        include: health,metrics,prometheus
+        include: ${MANAGEMENT_ENDPOINTS:health}

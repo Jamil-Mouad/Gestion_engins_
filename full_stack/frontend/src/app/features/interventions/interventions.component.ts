@@ -26,6 +26,7 @@ import {
 } from '../../shared/ui';
 import { ExcelExportService } from '../../shared/services/excel-export.service';
 import { downloadBlobAs } from '../../shared/utils/download-blob';
+import { ExportExcelModalComponent, ExportColDef, ExportFilterDef, ExportResult } from '../../shared/ui/export-excel-modal/export-excel-modal.component';
 
 type TabId = 'en_cours' | 'cloture' | 'all';
 type CategorieFilter = 'all' | InterventionCategorie;
@@ -48,7 +49,7 @@ const INT_COL_DEFS: ColumnDef[] = [
 const INT_ACTION_COL: ColumnDef = { id: 'action', label: 'Actions', flex: 0.9 };
 /** Manageable columns passed to the column-manager modal (excludes the pinned action col). */
 const INT_COL_DEFS_MANAGEABLE = INT_COL_DEFS;
-const INT_DEFAULT_COL_IDS = ['nBs', 'date', 'vehicule', 'categorie', 'composant', 'cout', 'photo', 'statut'];
+const INT_DEFAULT_COL_IDS = ['nBs', 'date', 'vehicule', 'categorie', 'composant', 'cout', 'statut'];
 
 function loadIntColIds(): string[] {
   try {
@@ -70,7 +71,7 @@ function loadIntColIds(): string[] {
     SevBadgeComponent, StatusBadgeComponent,
     NewInterventionModalComponent, CloturerConfirmModalComponent,
     LucideAngularModule, ColumnManagerModalComponent,
-    ImageLightboxComponent,
+    ImageLightboxComponent, ExportExcelModalComponent,
   ],
   template: `
     <div class="int-page">
@@ -118,7 +119,7 @@ function loadIntColIds(): string[] {
           @if (loading() && interventions().length === 0) {
             <app-skeleton [rows]="6" height="52px" />
           } @else if (interventions().length === 0) {
-            <app-empty-state icon="🔧" message="Aucune intervention trouvée — essayez de modifier vos filtres." />
+            <app-empty-state icon="wrench" message="Aucune intervention trouvée — essayez de modifier vos filtres." />
           } @else {
             @for (intervention of interventions(); track intervention.id; let i = $index) {
               <app-data-table-row [idx]="i" [clickable]="true" (rowClicked)="toggleExpand(intervention.id)">
@@ -184,23 +185,15 @@ function loadIntColIds(): string[] {
                 }
               </app-data-table-row>
               @if (expandedIds().has(intervention.id)) {
-                <div class="int-detail">
-                  <div class="int-detail-grid">
-                    <div class="int-detail-item">
-                      <span class="int-detail-label">Composant</span>
-                      <span class="int-detail-value">{{ intervention.composant?.designation ?? '—' }}</span>
-                    </div>
-                    <div class="int-detail-item">
-                      <span class="int-detail-label">Temps</span>
-                      <span class="int-detail-value">{{ intervention.tempsHeures != null ? (intervention.tempsHeures + ' h') : '—' }}</span>
-                    </div>
+                <div class="int-detail int-detail--row">
+                  <div class="int-detail-item">
+                    <span class="int-detail-label">Composant</span>
+                    <span class="int-detail-value">{{ intervention.composant?.designation ?? '—' }}</span>
                   </div>
-                  @if (intervention.observations) {
-                    <div class="int-detail-obs">
-                      <span class="int-detail-label">Observations</span>
-                      <span class="int-detail-value">{{ intervention.observations }}</span>
-                    </div>
-                  }
+                  <div class="int-detail-item">
+                    <span class="int-detail-label">Observations</span>
+                    <span class="int-detail-value">{{ intervention.observations || '—' }}</span>
+                  </div>
                 </div>
               }
             }
@@ -255,10 +248,20 @@ function loadIntColIds(): string[] {
           (cancel)="showColManager.set(false)" />
       }
 
+      @if (showExportModal()) {
+        <app-export-excel-modal
+          [allColumns]="exportColDefs"
+          [filterDefs]="exportFilterDefs"
+          [initialVisible]="visibleColIds()"
+          [initialFilters]="currentExportFilters()"
+          (exported)="onExportConfirmed($event)"
+          (cancel)="showExportModal.set(false)" />
+      }
+
     </div>
   `,
   styles: [`
-    .int-page { background: #F5F5F5; min-height: calc(100vh - 72px); }
+    .int-page { background: #F5F5F5; min-height: calc(100vh - 88px); }
     .int-content { padding: 20px 32px 32px; }
 
     /* Filter card */
@@ -338,6 +341,7 @@ function loadIntColIds(): string[] {
     .int-detail-label { font-family: 'Open Sans', sans-serif; font-size: 11px; font-weight: 600; color: #9CA3AF; text-transform: uppercase; letter-spacing: 0.04em; }
     .int-detail-value { font-family: 'Open Sans', sans-serif; font-size: 13px; color: #374151; }
     .int-detail-obs { margin-top: 10px; display: flex; flex-direction: column; gap: 2px; }
+    .int-detail--row { display: flex; flex-wrap: wrap; gap: 16px 32px; }
   `],
 })
 export class InterventionsComponent {
@@ -346,13 +350,14 @@ export class InterventionsComponent {
   private toastr = inject(ToastrService);
   private destroyRef = inject(DestroyRef);
 
-  activeTabIndex = signal(0);
+  activeTabIndex = signal(2);
   categorieFilter = signal<CategorieFilter>('all');
   loading = signal(true);
   loadingMore = signal(false);
   loadError = signal(false);
   showNewModal = signal(false);
   showColManager = signal(false);
+  showExportModal = signal(false);
   exporting = signal(false);
   cloturerIntervention = signal<Intervention | null>(null);
   interventions = signal<Intervention[]>([]);
@@ -517,20 +522,50 @@ export class InterventionsComponent {
     this.fetchTrigger$.next({ page: 0, append: false, force: true });
   }
 
+  readonly exportColDefs: ExportColDef[] = INT_COL_DEFS.filter(c => c.id !== 'photo');
+  readonly currentExportFilters = computed<Record<string, string>>(() => {
+    const filters: Record<string, string> = {};
+    const tabStatut = TAB_STATUTS[this.activeTabIndex()];
+    if (tabStatut) filters['statut'] = tabStatut;
+    const cat = this.categorieFilter();
+    if (cat && cat !== 'all') filters['categorie'] = cat;
+    return filters;
+  });
+  readonly exportFilterDefs: ExportFilterDef[] = [
+    {
+      key: 'statut', label: 'Statut', type: 'select',
+      options: [
+        { value: 'en_cours', label: 'En cours' },
+        { value: 'cloture',  label: 'Terminées' },
+      ],
+    },
+    {
+      key: 'categorie', label: 'Catégorie', type: 'select',
+      options: [
+        { value: 'corrective',  label: 'Corrective' },
+        { value: 'preventive',  label: 'Préventive' },
+        { value: 'depannage',   label: 'Dépannage' },
+        { value: 'controle',    label: 'Contrôle' },
+      ],
+    },
+  ];
+
   onExport(): void {
+    this.showExportModal.set(true);
+  }
+
+  onExportConfirmed(result: ExportResult): void {
+    this.showExportModal.set(false);
     if (this.exporting()) return;
     this.exporting.set(true);
-    this.excelExportService.download({ entites: 'interventions' }).pipe(
-      take(1),
-    ).subscribe({
-      next: (blob) => {
-        downloadBlobAs(blob, 'interventions.xlsx');
-        this.exporting.set(false);
-      },
-      error: () => {
-        this.toastr.error('Erreur lors de l\'export Excel.');
-        this.exporting.set(false);
-      },
+    this.excelExportService.download({
+      entites: 'interventions',
+      columns: result.columns,
+      statut: result.filters['statut'],
+      categorie: result.filters['categorie'],
+    }).pipe(take(1)).subscribe({
+      next: blob => { downloadBlobAs(blob, 'interventions.xlsx'); this.exporting.set(false); },
+      error: () => { this.toastr.error('Erreur lors de l\'export Excel.'); this.exporting.set(false); },
     });
   }
 }

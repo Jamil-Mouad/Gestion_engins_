@@ -83,9 +83,9 @@ export class SevBadgeComponent {
 
   get label(): string {
     const labels: Record<string, string> = {
-      warning: '⚠ Alerte', critical: '🔴 Critique', success: '✓ OK', info: 'Info',
+      warning: 'Alerte', critical: 'Critique', success: 'OK', info: 'Info',
       preventive: 'Préventive', corrective: 'Corrective', depannage: 'Dépannage', controle: 'Contrôle',
-      depasse: '🔴 Dépassé', proche: '⚠ Proche',
+      depasse: 'Dépassé', proche: 'Proche',
     };
     return labels[this.type] ?? this.type;
   }

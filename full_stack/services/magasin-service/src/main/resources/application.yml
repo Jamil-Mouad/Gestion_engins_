@@ -1,0 +1,57 @@
+spring:
+  application:
+    name: magasin-service
+  servlet:
+    multipart:
+      max-file-size: 10MB
+      max-request-size: 11MB
+  datasource:
+    url: ${POSTGRES_URL:jdbc:postgresql://localhost:5432/fleettracker}
+    username: ${POSTGRES_USER:intersig}
+    password: ${POSTGRES_PASSWORD:CHANGE_ME}
+    hikari:
+      maximum-pool-size: 10
+      minimum-idle: 2
+      connection-timeout: 5000
+      leak-detection-threshold: 10000
+  jpa:
+    hibernate:
+      ddl-auto: validate
+    properties:
+      hibernate:
+        default_schema: public
+        format_sql: false
+  flyway:
+    enabled: true
+    baseline-on-migrate: true
+    baseline-version: "11"
+    table: flyway_schema_history_magasin
+    locations: classpath:db/migrations
+
+springdoc:
+  swagger-ui:
+    enabled: ${SWAGGER_ENABLED:false}
+  api-docs:
+    enabled: ${SWAGGER_ENABLED:false}
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: ${MANAGEMENT_ENDPOINTS:health,metrics}
+
+app:
+  # fleet-core internal base URL — a fuel sortie posts the vehicle's counter reading here
+  # so tyre km advances and threshold alerts fire (see FleetCoreClient)
+  fleet-core:
+    base-url: ${FLEET_CORE_URL:http://127.0.0.1:8081}
+
+server:
+  port: 8084
+  address: ${SERVER_ADDRESS:127.0.0.1}
+  http2:
+    enabled: true
+  compression:
+    enabled: true
+    mime-types: application/json,application/xml,text/html,text/plain
+    min-response-size: 1024

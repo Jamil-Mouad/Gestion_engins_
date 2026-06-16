@@ -44,7 +44,7 @@ const ALL_WIDGET_IDS = [
   styles: [`
     .dashboard-page {
       background: var(--color-surface-2, #F5F5F5);
-      min-height: calc(100vh - 72px);
+      min-height: calc(100vh - 88px);
     }
     .dashboard-header {
       background: white;

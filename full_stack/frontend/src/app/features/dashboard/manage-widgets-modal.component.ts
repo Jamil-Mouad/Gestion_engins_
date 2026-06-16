@@ -72,11 +72,10 @@ const WIDGET_LABELS: Record<string, string> = {
 export class ManageWidgetsModalComponent {
   @Input() allWidgets: string[] = [];
   @Input() currentConfig: DashboardConfig = [];
+  @Input() widgetGroups: { label: string; ids: string[] }[] = WIDGET_GROUPS;
+  @Input() widgetLabels: Record<string, string> = WIDGET_LABELS;
   @Output() configChanged = new EventEmitter<DashboardConfig>();
   @Output() close = new EventEmitter<void>();
-
-  widgetGroups = WIDGET_GROUPS;
-  widgetLabels = WIDGET_LABELS;
 
   private localConfig = signal<DashboardConfig>([]);
 

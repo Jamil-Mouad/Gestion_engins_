@@ -1,0 +1,42 @@
+- generic [ref=e2]:
+  - banner [ref=e3]:
+    - link "INTERSIG INTERSIG FleetTracker" [ref=e4] [cursor=pointer]:
+      - /url: /vehicules
+      - img "INTERSIG" [ref=e5]
+      - img [ref=e7]
+      - generic [ref=e9]:
+        - generic [ref=e10]: INTERSIG
+        - generic [ref=e11]: FleetTracker
+    - generic [ref=e12]:
+      - link "Véhicules" [ref=e14] [cursor=pointer]:
+        - /url: /vehicules
+        - generic [ref=e15]: Véhicules
+      - link "Interventions" [ref=e17] [cursor=pointer]:
+        - /url: /interventions
+        - generic [ref=e18]: Interventions
+      - link "Composants" [ref=e20] [cursor=pointer]:
+        - /url: /composants
+        - generic [ref=e21]: Composants
+      - link "Demandes" [ref=e23] [cursor=pointer]:
+        - /url: /demandes-achat
+        - generic [ref=e24]: Demandes
+      - link "Magasin" [ref=e26] [cursor=pointer]:
+        - /url: /magasin
+        - generic [ref=e27]: Magasin
+      - link "Chat AI" [ref=e29] [cursor=pointer]:
+        - /url: /chatbot
+        - generic [ref=e30]: Chat AI
+      - link "Import" [ref=e32] [cursor=pointer]:
+        - /url: /import-export
+        - generic [ref=e33]: Import
+    - generic [ref=e34]:
+      - button "Notifications" [ref=e37] [cursor=pointer]:
+        - img [ref=e38]
+      - generic [ref=e42] [cursor=pointer]:
+        - generic [ref=e43]: AD
+        - img [ref=e45]
+  - main [ref=e47]:
+    - generic "Mon profil" [ref=e50]:
+      - generic [ref=e51]:
+        - generic:
+          - heading [level=1]

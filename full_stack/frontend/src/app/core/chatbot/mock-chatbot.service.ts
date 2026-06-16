@@ -11,7 +11,7 @@ const SCENARIO_MAINTENANCE: ChatbotChunk[] = [
   { type: 'text', content: 'soit approximativement le 15 juin 2026.' },
   { type: 'text', content: ' Je vous recommande de planifier ' },
   { type: 'text', content: "un arrêt préventif avant cette échéance." },
-  { type: 'source', source: { title: 'Suivi Vidanges CAM-001', url: '/vidanges?vehicule=1' } },
+  { type: 'source', source: { title: 'Suivi Vidanges CAM-001', url: '/vehicules/1' } },
   { type: 'source', source: { title: 'Historique interventions', url: '/interventions?vehicule=1' } },
   { type: 'done' },
 ];

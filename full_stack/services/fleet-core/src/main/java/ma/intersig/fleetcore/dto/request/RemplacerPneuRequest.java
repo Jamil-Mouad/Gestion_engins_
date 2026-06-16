@@ -11,6 +11,7 @@ import java.time.LocalDate;
 
 public record RemplacerPneuRequest(
         @NotBlank String nSerie,
+        @NotBlank String reference,
         @NotBlank String marque,
         @NotNull @PastOrPresent LocalDate dateMontage,
         @Positive int expectedLifeKm,

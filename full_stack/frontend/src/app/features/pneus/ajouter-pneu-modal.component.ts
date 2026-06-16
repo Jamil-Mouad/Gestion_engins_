@@ -38,8 +38,14 @@ import { ModalShellComponent } from '../../shared/ui/modal/modal-shell.component
           </div>
 
           <div class="form-group">
-            <label class="form-label">N° série</label>
-            <input class="form-input" type="text" [(ngModel)]="nSerie" placeholder="ex. MIC-789012" />
+            <label class="form-label">N° série <span class="required">*</span></label>
+            <input class="form-input" type="text" [(ngModel)]="nSerie" placeholder="ex. SN-2026-000123" />
+            <span class="form-hint">Identifiant unique du pneu — deux pneus ne peuvent pas partager le même N° série.</span>
+          </div>
+
+          <div class="form-group">
+            <label class="form-label">Référence <span class="required">*</span></label>
+            <input class="form-input" type="text" [(ngModel)]="reference" placeholder="ex. MIC-789012" />
           </div>
 
           <div class="form-group">
@@ -76,7 +82,7 @@ import { ModalShellComponent } from '../../shared/ui/modal/modal-shell.component
           <div class="modal-actions">
             <button type="button" class="btn-cancel" (click)="close.emit()">Annuler</button>
             <button type="button" class="btn-confirm"
-                    [disabled]="saving() || !position || !expectedLifeKm"
+                    [disabled]="saving() || !position || !expectedLifeKm || !nSerie.trim() || !reference.trim()"
                     (click)="onConfirm()">
               {{ saving() ? 'Ajout en cours…' : 'Ajouter' }}
             </button>
@@ -157,12 +163,16 @@ export class AjouterPneuModalComponent {
   @Input({ required: true }) vehiculeId!: number;
   @Input() availablePositions: number[] = [];
   @Input() maxPosition = 10;
+  @Input() set initialPosition(value: number | null) {
+    if (value != null) this.position = value;
+  }
 
   @Output() saved = new EventEmitter<void>();
   @Output() close = new EventEmitter<void>();
 
   position: number | null = null;
   nSerie = '';
+  reference = '';
   marque = '';
   dateMontage = '';
   expectedLifeKm: number | null = 80000;
@@ -208,12 +218,13 @@ export class AjouterPneuModalComponent {
   }
 
   onConfirm(): void {
-    if (!this.position || !this.expectedLifeKm) return;
+    if (!this.position || !this.expectedLifeKm || !this.nSerie.trim() || !this.reference.trim()) return;
     this.saving.set(true);
     this.error.set(null);
     this.pneuService.assign(this.vehiculeId, {
       position: this.position,
-      nSerie: this.nSerie || null,
+      nSerie: this.nSerie.trim(),
+      reference: this.reference.trim(),
       marque: this.marque || null,
       dateMontage: this.dateMontage || null,
       expectedLifeKm: this.expectedLifeKm,

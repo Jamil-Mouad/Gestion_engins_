@@ -152,6 +152,14 @@ export class AuthService {
     return this.http.put<void>(`${this.API}/me/password`, data);
   }
 
+  patchUser(partial: Partial<User>): void {
+    const current = this._user();
+    if (!current) return;
+    const merged = { ...current, ...partial };
+    this._user.set(merged);
+    this.setStoredToken(this.USER_CACHE_KEY, JSON.stringify(merged), this.isRemembered());
+  }
+
   requestPasswordReset(email: string): Observable<void> {
     return this.http.post<void>(`${this.API}/password-reset/request`, { email });
   }

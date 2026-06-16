@@ -15,10 +15,17 @@ public class Composant {
     @JoinColumn(name = "parent_id")
     private Composant parent;
 
+    // NULL = template node (per-type starter tree); a value makes the node
+    // part of that vehicle's own composant tree (V123).
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "vehicule_id")
+    private Vehicule vehicule;
+
     @Column(nullable = false, columnDefinition = "SMALLINT")
     private Short niveau;
 
-    @Column(unique = true, length = 40)
+    // unique per (vehicule_id, reference) — see V123
+    @Column(length = 40)
     private String reference;
 
     @Column(nullable = false, length = 120)
@@ -65,6 +72,8 @@ public class Composant {
     public void setId(Long id) { this.id = id; }
     public Composant getParent() { return parent; }
     public void setParent(Composant parent) { this.parent = parent; }
+    public Vehicule getVehicule() { return vehicule; }
+    public void setVehicule(Vehicule vehicule) { this.vehicule = vehicule; }
     public Short getNiveau() { return niveau; }
     public void setNiveau(Short niveau) { this.niveau = niveau; }
     public String getReference() { return reference; }

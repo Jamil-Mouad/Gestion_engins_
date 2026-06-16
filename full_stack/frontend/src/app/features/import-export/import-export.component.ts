@@ -35,6 +35,8 @@ import { CardComponent } from '../../shared/ui/card/card.component';
             <select id="importEntiteSelect" class="ie-select" [ngModel]="importEntite()" (ngModelChange)="importEntite.set($event)">
               <option value="vehicules">Véhicules</option>
               <option value="composants">Composants</option>
+              <option value="interventions">Interventions</option>
+              <option value="demandes-achat">Demandes d'achat</option>
             </select>
           </div>
 
@@ -74,14 +76,14 @@ import { CardComponent } from '../../shared/ui/card/card.component';
   `,
   styles: [`
     @keyframes screenEnter {
-      from { opacity: 0; transform: translateY(12px); }
-      to   { opacity: 1; transform: translateY(0); }
+      from { opacity: 0; }
+      to   { opacity: 1; }
     }
     @keyframes spin { to { transform: rotate(360deg); } }
 
     .ie-page {
       background: var(--color-background, #F5F5F5);
-      min-height: calc(100vh - 72px);
+      min-height: calc(100vh - 88px);
     }
 
     .ie-content {
@@ -179,7 +181,7 @@ export class ImportExportComponent {
   uploading = signal(false);
   uploadError = signal('');
 
-  importEntite = signal<'vehicules' | 'composants'>('vehicules');
+  importEntite = signal<'vehicules' | 'composants' | 'interventions' | 'demandes-achat'>('vehicules');
 
   constructor() {
     this.loadHistorique();

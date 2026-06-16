@@ -6,6 +6,11 @@ describe('ImageLightboxComponent', () => {
     TestBed.configureTestingModule({});
   });
 
+  afterEach(() => {
+    // Remove any portal appended to body by the lightbox during tests
+    document.querySelector('app-lb-portal')?.remove();
+  });
+
   it('creates the component', () => {
     const fixture = TestBed.createComponent(ImageLightboxComponent);
     fixture.detectChanges();
@@ -45,31 +50,28 @@ describe('ImageLightboxComponent', () => {
     expect(fixture.componentInstance.open()).toBe(true);
   });
 
-  it('lightbox overlay renders when open is true', () => {
+  it('lightbox overlay renders on document.body when opened', () => {
     const fixture = TestBed.createComponent(ImageLightboxComponent);
     fixture.componentInstance.src = 'http://example.com/photo.jpg';
-    fixture.componentInstance.open.set(true);
+    fixture.componentInstance.openLightbox();
     fixture.detectChanges();
-    const nativeEl = fixture.nativeElement as HTMLElement;
-    expect(nativeEl.querySelector('.lb-backdrop')).toBeTruthy();
+    expect(document.body.querySelector('.lb-backdrop')).toBeTruthy();
   });
 
-  it('lightbox overlay is not rendered when open is false', () => {
+  it('lightbox overlay is not on document.body when closed', () => {
     const fixture = TestBed.createComponent(ImageLightboxComponent);
     fixture.componentInstance.src = 'http://example.com/photo.jpg';
-    fixture.componentInstance.open.set(false);
     fixture.detectChanges();
-    const nativeEl = fixture.nativeElement as HTMLElement;
-    expect(nativeEl.querySelector('.lb-backdrop')).toBeFalsy();
+    expect(document.body.querySelector('.lb-backdrop')).toBeFalsy();
   });
 
   it('clicking close button closes lightbox', () => {
     const fixture = TestBed.createComponent(ImageLightboxComponent);
     fixture.componentInstance.src = 'http://example.com/photo.jpg';
-    fixture.componentInstance.open.set(true);
+    fixture.componentInstance.openLightbox();
     fixture.detectChanges();
 
-    const closeBtn = fixture.nativeElement.querySelector('.lb-close') as HTMLElement;
+    const closeBtn = document.body.querySelector('.lb-btn[aria-label="Fermer"]') as HTMLElement;
     closeBtn.click();
     expect(fixture.componentInstance.open()).toBe(false);
   });
@@ -77,7 +79,7 @@ describe('ImageLightboxComponent', () => {
   it('pressing Escape key closes lightbox', () => {
     const fixture = TestBed.createComponent(ImageLightboxComponent);
     fixture.componentInstance.src = 'http://example.com/photo.jpg';
-    fixture.componentInstance.open.set(true);
+    fixture.componentInstance.openLightbox();
     fixture.detectChanges();
 
     fixture.componentInstance.onEsc();

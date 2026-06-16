@@ -68,13 +68,6 @@ public class PneuService {
     }
 
     @Transactional(readOnly = true)
-    public List<PneuDto> listAll() {
-        return pneuRepository.findAllWithVehicule().stream()
-                .map(PneuDto::from)
-                .toList();
-    }
-
-    @Transactional(readOnly = true)
     public List<PneuDto> listAvailable() {
         return pneuRepository.findAllAvailable().stream()
                 .map(PneuDto::from)
@@ -131,7 +124,11 @@ public class PneuService {
         Pneu pneu = pneuRepository.findById(pneuId)
                 .orElseThrow(() -> new ResourceNotFoundException("Pneu not found", "PNEU_NOT_FOUND"));
 
-        if (req.nSerie() != null)         pneu.setNSerie(req.nSerie());
+        if (req.nSerie() != null) {
+            validateUniqueNSerie(req.nSerie(), pneuId);
+            pneu.setNSerie(req.nSerie());
+        }
+        if (req.reference() != null)      pneu.setReference(req.reference());
         if (req.marque() != null)         pneu.setMarque(req.marque());
         if (req.dateMontage() != null)    pneu.setDateMontage(req.dateMontage());
         if (req.expectedLifeKm() != null) pneu.setExpectedLifeKm(req.expectedLifeKm());
@@ -155,10 +152,13 @@ public class PneuService {
                     throw new BusinessException("Position " + req.position() + " is already occupied", "POSITION_OCCUPIED", 422);
                 });
 
+        validateUniqueNSerie(req.nSerie(), null);
+
         Pneu pneu = new Pneu();
         pneu.setVehicule(vehicule);
         pneu.setPosition(req.position());
         pneu.setNSerie(req.nSerie());
+        pneu.setReference(req.reference());
         pneu.setMarque(req.marque());
         pneu.setDateMontage(req.dateMontage());
         pneu.setExpectedLifeKm(req.expectedLifeKm());
@@ -223,6 +223,8 @@ public class PneuService {
 
         Vehicule vehicule = oldPneu.getVehicule();
 
+        validateUniqueNSerie(req.nSerie(), null);
+
         oldPneu.setActif(false);
         pneuRepository.save(oldPneu);
         entityManager.flush(); // force UPDATE before INSERT of new pneu at same position
@@ -233,6 +235,7 @@ public class PneuService {
         newPneu.setVehicule(vehicule);
         newPneu.setPosition(oldPneu.getPosition());
         newPneu.setNSerie(req.nSerie());
+        newPneu.setReference(req.reference());
         newPneu.setMarque(req.marque());
         newPneu.setDateMontage(req.dateMontage());
         newPneu.setExpectedLifeKm(req.expectedLifeKm());
@@ -311,6 +314,17 @@ public class PneuService {
                 .orElseThrow(() -> new ResourceNotFoundException("Pneu not found", "PNEU_NOT_FOUND"));
         pneu.setActif(false);
         pneuRepository.save(pneu);
+    }
+
+    private void validateUniqueNSerie(String nSerie, Long excludeId) {
+        if (nSerie == null || nSerie.isBlank()) {
+            return;
+        }
+        if (pneuRepository.existsByNSerieAndIdNot(nSerie, excludeId != null ? excludeId : -1L)) {
+            throw new BusinessException(
+                    "A tire with serial number '" + nSerie + "' already exists",
+                    "N_SERIE_ALREADY_EXISTS", 409);
+        }
     }
 
     private Integer getVehiculeKm(Vehicule vehicule) {

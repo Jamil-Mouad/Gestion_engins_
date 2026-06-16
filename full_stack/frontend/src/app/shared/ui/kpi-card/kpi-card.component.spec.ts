@@ -48,4 +48,16 @@ describe('KpiCardComponent', () => {
     const host: HTMLElement = fixture.nativeElement;
     expect(host.style.getPropertyValue('--kpi-left-border')).toBe('4px solid var(--color-primary)');
   });
+
+  it('should not apply the compact class by default', () => {
+    const host: HTMLElement = fixture.nativeElement;
+    expect(host.classList.contains('compact')).toBe(false);
+  });
+
+  it('should apply the compact class when compact=true', () => {
+    component.compact = true;
+    fixture.detectChanges();
+    const host: HTMLElement = fixture.nativeElement;
+    expect(host.classList.contains('compact')).toBe(true);
+  });
 });

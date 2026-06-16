@@ -53,17 +53,20 @@ public class ReleveCompteurService {
     private final VehiculeRepository vehiculeRepository;
     private final UserRepository userRepository;
     private final ImportsHistoriqueRepository importsHistoriqueRepository;
+    private final PneuAlertService pneuAlertService;
     private final EntityManager entityManager;
 
     public ReleveCompteurService(ReleveCompteurRepository releveRepository,
                                   VehiculeRepository vehiculeRepository,
                                   UserRepository userRepository,
                                   ImportsHistoriqueRepository importsHistoriqueRepository,
+                                  PneuAlertService pneuAlertService,
                                   EntityManager entityManager) {
         this.releveRepository = releveRepository;
         this.vehiculeRepository = vehiculeRepository;
         this.userRepository = userRepository;
         this.importsHistoriqueRepository = importsHistoriqueRepository;
+        this.pneuAlertService = pneuAlertService;
         this.entityManager = entityManager;
     }
 
@@ -92,6 +95,10 @@ public class ReleveCompteurService {
         releve = releveRepository.save(releve);
         entityManager.flush();
         entityManager.refresh(vehicule);
+
+        // the process_releve trigger has now advanced the vehicle's active tyres'
+        // km — evaluate them immediately so threshold alerts appear in real time
+        pneuAlertService.evaluateVehicule(vehicule.getId());
 
         return ReleveCompteurDto.from(releve);
     }
@@ -134,7 +141,12 @@ public class ReleveCompteurService {
                         errors.add(new ImportRowError(i + 1, "vehicule_code", "VEHICLE_NOT_FOUND"));
                         continue;
                     }
-                    Vehicule vehicule = matches.get(0);
+                    // a tracteur+semi pair shares one code — counter readings
+                    // belong to the camion (semis have no compteur)
+                    Vehicule vehicule = matches.stream()
+                            .filter(v -> v instanceof ma.intersig.fleetcore.entity.Camion)
+                            .findFirst()
+                            .orElse(matches.get(0));
 
                     OffsetDateTime dateReleve = parseDate(dateStr, i + 1);
                     if (dateReleve == null) {

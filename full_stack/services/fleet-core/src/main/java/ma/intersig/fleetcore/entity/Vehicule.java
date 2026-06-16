@@ -16,7 +16,8 @@ public class Vehicule {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
-    @Column(unique = true, nullable = false, length = 20)
+    // unique per (code, type) — see V121; a tracteur+semi pair shares one code
+    @Column(nullable = false, length = 20)
     private String code;
 
     @Column(nullable = false, length = 30)

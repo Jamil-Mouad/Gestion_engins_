@@ -33,12 +33,11 @@ describe('FilterChipComponent', () => {
     expect(btn.classList.contains('filter-chip--active')).toBeTrue();
   });
 
-  it('should show checkmark when active', () => {
+  it('applies the active class when active', () => {
     component.active = true;
     fixture.detectChanges();
-    const check = fixture.nativeElement.querySelector('.filter-chip-check');
-    expect(check).toBeTruthy();
-    expect(check.textContent.trim()).toBe('✓');
+    const btn: HTMLButtonElement = fixture.nativeElement.querySelector('.filter-chip');
+    expect(btn.classList.contains('filter-chip--active')).toBeTrue();
   });
 
   it('should emit clicked on button click', () => {

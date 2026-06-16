@@ -52,7 +52,7 @@ public interface VehiculeRepository extends JpaRepository<Vehicule, Long> {
     @Query("SELECT v FROM Vehicule v WHERE v.actif = true AND v.type = :type AND v.statut = :statut")
     Page<Vehicule> findByTypeAndStatutAndActifTrue(@Param("type") String type, @Param("statut") String statut, Pageable pageable);
 
-    Optional<Vehicule> findByCodeAndIdNot(String code, Long id);
+    Optional<Vehicule> findByCodeAndTypeAndIdNot(String code, String type, Long id);
 
     Optional<Vehicule> findByMatriculeAndIdNot(String matricule, Long id);
 

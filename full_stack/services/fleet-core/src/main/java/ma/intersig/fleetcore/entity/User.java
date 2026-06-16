@@ -1,6 +1,8 @@
 package ma.intersig.fleetcore.entity;
 
 import jakarta.persistence.*;
+import org.hibernate.annotations.JdbcTypeCode;
+import org.hibernate.type.SqlTypes;
 
 
 
@@ -20,9 +22,11 @@ public class User {
     @Column(nullable = false, length = 60)
     private String nom;
 
+    @JdbcTypeCode(SqlTypes.JSON)
     @Column(name = "dashboard_config", columnDefinition = "jsonb")
     private String dashboardConfig;
 
+    @JdbcTypeCode(SqlTypes.JSON)
     @Column(name = "preferences_notifications", columnDefinition = "jsonb")
     private String preferencesNotifications;
 

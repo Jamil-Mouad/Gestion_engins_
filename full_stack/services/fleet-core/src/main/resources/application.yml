@@ -36,6 +36,10 @@ app:
   fleet-core:
     scheduler:
       alert-window-hours: ${ALERT_WINDOW_HOURS:1}
+  notifications:
+    dedup-window-hours: ${NOTIF_DEDUP_WINDOW_HOURS:24}
+    # raise an early "approche" tyre alert when remaining life drops at/below this many km
+    pneu-approche-km: ${PNEU_APPROCHE_KM:1000}
   mail:
     from: ${MAIL_FROM:noreply@intersig.ma}
 
@@ -46,11 +50,17 @@ spring.mail.password: ${MAIL_PASSWORD:}
 spring.mail.properties.mail.smtp.auth: true
 spring.mail.properties.mail.smtp.starttls.enable: true
 
+springdoc:
+  swagger-ui:
+    enabled: ${SWAGGER_ENABLED:false}
+  api-docs:
+    enabled: ${SWAGGER_ENABLED:false}
+
 management:
   endpoints:
     web:
       exposure:
-        include: health,metrics,prometheus,caches
+        include: ${MANAGEMENT_ENDPOINTS:health}
   metrics:
     distribution:
       percentiles-histogram:
@@ -62,7 +72,7 @@ logging:
 
 server:
   port: 8081
-  address: 127.0.0.1
+  address: ${SERVER_ADDRESS:127.0.0.1}
   http2:
     enabled: true
   compression:

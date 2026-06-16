@@ -2,16 +2,14 @@ package ma.intersig.fleetcore.scheduler;
 
 import ma.intersig.fleetcore.entity.Camion;
 import ma.intersig.fleetcore.entity.Notification;
-import ma.intersig.fleetcore.entity.Pneu;
 import ma.intersig.fleetcore.entity.SuiviVidange;
 import ma.intersig.fleetcore.entity.User;
-import ma.intersig.fleetcore.entity.Vehicule;
 import ma.intersig.fleetcore.event.NotificationCreatedEvent;
 import ma.intersig.fleetcore.repository.CamionRepository;
 import ma.intersig.fleetcore.repository.NotificationRepository;
-import ma.intersig.fleetcore.repository.PneuRepository;
 import ma.intersig.fleetcore.repository.SuiviVidangeRepository;
 import ma.intersig.fleetcore.repository.UserRepository;
+import ma.intersig.fleetcore.service.PneuAlertService;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Value;
@@ -30,25 +28,25 @@ public class NotificationScheduler {
     private static final Logger log = LoggerFactory.getLogger(NotificationScheduler.class);
 
     private final UserRepository userRepository;
-    private final PneuRepository pneuRepository;
     private final SuiviVidangeRepository suiviVidangeRepository;
     private final CamionRepository camionRepository;
     private final NotificationRepository notificationRepository;
+    private final PneuAlertService pneuAlertService;
     private final ApplicationEventPublisher eventPublisher;
     private final long dedupWindowHours;
 
     public NotificationScheduler(UserRepository userRepository,
-                                  PneuRepository pneuRepository,
                                   SuiviVidangeRepository suiviVidangeRepository,
                                   CamionRepository camionRepository,
                                   NotificationRepository notificationRepository,
+                                  PneuAlertService pneuAlertService,
                                   ApplicationEventPublisher eventPublisher,
                                   @Value("${app.notifications.dedup-window-hours:24}") long dedupWindowHours) {
         this.userRepository = userRepository;
-        this.pneuRepository = pneuRepository;
         this.suiviVidangeRepository = suiviVidangeRepository;
         this.camionRepository = camionRepository;
         this.notificationRepository = notificationRepository;
+        this.pneuAlertService = pneuAlertService;
         this.eventPublisher = eventPublisher;
         this.dedupWindowHours = dedupWindowHours;
     }
@@ -63,35 +61,9 @@ public class NotificationScheduler {
         List<User> activeUsers = userRepository.findByActifTrue();
         OffsetDateTime dedupSince = OffsetDateTime.now().minusHours(dedupWindowHours);
 
-        processPneuAlerts(activeUsers, dedupSince);
+        pneuAlertService.evaluateAll();
         processVidangeAlerts(activeUsers, dedupSince);
         processExpiryAlerts(activeUsers, dedupSince);
-    }
-
-    private void processPneuAlerts(List<User> activeUsers, OffsetDateTime dedupSince) {
-        List<Pneu> warnPneus = pneuRepository.findByStatusInWithVehicule(List.of("warn", "empty"));
-
-        for (Pneu pneu : warnPneus) {
-            for (User user : activeUsers) {
-                if (notificationRepository.existsByUserIdAndCategorieAndTargetIdAndCreatedAtAfter(
-                        user.getId(), "seuil_pneu", pneu.getId(), dedupSince)) {
-                    continue;
-                }
-                Notification notif = new Notification();
-                notif.setUser(user);
-                notif.setVehicule(pneu.getVehicule());
-                notif.setSeverite("empty".equals(pneu.getStatus()) ? "critical" : "warning");
-                notif.setCategorie("seuil_pneu");
-                notif.setTitre("Pneu en alerte");
-                notif.setDetail("Pneu position " + pneu.getPosition() + " du véhicule " + pneu.getVehicule().getCode() + " est en statut " + pneu.getStatus());
-                notif.setTargetScreen("pneus");
-                notif.setTargetId(pneu.getId());
-                notif.setLu(false);
-                notif.setEmailEnvoye(false);
-                notificationRepository.save(notif);
-                sendEmailIfCritical(notif, user);
-            }
-        }
     }
 
     private void processVidangeAlerts(List<User> activeUsers, OffsetDateTime dedupSince) {

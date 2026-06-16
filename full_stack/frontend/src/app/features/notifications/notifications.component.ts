@@ -11,14 +11,13 @@ type NotificationTab = 'all' | 'unread' | 'seuils' | 'systeme';
 interface SevConfig {
   bg: string;
   iconColor: string;
-  icon: string;
 }
 
 const SEV_CFG: Record<string, SevConfig> = {
-  critical: { bg: 'var(--color-danger-soft, #FEE2E2)', iconColor: 'var(--color-danger, #EF4444)', icon: '⚠' },
-  warning:  { bg: 'var(--color-warning-soft, #FEF3C7)', iconColor: 'var(--color-warning, #F59E0B)', icon: '⚠' },
-  info:     { bg: 'var(--color-info-soft, #EFF6FF)', iconColor: 'var(--color-info, #3B82F6)', icon: 'ℹ' },
-  success:  { bg: 'var(--color-success-soft, #D1FAE5)', iconColor: 'var(--color-success, #10B981)', icon: '✓' },
+  critical: { bg: 'var(--color-danger-soft, #FEE2E2)', iconColor: 'var(--color-danger, #EF4444)' },
+  warning:  { bg: 'var(--color-warning-soft, #FEF3C7)', iconColor: 'var(--color-warning, #F59E0B)' },
+  info:     { bg: 'var(--color-info-soft, #EFF6FF)', iconColor: 'var(--color-info, #3B82F6)' },
+  success:  { bg: 'var(--color-success-soft, #D1FAE5)', iconColor: 'var(--color-success, #10B981)' },
 };
 
 @Component({
@@ -74,7 +73,7 @@ const SEV_CFG: Record<string, SevConfig> = {
         } @else if (notifications().length === 0) {
           <div class="notifications__empty">
             <app-empty-state
-              icon="🔔"
+              icon="bell"
               message="Aucune notification." />
           </div>
         } @else {
@@ -98,10 +97,8 @@ const SEV_CFG: Record<string, SevConfig> = {
                   class="notif-icon-circle"
                   [style.background]="getSevConfig(notif.severite).bg">
                   <span
-                    class="notif-icon-glyph"
-                    [style.color]="getSevConfig(notif.severite).iconColor">
-                    {{ getSevConfig(notif.severite).icon }}
-                  </span>
+                    class="notif-dot"
+                    [style.background]="getSevConfig(notif.severite).iconColor"></span>
                 </div>
                 <!-- Text -->
                 <div class="notif-item-body">
@@ -142,10 +139,8 @@ const SEV_CFG: Record<string, SevConfig> = {
                   class="notif-icon-circle"
                   [style.background]="getSevConfig(notif.severite).bg">
                   <span
-                    class="notif-icon-glyph"
-                    [style.color]="getSevConfig(notif.severite).iconColor">
-                    {{ getSevConfig(notif.severite).icon }}
-                  </span>
+                    class="notif-dot"
+                    [style.background]="getSevConfig(notif.severite).iconColor"></span>
                 </div>
                 <div class="notif-item-body">
                   <div
@@ -171,17 +166,17 @@ const SEV_CFG: Record<string, SevConfig> = {
   `,
   styles: [`
     @keyframes screenEnter {
-      from { opacity: 0; transform: translateY(12px); }
-      to   { opacity: 1; transform: translateY(0); }
+      from { opacity: 0; }
+      to   { opacity: 1; }
     }
     @keyframes rowEnter {
       from { opacity: 0; transform: translateX(-6px); }
-      to   { opacity: 1; transform: translateX(0); }
+      to   { opacity: 1; }
     }
 
     .notif-screen {
       background: var(--color-background, #F5F5F5);
-      min-height: calc(100vh - 72px);
+      min-height: calc(100vh - 88px);
       animation: screenEnter 300ms ease-out both;
     }
 
@@ -366,10 +361,10 @@ const SEV_CFG: Record<string, SevConfig> = {
       justify-content: center;
       flex-shrink: 0;
     }
-    .notif-icon-glyph {
-      font-size: 16px;
-      font-weight: 700;
-      line-height: 1;
+    .notif-dot {
+      width: 12px;
+      height: 12px;
+      border-radius: 50%;
     }
 
     /* Body */

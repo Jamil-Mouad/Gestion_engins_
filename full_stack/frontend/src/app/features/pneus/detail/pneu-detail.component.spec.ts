@@ -14,6 +14,7 @@ const mockPneu: Pneu = {
   vehiculeCode: 'CAM-001',
   position: 1,
   nSerie: 'SN-001',
+  reference: 'REF-001',
   marque: 'Michelin',
   dateMontage: '2025-01-01',
   kmMontage: 0,

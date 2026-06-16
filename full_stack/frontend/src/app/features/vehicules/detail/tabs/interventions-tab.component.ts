@@ -21,6 +21,7 @@ import { NewInterventionModalComponent } from '../../../interventions/new-interv
 import { ImageLightboxComponent } from '../../../../shared/ui/image-lightbox/image-lightbox.component';
 import { ExcelExportService } from '../../../../shared/services/excel-export.service';
 import { downloadBlobAs } from '../../../../shared/utils/download-blob';
+import { ExportExcelModalComponent, ExportColDef, ExportFilterDef, ExportResult } from '../../../../shared/ui/export-excel-modal/export-excel-modal.component';
 
 const LS_KEY = 'fleet.interventions-tab.columns';
 
@@ -48,7 +49,7 @@ function loadColIds(): string[] {
     BadgeComponent, EmptyStateComponent, SkeletonComponent,
     CardComponent, DataTableHeaderComponent, DataTableRowComponent,
     FilterChipComponent, ColumnManagerModalComponent, NewInterventionModalComponent,
-    ImageLightboxComponent,
+    ImageLightboxComponent, ExportExcelModalComponent,
   ],
   template: `
     <app-card title="Interventions">
@@ -129,39 +130,15 @@ function loadColIds(): string[] {
               }
             </app-data-table-row>
             @if (expandedIds().has(iv.id)) {
-              <div class="int-detail">
-                <div class="int-detail-grid">
-                  <div class="int-detail-item">
-                    <span class="int-detail-label">Composant</span>
-                    <span class="int-detail-value">{{ iv.composant?.designation ?? '—' }}</span>
-                  </div>
-                  <div class="int-detail-item">
-                    <span class="int-detail-label">Temps</span>
-                    <span class="int-detail-value">{{ iv.tempsHeures != null ? (iv.tempsHeures + ' h') : '—' }}</span>
-                  </div>
-                  <div class="int-detail-item">
-                    <span class="int-detail-label">Coût pièces</span>
-                    <span class="int-detail-value">{{ iv.coutPieces | currencyMad }}</span>
-                  </div>
-                  <div class="int-detail-item">
-                    <span class="int-detail-label">Main d'œuvre</span>
-                    <span class="int-detail-value">{{ iv.coutMainOeuvre | currencyMad }}</span>
-                  </div>
-                  <div class="int-detail-item">
-                    <span class="int-detail-label">Sous-traitance</span>
-                    <span class="int-detail-value">{{ iv.coutSousTraitance | currencyMad }}</span>
-                  </div>
-                  <div class="int-detail-item">
-                    <span class="int-detail-label">Total</span>
-                    <span class="int-detail-value int-detail-value--bold">{{ iv.coutTotal | currencyMad }}</span>
-                  </div>
+              <div class="int-detail int-detail--row">
+                <div class="int-detail-item">
+                  <span class="int-detail-label">Composant</span>
+                  <span class="int-detail-value">{{ iv.composant?.designation ?? '—' }}</span>
                 </div>
-                @if (iv.observations) {
-                  <div class="int-detail-obs">
-                    <span class="int-detail-label">Observations</span>
-                    <span class="int-detail-value">{{ iv.observations }}</span>
-                  </div>
-                }
+                <div class="int-detail-item">
+                  <span class="int-detail-label">Observations</span>
+                  <span class="int-detail-value">{{ iv.observations || '—' }}</span>
+                </div>
               </div>
             }
           }
@@ -185,6 +162,15 @@ function loadColIds(): string[] {
         [presetVehicule]="{ id: vehiculeId, code: vehiculeCode }"
         (saved)="onInterventionCreated()"
         (close)="showNewModal.set(false)" />
+    }
+
+    @if (showExportModal()) {
+      <app-export-excel-modal
+        [allColumns]="exportColDefs"
+        [filterDefs]="exportFilterDefs"
+        [initialVisible]="exportDefaultColIds"
+        (exported)="onExportConfirmed($event)"
+        (cancel)="showExportModal.set(false)" />
     }
 
   `,
@@ -263,6 +249,7 @@ function loadColIds(): string[] {
     .int-detail-obs {
       margin-top: 10px; display: flex; flex-direction: column; gap: 2px;
     }
+    .int-detail--row { display: flex; flex-wrap: wrap; gap: 16px 32px; }
   `],
 })
 export class InterventionsTabComponent implements OnInit {
@@ -280,6 +267,7 @@ export class InterventionsTabComponent implements OnInit {
   statutFilter = signal<string>('all');
   showColMgr = signal(false);
   showNewModal = signal(false);
+  showExportModal = signal(false);
   expandedIds = signal<Set<number>>(new Set());
   exporting = signal(false);
 
@@ -350,23 +338,44 @@ export class InterventionsTabComponent implements OnInit {
     this.showColMgr.set(false);
   }
 
+  readonly exportColDefs: ExportColDef[] = [
+    { id: 'nBs',       label: 'N° BS' },
+    { id: 'date',      label: 'Date' },
+    { id: 'categorie', label: 'Type' },
+    { id: 'composant', label: 'Composant' },
+    { id: 'cout',      label: 'Coût (MAD)' },
+    { id: 'statut',    label: 'Statut' },
+  ];
+  readonly exportDefaultColIds = ['nBs', 'date', 'categorie', 'composant', 'cout', 'statut'];
+  readonly exportFilterDefs: ExportFilterDef[] = [
+    {
+      key: 'statut', label: 'Statut', type: 'select',
+      options: [
+        { value: 'en_cours', label: 'En cours' },
+        { value: 'cloture',  label: 'Terminées' },
+      ],
+    },
+  ];
+
   onExport(): void {
+    this.showExportModal.set(true);
+  }
+
+  onExportConfirmed(result: ExportResult): void {
+    this.showExportModal.set(false);
     if (this.exporting()) return;
     this.exporting.set(true);
     const filename = this.vehiculeCode
       ? `interventions-${this.vehiculeCode}.xlsx`
       : `interventions-${this.vehiculeId}.xlsx`;
-    this.excelExportService.download({ entites: 'interventions', vehiculeId: this.vehiculeId }).pipe(
-      take(1),
-    ).subscribe({
-      next: (blob) => {
-        downloadBlobAs(blob, filename);
-        this.exporting.set(false);
-      },
-      error: () => {
-        this.toastr.error('Erreur lors de l\'export Excel.');
-        this.exporting.set(false);
-      },
+    this.excelExportService.download({
+      entites: 'interventions',
+      vehiculeId: this.vehiculeId,
+      columns: result.columns,
+      statut: result.filters['statut'],
+    }).pipe(take(1)).subscribe({
+      next: blob => { downloadBlobAs(blob, filename); this.exporting.set(false); },
+      error: () => { this.toastr.error('Erreur lors de l\'export Excel.'); this.exporting.set(false); },
     });
   }
 

@@ -60,6 +60,10 @@ export interface DataTableRowCol {
       background: var(--color-surface-2, #F5F5F5);
     }
     .dtr-cell {
+      box-sizing: border-box;
+      /* min-width:0 lets a flex cell shrink below its content so the ellipsis
+         actually engages at narrow widths */
+      min-width: 0;
       padding: 0 16px;
       font-family: 'Open Sans', sans-serif;
       font-size: 13px;

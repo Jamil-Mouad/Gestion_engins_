@@ -38,9 +38,15 @@ import { DoubleClickGuardDirective } from '../../../shared/directives/double-cli
           </div>
         </div>
 
-        <div class="form-group">
-          <label>Matricule</label>
-          <input formControlName="matricule" placeholder="A-123-456" />
+        <div class="form-row">
+          <div class="form-group">
+            <label>Matricule</label>
+            <input formControlName="matricule" placeholder="A-123-456" />
+          </div>
+          <div class="form-group">
+            <label>N° châssis *</label>
+            <input formControlName="nChassis" placeholder="JALFSR23HW3000244" />
+          </div>
         </div>
 
         <div class="form-group">
@@ -176,7 +182,7 @@ export class NewVehiculeModalComponent {
     marque: ['', [Validators.required]],
     modele: [''],
     matricule: [''],
-    nChassis: [''],
+    nChassis: ['', [Validators.required]],
     annee: [null as number | null],
     carburant: ['gasoil'],
     statut: ['in-service' as VehiculeStatut, [Validators.required]],

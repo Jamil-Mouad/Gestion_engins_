@@ -11,6 +11,7 @@ public record AuthResponse(
         Long id,
         String email,
         String prenom,
-        String nom
+        String nom,
+        String role
     ) {}
 }

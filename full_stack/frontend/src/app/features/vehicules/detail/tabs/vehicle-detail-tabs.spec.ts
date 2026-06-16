@@ -9,15 +9,11 @@ import { signal } from '@angular/core';
 
 import { InterventionsTabComponent } from './interventions-tab.component';
 import { InfosTabComponent } from './infos-tab.component';
-import { VidangesTabComponent } from './vidanges-tab.component';
-import { HistoriqueTabComponent } from './historique-tab.component';
 import { KpisTabComponent } from './kpis-tab.component';
 import { DocumentsTabComponent } from './documents-tab.component';
 import { Intervention, InterventionStatut } from '../../../../shared/models/intervention.model';
 import { VehiculeDetail } from '../../../../shared/models/vehicule.model';
 import { Page } from '../../../../shared/models/pagination.model';
-import { SuiviVidange } from '../../../../shared/models/vidange.model';
-import { ReleveCompteur } from '../../../../shared/models/releve-compteur.model';
 import { KpiSnapshot } from '../../../../shared/models/dashboard.model';
 
 function makeIntervention(overrides: Partial<Intervention> = {}): Intervention {
@@ -313,123 +309,6 @@ describe('InfosTabComponent', () => {
     const fixture = createInfosTab();
     // history defaults to [] so terminatedHistory is []
     expect(fixture.componentInstance.terminatedHistory()).toEqual([]);
-  });
-});
-
-// ── VidangesTabComponent ──────────────────────────────────────────────────────
-
-describe('VidangesTabComponent', () => {
-  beforeEach(() => {
-    TestBed.configureTestingModule({
-      providers: [provideRouter([])],
-    });
-  });
-
-  it('creates the component with empty vidanges', () => {
-    const fixture = TestBed.createComponent(VidangesTabComponent);
-    fixture.componentInstance.vidanges = [];
-    fixture.detectChanges();
-    expect(fixture.componentInstance).toBeTruthy();
-  });
-
-  it('renders empty state when no vidanges', () => {
-    const fixture = TestBed.createComponent(VidangesTabComponent);
-    fixture.componentInstance.vidanges = [];
-    fixture.detectChanges();
-    const nativeEl = fixture.nativeElement as HTMLElement;
-    expect(nativeEl.querySelector('app-empty-state')).toBeTruthy();
-  });
-
-  it('renders vidanges table when vidanges provided', () => {
-    const fixture = TestBed.createComponent(VidangesTabComponent);
-    const mockVidange: SuiviVidange = {
-      id: 1,
-      vehicule: { id: 1, code: 'CAM-001', marque: 'Volvo', modele: 'FH16' },
-      composant: { id: 1, designation: 'Huile moteur' },
-      intervalleNbh: 500,
-      compteurNbhActuel: 450,
-      nbhRestant: 50,
-      dateDernierEntretien: null,
-      prochainEntretienEstime: null,
-      statut: 'a_faire',
-      createdAt: '2026-01-01T00:00:00Z',
-      updatedAt: '2026-01-01T00:00:00Z',
-    };
-    fixture.componentInstance.vidanges = [mockVidange];
-    fixture.detectChanges();
-    expect(fixture.nativeElement.textContent).toContain('Huile moteur');
-  });
-
-  it('getStatusVariant returns "success" for fait', () => {
-    const fixture = TestBed.createComponent(VidangesTabComponent);
-    expect(fixture.componentInstance.getStatusVariant('fait')).toBe('success');
-  });
-
-  it('getStatusVariant returns "info" for en_cours', () => {
-    const fixture = TestBed.createComponent(VidangesTabComponent);
-    expect(fixture.componentInstance.getStatusVariant('en_cours')).toBe('info');
-  });
-
-  it('getStatusVariant returns "warning" for a_faire', () => {
-    const fixture = TestBed.createComponent(VidangesTabComponent);
-    expect(fixture.componentInstance.getStatusVariant('a_faire')).toBe('warning');
-  });
-
-  it('getStatusVariant returns "danger" for depasse', () => {
-    const fixture = TestBed.createComponent(VidangesTabComponent);
-    expect(fixture.componentInstance.getStatusVariant('depasse')).toBe('danger');
-  });
-
-  it('getStatusVariant returns "secondary" for unknown status', () => {
-    const fixture = TestBed.createComponent(VidangesTabComponent);
-    expect(fixture.componentInstance.getStatusVariant('unknown')).toBe('secondary');
-  });
-});
-
-// ── HistoriqueTabComponent ─────��──────────────────────────────────────────────
-
-describe('HistoriqueTabComponent', () => {
-  beforeEach(() => {
-    TestBed.configureTestingModule({
-      providers: [provideRouter([])],
-    });
-  });
-
-  it('creates the component with empty releves', () => {
-    const fixture = TestBed.createComponent(HistoriqueTabComponent);
-    fixture.componentInstance.releves = [];
-    fixture.detectChanges();
-    expect(fixture.componentInstance).toBeTruthy();
-  });
-
-  it('renders empty state when no releves', () => {
-    const fixture = TestBed.createComponent(HistoriqueTabComponent);
-    fixture.componentInstance.releves = [];
-    fixture.detectChanges();
-    const nativeEl = fixture.nativeElement as HTMLElement;
-    expect(nativeEl.querySelector('app-empty-state')).toBeTruthy();
-  });
-
-  it('renders releves table when data provided', () => {
-    const fixture = TestBed.createComponent(HistoriqueTabComponent);
-    const mockReleve: ReleveCompteur = {
-      id: 1,
-      vehicule: { id: 1, code: 'CAM-001' },
-      dateReleve: '2026-05-01',
-      compteurKm: 150000,
-      compteurHeures: null,
-      source: 'manual',
-      importHistoriqueId: null,
-      createdBy: null,
-    };
-    fixture.componentInstance.releves = [mockReleve];
-    fixture.detectChanges();
-    expect(fixture.componentInstance).toBeTruthy();
-  });
-
-  it('cols property has 4 column definitions', () => {
-    const fixture = TestBed.createComponent(HistoriqueTabComponent);
-    expect(fixture.componentInstance.cols.length).toBe(4);
   });
 });
 

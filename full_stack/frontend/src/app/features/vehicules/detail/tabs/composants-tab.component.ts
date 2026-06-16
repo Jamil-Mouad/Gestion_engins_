@@ -1,4 +1,4 @@
-import { Component, Input, inject, signal, computed, DestroyRef } from '@angular/core';
+import { Component, Input, OnInit, inject, signal, computed, DestroyRef } from '@angular/core';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { switchMap, take } from 'rxjs';
 import { CommonModule, DecimalPipe } from '@angular/common';
@@ -7,10 +7,13 @@ import { LucideAngularModule } from 'lucide-angular';
 import { ToastrService } from 'ngx-toastr';
 import { ComposantService } from '../../../composants/composant.service';
 import { ComposantNode, Composant, ComposantCategorie } from '../../../../shared/models/composant.model';
+import { Attelage } from '../../../../shared/models/vehicule.model';
 import { SkeletonComponent } from '../../../../shared/ui/skeleton/skeleton.component';
 import { EmptyStateComponent } from '../../../../shared/ui/empty-state/empty-state.component';
 import { ModalShellComponent } from '../../../../shared/ui/modal/modal-shell.component';
 import { ConfirmDeleteModalComponent } from '../../../../shared/ui/confirm-delete-modal/confirm-delete-modal.component';
+import { FilterChipComponent } from '../../../../shared/ui/filter-chip/filter-chip.component';
+import { ImageLightboxComponent } from '../../../../shared/ui/image-lightbox/image-lightbox.component';
 import {
   DataTableHeaderComponent,
   DataTableRowComponent,
@@ -18,6 +21,12 @@ import {
 import { ColumnDef, ColumnManagerModalComponent } from '../../list/column-manager-modal.component';
 import { ExcelExportService } from '../../../../shared/services/excel-export.service';
 import { downloadBlobAs } from '../../../../shared/utils/download-blob';
+import {
+  ExportExcelModalComponent,
+  ExportColDef,
+  ExportFilterDef,
+  ExportResult,
+} from '../../../../shared/ui/export-excel-modal/export-excel-modal.component';
 
 // ── Column configuration ────────────────────────────────────────────────────
 const COMP_TAB_LS_KEY = 'fleet.vehicule-composants.columns';
@@ -52,12 +61,27 @@ const CATEGORIE_LABELS: Record<string, string> = {
   imports: [
     CommonModule, DecimalPipe, FormsModule, LucideAngularModule,
     SkeletonComponent, EmptyStateComponent, ModalShellComponent,
-    ConfirmDeleteModalComponent,
+    ConfirmDeleteModalComponent, FilterChipComponent, ImageLightboxComponent,
     DataTableHeaderComponent, DataTableRowComponent,
     ColumnManagerModalComponent,
+    ExportExcelModalComponent,
   ],
   template: `
     <div class="comp-tab">
+
+      <!-- ── Scope toggle (camion-tracteur ↔ semi-remorque) ── -->
+      @if (currentAttelage) {
+        <div class="scope-toggle">
+          <button class="scope-btn" [class.scope-btn--active]="activeScope() === 'tracteur'"
+                  (click)="setScope('tracteur')">
+            {{ currentAttelage.tracteurCode }}
+          </button>
+          <button class="scope-btn" [class.scope-btn--active]="activeScope() === 'semi'"
+                  (click)="setScope('semi')">
+            {{ currentAttelage.semiCode }}
+          </button>
+        </div>
+      }
 
       <!-- ── Toolbar ── -->
       <div class="comp-tab__toolbar">
@@ -75,6 +99,24 @@ const CATEGORIE_LABELS: Record<string, string> = {
         </button>
       </div>
 
+      <!-- ── Search + filter chips ── -->
+      <div class="comp-tab__search-row">
+        <div class="search-wrap">
+          <lucide-icon name="search" [size]="14" class="search-icon" />
+          <input class="search-input" placeholder="Rechercher un composant…"
+                 [value]="searchQuery()"
+                 (input)="searchQuery.set($any($event.target).value)" />
+        </div>
+        <div class="filter-chips">
+          <app-filter-chip label="Toutes" [active]="partieFilter() === 'all'"
+                           (clicked)="partieFilter.set('all')" />
+          @for (f of partieFilters; track f.value) {
+            <app-filter-chip [label]="f.label" [active]="partieFilter() === f.value"
+                             (clicked)="partieFilter.set(partieFilter() === f.value ? 'all' : f.value)" />
+          }
+        </div>
+      </div>
+
       @if (loading()) {
         <app-skeleton [rows]="5" height="48px" />
       }
@@ -82,16 +124,20 @@ const CATEGORIE_LABELS: Record<string, string> = {
       <!-- ══ TREE VIEW ══ -->
       @if (!loading() && viewMode() === 'tree') {
         @if (tree().length === 0) {
-          <app-empty-state icon="⚙️" message="Aucun composant dans le catalogue." />
+          <app-empty-state icon="package" message="Aucun composant dans le catalogue." />
         } @else {
           <div class="tree-layout">
 
             <!-- Left: tree navigation -->
             <div class="tree-nav">
               <div class="tree-nav__header">CATALOGUE</div>
-              @for (node of tree(); track node.id) {
-                <div class="tree-item tree-item--l1"
+              @for (node of treeRows(); track node.id) {
+                <div class="tree-item"
+                     [class.tree-item--l1]="node.niveau === 1"
+                     [class.tree-item--l2]="node.niveau === 2"
+                     [class.tree-item--l3]="node.niveau >= 3"
                      [class.tree-item--selected]="selectedId() === node.id"
+                     [style.padding-left.px]="(node.niveau - 1) * 18 + 12"
                      (click)="onTreeRowClick(node)">
                   @if (node.children.length > 0) {
                     <lucide-icon
@@ -101,39 +147,10 @@ const CATEGORIE_LABELS: Record<string, string> = {
                   } @else {
                     <span class="tree-leaf-pad"></span>
                   }
-                  <span class="tree-item__label">{{ node.designation }}</span>
-                  <span class="tree-item__level">(N1)</span>
+                  <span class="tree-item__label"
+                        [class.tree-item__label--leaf]="node.niveau >= 3">{{ node.designation }}</span>
+                  <span class="tree-item__level">(N{{ node.niveau }})</span>
                 </div>
-
-                @if (expandedIds().has(node.id)) {
-                  @for (child of node.children; track child.id) {
-                    <div class="tree-item tree-item--l2"
-                         [class.tree-item--selected]="selectedId() === child.id"
-                         (click)="onTreeRowClick(child)">
-                      @if (child.children.length > 0) {
-                        <lucide-icon
-                          [name]="expandedIds().has(child.id) ? 'chevron-down' : 'chevron-right'"
-                          [size]="11" class="tree-chevron"
-                          (click)="$event.stopPropagation(); toggleExpand(child.id)" />
-                      } @else {
-                        <span class="tree-leaf-pad"></span>
-                      }
-                      <span class="tree-item__label">{{ child.designation }}</span>
-                      <span class="tree-item__level">(N2)</span>
-                    </div>
-
-                    @if (expandedIds().has(child.id)) {
-                      @for (leaf of child.children; track leaf.id) {
-                        <div class="tree-item tree-item--l3"
-                             [class.tree-item--selected]="selectedId() === leaf.id"
-                             (click)="selectNode(leaf)">
-                          <span class="tree-leaf-pad"></span>
-                          <span class="tree-item__label tree-item__label--leaf">{{ leaf.designation }}</span>
-                        </div>
-                      }
-                    }
-                  }
-                }
               }
             </div>
 
@@ -141,7 +158,9 @@ const CATEGORIE_LABELS: Record<string, string> = {
             <div class="image-pane">
               @if (selectedNode()) {
                 @if (currentImageUrl()) {
-                  <img class="image-pane__img" [src]="currentImageUrl()" [alt]="selectedNode()!.designation" />
+                  <div class="image-pane__img-box">
+                    <app-image-lightbox [src]="currentImageUrl()" [fill]="true" />
+                  </div>
                 } @else {
                   <div class="image-pane__placeholder">
                     <lucide-icon name="image" [size]="40" class="image-pane__icon" />
@@ -153,7 +172,7 @@ const CATEGORIE_LABELS: Record<string, string> = {
                          (change)="onPhotoFileChange($event)" />
                   <button type="button" class="image-pane__btn" [disabled]="uploadingImage()" (click)="imgFile.click()">
                     <lucide-icon name="upload" [size]="14" />
-                    {{ uploadingImage() ? 'Téléversement…' : (currentImageUrl() ? 'Changer l\\'image' : 'Ajouter une image') }}
+                    {{ uploadingImage() ? 'Téléversement…' : (currentImageUrl() ? "Changer l'image" : 'Ajouter une image') }}
                   </button>
                 </div>
                 @if (imageError()) { <div class="image-pane__error">{{ imageError() }}</div> }
@@ -227,14 +246,15 @@ const CATEGORIE_LABELS: Record<string, string> = {
                   </div>
 
                   <div class="detail-section detail-actions">
+                    <button type="button" class="da-btn" [disabled]="downloadingFiche()" (click)="downloadFiche(selectedNode()!)">
+                      <lucide-icon name="download" [size]="14" /> {{ downloadingFiche() ? '…' : 'Fiche PDF' }}
+                    </button>
                     <button type="button" class="da-btn da-btn--edit" (click)="openEdit(selectedNode()!)">
                       <lucide-icon name="pencil" [size]="14" /> Modifier
                     </button>
-                    @if ((selectedNode()!.niveau ?? 1) < 3) {
-                      <button type="button" class="da-btn da-btn--add" (click)="openCreateChild(selectedNode()!)">
-                        <lucide-icon name="plus" [size]="14" /> Sous-composant
-                      </button>
-                    }
+                    <button type="button" class="da-btn da-btn--add" (click)="openCreateChild(selectedNode()!)">
+                      <lucide-icon name="plus" [size]="14" /> Sous-composant
+                    </button>
                     <button type="button" class="da-btn da-btn--delete" (click)="askDelete(selectedNode()!)">
                       <lucide-icon name="trash-2" [size]="14" /> Supprimer
                     </button>
@@ -249,12 +269,14 @@ const CATEGORIE_LABELS: Record<string, string> = {
       <!-- ══ TABLE VIEW ══ -->
       @if (!loading() && viewMode() === 'table') {
         @if (tree().length === 0) {
-          <app-empty-state icon="⚙️" message="Aucun composant dans le catalogue." />
+          <app-empty-state icon="package" message="Aucun composant dans le catalogue." />
+        } @else if (filteredNodes().length === 0) {
+          <app-empty-state icon="search" message="Aucun composant ne correspond à votre recherche." />
         } @else {
           <div class="table-wrap">
             <app-data-table-header [cols]="visibleTableCols()" />
-            @for (node of tree(); track node.id; let i = $index) {
-              <app-data-table-row [idx]="i" [clickable]="node.children.length > 0" (rowClicked)="toggleExpand(node.id)">
+            @for (node of filteredNodes(); track node.id; let i = $index) {
+              <app-data-table-row [idx]="i">
                 @for (col of visibleTableCols(); track col.id) {
                   @switch (col.id) {
                     @case ('reference') {
@@ -264,9 +286,15 @@ const CATEGORIE_LABELS: Record<string, string> = {
                       </div>
                     }
                     @case ('designation') {
-                      <div class="dtr-cell" [style.flex]="col.flex">
-                        @if (node.children.length > 0) {
-                          <lucide-icon [name]="expandedIds().has(node.id) ? 'chevron-down' : 'chevron-right'" [size]="12" class="table-chevron" />
+                      <div class="dtr-cell" [style.flex]="col.flex"
+                           [style.padding-left.px]="(node.niveau - 1) * 20 + 16">
+                        @if (node.children.length > 0 && !tableFilterActive()) {
+                          <lucide-icon
+                            [name]="tableExpandedIds().has(node.id) ? 'chevron-down' : 'chevron-right'"
+                            [size]="14" class="row-chevron"
+                            (click)="$event.stopPropagation(); toggleTableRow(node.id)" />
+                        } @else {
+                          <span class="row-chevron-pad"></span>
                         }
                         <span class="comp-designation">{{ node.designation }}</span>
                       </div>
@@ -286,109 +314,21 @@ const CATEGORIE_LABELS: Record<string, string> = {
                     }
                     @case ('actions') {
                       <div class="dtr-cell dtr-cell--actions" [style.flex]="col.flex" (click)="$event.stopPropagation()">
+                        <lucide-icon name="plus" [size]="15" class="row-action" title="Sous-composant" (click)="openCreateChild(node)" />
                         <lucide-icon name="pencil" [size]="15" class="row-action" title="Modifier" (click)="openEdit(node)" />
-                        @if ((node.niveau ?? 1) < 3) {
-                          <lucide-icon name="plus" [size]="15" class="row-action" title="Sous-composant" (click)="openCreateChild(node)" />
-                        }
                         <lucide-icon name="trash-2" [size]="15" class="row-action row-action--danger" title="Supprimer" (click)="askDelete(node)" />
                       </div>
                     }
                   }
                 }
               </app-data-table-row>
-              @if (expandedIds().has(node.id)) {
-                @for (child of node.children; track child.id; let ci = $index) {
-                  <app-data-table-row [idx]="i * 1000 + ci" [clickable]="child.children.length > 0" (rowClicked)="toggleExpand(child.id)">
-                    @for (col of visibleTableCols(); track col.id) {
-                      @switch (col.id) {
-                        @case ('reference') {
-                          <div class="dtr-cell" [style.flex]="col.flex">
-                            @if (child.reference) { <span class="ref-chip">{{ child.reference }}</span> }
-                            @else { <span class="ref-chip ref-chip--empty">—</span> }
-                          </div>
-                        }
-                        @case ('designation') {
-                          <div class="dtr-cell" [style.flex]="col.flex" style="padding-left:32px">
-                            @if (child.children.length > 0) {
-                              <lucide-icon [name]="expandedIds().has(child.id) ? 'chevron-down' : 'chevron-right'" [size]="11" class="table-chevron" />
-                            }
-                            <span class="comp-designation comp-designation--child">{{ child.designation }}</span>
-                          </div>
-                        }
-                        @case ('categorie') {
-                          <div class="dtr-cell" [style.flex]="col.flex">
-                            @if (child.categorie) {
-                              <span class="partie-badge partie-badge--{{ child.categorie }}">{{ categorieLabel(child.categorie) }}</span>
-                            }
-                          </div>
-                        }
-                        @case ('unite') {
-                          <div class="dtr-cell" [style.flex]="col.flex"><span class="mono-text">{{ child.unite ?? '—' }}</span></div>
-                        }
-                        @case ('stock') {
-                          <div class="dtr-cell" [style.flex]="col.flex">{{ child.stock ?? '—' }}</div>
-                        }
-                        @case ('actions') {
-                          <div class="dtr-cell dtr-cell--actions" [style.flex]="col.flex" (click)="$event.stopPropagation()">
-                            <lucide-icon name="pencil" [size]="15" class="row-action" title="Modifier" (click)="openEdit(child)" />
-                            @if ((child.niveau ?? 2) < 3) {
-                              <lucide-icon name="plus" [size]="15" class="row-action" title="Sous-composant" (click)="openCreateChild(child)" />
-                            }
-                            <lucide-icon name="trash-2" [size]="15" class="row-action row-action--danger" title="Supprimer" (click)="askDelete(child)" />
-                          </div>
-                        }
-                      }
-                    }
-                  </app-data-table-row>
-                  @if (expandedIds().has(child.id)) {
-                    @for (leaf of child.children; track leaf.id; let li = $index) {
-                      <app-data-table-row [idx]="i * 10000 + ci * 100 + li">
-                        @for (col of visibleTableCols(); track col.id) {
-                          @switch (col.id) {
-                            @case ('reference') {
-                              <div class="dtr-cell" [style.flex]="col.flex">
-                                @if (leaf.reference) { <span class="ref-chip">{{ leaf.reference }}</span> }
-                                @else { <span class="ref-chip ref-chip--empty">—</span> }
-                              </div>
-                            }
-                            @case ('designation') {
-                              <div class="dtr-cell" [style.flex]="col.flex" style="padding-left:60px">
-                                <span class="comp-designation comp-designation--leaf">{{ leaf.designation }}</span>
-                              </div>
-                            }
-                            @case ('categorie') {
-                              <div class="dtr-cell" [style.flex]="col.flex">
-                                @if (leaf.categorie) {
-                                  <span class="partie-badge partie-badge--{{ leaf.categorie }}">{{ categorieLabel(leaf.categorie) }}</span>
-                                }
-                              </div>
-                            }
-                            @case ('unite') {
-                              <div class="dtr-cell" [style.flex]="col.flex"><span class="mono-text">{{ leaf.unite ?? '—' }}</span></div>
-                            }
-                            @case ('stock') {
-                              <div class="dtr-cell" [style.flex]="col.flex">{{ leaf.stock ?? '—' }}</div>
-                            }
-                            @case ('actions') {
-                              <div class="dtr-cell dtr-cell--actions" [style.flex]="col.flex" (click)="$event.stopPropagation()">
-                                <lucide-icon name="pencil" [size]="15" class="row-action" title="Modifier" (click)="openEdit(leaf)" />
-                                <lucide-icon name="trash-2" [size]="15" class="row-action row-action--danger" title="Supprimer" (click)="askDelete(leaf)" />
-                              </div>
-                            }
-                          }
-                        }
-                      </app-data-table-row>
-                    }
-                  }
-                }
-              }
             }
           </div>
 
           <!-- Footer: export + column gear -->
           <div class="table-footer">
             <div class="table-actions">
-              <button class="btn-export" type="button" (click)="onExport()" [disabled]="exporting()" title="Exporter en Excel">
+              <button class="btn-export" type="button" (click)="showExportModal.set(true)" [disabled]="exporting()" title="Exporter en Excel">
                 <lucide-icon name="download" [size]="14" />
                 {{ exporting() ? 'Exportation…' : 'Export Excel' }}
               </button>
@@ -488,18 +428,40 @@ const CATEGORIE_LABELS: Record<string, string> = {
 
     @if (deleteTarget()) {
       <app-confirm-delete-modal
-        confirmMessage="Supprimer ce composant ? Un composant ayant des sous-composants ou utilisé par une intervention ne peut pas être supprimé."
+        [confirmMessage]="deleteConfirmMessage()"
         [itemLabel]="deleteTarget()!.designation"
         [isDeleting]="deleting()"
         (confirm)="onDeleteConfirmed()"
         (cancel)="deleteTarget.set(null)" />
     }
+
+    @if (showExportModal()) {
+      <app-export-excel-modal
+        [allColumns]="exportColDefs"
+        [initialVisible]="exportDefaultIds"
+        [filterDefs]="exportFilterDefs"
+        (exported)="onExportConfirmed($event)"
+        (cancel)="showExportModal.set(false)" />
+    }
   `,
   styles: [`
     .comp-tab { display: flex; flex-direction: column; gap: 16px; }
 
+    /* Scope toggle (tracteur ↔ semi) */
+    .scope-toggle { display: flex; border: 1px solid var(--color-border); border-radius: 8px; overflow: hidden; align-self: flex-start; }
+    .scope-btn { padding: 7px 18px; font-family: 'Open Sans', sans-serif; font-size: 13px; font-weight: 500; background: transparent; border: none; cursor: pointer; color: var(--color-text); transition: background 0.15s; white-space: nowrap; }
+    .scope-btn--active { background: #1a1a1a; color: #fff; font-weight: 600; }
+
     /* Toolbar */
     .comp-tab__toolbar { display: flex; align-items: center; justify-content: space-between; }
+
+    /* Search row */
+    .comp-tab__search-row { display: flex; flex-wrap: wrap; align-items: center; gap: 12px; }
+    .search-wrap { position: relative; display: flex; align-items: center; }
+    .search-icon { position: absolute; left: 10px; color: var(--color-text-muted); pointer-events: none; }
+    .search-input { height: 36px; padding: 0 12px 0 34px; border: 1px solid var(--color-border); border-radius: 8px; font-family: 'Open Sans', sans-serif; font-size: 13px; color: var(--color-text); background: var(--color-surface); outline: none; width: 220px; }
+    .search-input:focus { border-color: var(--color-primary); }
+    .filter-chips { display: flex; flex-wrap: wrap; gap: 6px; }
 
     /* View toggle */
     .view-toggle { display: flex; border: 1px solid var(--color-border); border-radius: 8px; overflow: hidden; }
@@ -520,8 +482,8 @@ const CATEGORIE_LABELS: Record<string, string> = {
     .tree-item:hover { background: var(--color-surface-2, #F9FAFB); }
     .tree-item--selected { background: #EFF6FF !important; border-right: 2px solid var(--color-primary); }
     .tree-item--l1 { font-family: 'Montserrat', sans-serif; font-size: 13px; font-weight: 600; color: var(--color-text); }
-    .tree-item--l2 { padding-left: 28px; font-family: 'Open Sans', sans-serif; font-size: 13px; color: var(--color-text); }
-    .tree-item--l3 { padding-left: 46px; font-family: 'Open Sans', sans-serif; font-size: 12px; color: var(--color-text-muted); }
+    .tree-item--l2 { font-family: 'Open Sans', sans-serif; font-size: 13px; color: var(--color-text); }
+    .tree-item--l3 { font-family: 'Open Sans', sans-serif; font-size: 12px; color: var(--color-text-muted); }
     .tree-chevron { color: var(--color-text-muted); flex-shrink: 0; cursor: pointer; }
     .tree-leaf-pad { width: 16px; flex-shrink: 0; }
     .tree-item__label { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
@@ -531,6 +493,9 @@ const CATEGORIE_LABELS: Record<string, string> = {
     /* Center: composant image pane */
     .image-pane { background: var(--color-surface); border-radius: 12px; border: 1px solid var(--color-border); min-height: 340px; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 16px; padding: 24px; overflow: hidden; }
     .image-pane__img { max-width: 100%; max-height: 360px; object-fit: contain; border-radius: 8px; }
+    .image-pane__img-box { width: 100%; max-height: 360px; height: 280px; border-radius: 8px; overflow: hidden; }
+    .image-pane__img-box app-image-lightbox { display: block; width: 100%; height: 100%; }
+    .image-pane__img-box ::ng-deep .thumb--fill { object-fit: contain; background: #FAFAFA; }
     .image-pane__placeholder { display: flex; flex-direction: column; align-items: center; gap: 12px; padding: 24px; }
     .image-pane__icon { color: var(--color-n300, #D1D5DB); }
     .image-pane__text { font-family: 'Open Sans', sans-serif; font-size: 13px; color: var(--color-text-muted); text-align: center; }
@@ -568,7 +533,7 @@ const CATEGORIE_LABELS: Record<string, string> = {
     .btn-export:hover { border-color: var(--color-primary); color: var(--color-primary); }
     .btn-settings { height: 34px; padding: 0 10px; border: 1px solid var(--color-border); border-radius: 8px; background: var(--color-surface); cursor: pointer; display: flex; align-items: center; color: var(--color-text-muted); }
     .btn-settings:hover { background: #F9FAFB; color: var(--color-text); }
-    .dtr-cell { padding: 0 16px; font-family: 'Open Sans', sans-serif; font-size: 13px; color: var(--color-text); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; display: flex; align-items: center; gap: 4px; }
+    .dtr-cell { box-sizing: border-box; padding: 0 16px; font-family: 'Open Sans', sans-serif; font-size: 13px; color: var(--color-text); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; display: flex; align-items: center; gap: 4px; }
     .dtr-cell--actions { justify-content: center; }
     .table-chevron { color: var(--color-text-muted); flex-shrink: 0; }
     .action-icon { color: #9CA3AF; cursor: pointer; }
@@ -619,23 +584,33 @@ const CATEGORIE_LABELS: Record<string, string> = {
 
     /* Table row inline actions */
     .dtr-cell--actions { gap: 10px; }
+    .row-chevron { color: #9CA3AF; cursor: pointer; margin-right: 6px; flex-shrink: 0; }
+    .row-chevron:hover { color: var(--color-primary); }
+    .row-chevron-pad { width: 20px; flex-shrink: 0; }
     .row-action { color: #9CA3AF; cursor: pointer; }
     .row-action:hover { color: var(--color-primary); }
     .row-action--danger:hover { color: #DC2626; }
   `],
 })
-export class ComposantsTabComponent {
+export class ComposantsTabComponent implements OnInit {
   private composantService = inject(ComposantService);
   private excelExportService = inject(ExcelExportService);
   private toastr = inject(ToastrService);
   private destroyRef = inject(DestroyRef);
 
+  /** The vehicle whose own composant tree is shown (per-vehicle since V123). */
+  @Input() vehiculeId: number | null = null;
   /** Vehicle type this catalogue is scoped to (e.g. 'camion', 'balayeuse'). Empty = global view. */
   @Input() vehiculeType = '';
+  /** Vehicle code (e.g. 'CAM-403') shown in scope toggle. */
+  @Input() vehiculeCode = '';
+  /** Attached semi-remorque attelage, if this is a camion-tracteur. */
+  @Input() currentAttelage: Attelage | null = null;
 
   tree = signal<ComposantNode[]>([]);
   loading = signal(true);
-  viewMode = signal<'tree' | 'table'>('tree');
+  viewMode = signal<'tree' | 'table'>('table');
+  activeScope = signal<'tracteur' | 'semi'>('tracteur');
   expandedIds = signal<Set<number>>(new Set());
   selectedId = signal<number | null>(null);
   selectedNode = signal<ComposantNode | null>(null);
@@ -668,6 +643,19 @@ export class ComposantsTabComponent {
   // Delete confirmation state
   deleteTarget = signal<ComposantNode | null>(null);
   deleting = signal(false);
+  deleteDescendants = computed(() => {
+    const target = this.deleteTarget();
+    if (!target) return 0;
+    const count = (nodes: ComposantNode[]): number =>
+      nodes.reduce((sum, n) => sum + 1 + count(n.children ?? []), 0);
+    return count(target.children ?? []);
+  });
+  deleteConfirmMessage = computed(() => {
+    const n = this.deleteDescendants();
+    return n > 0
+      ? `Supprimer ce composant et ses ${n} sous-composant${n > 1 ? 's' : ''} ? La suppression est bloquée si un composant du sous-arbre est utilisé (intervention, pneu, vidange, demande d'achat).`
+      : 'Supprimer ce composant ? Un composant utilisé (intervention, pneu, vidange, demande d\'achat) ne peut pas être supprimé.';
+  });
 
   modalTitle = computed(() => this.modalMode() === 'edit' ? 'Modifier composant' : 'Ajouter composant');
 
@@ -682,6 +670,71 @@ export class ComposantsTabComponent {
   });
   showColManager = signal(false);
   exporting = signal(false);
+  downloadingFiche = signal(false);
+  showExportModal = signal(false);
+
+  readonly exportColDefs: ExportColDef[] = [
+    { id: 'reference',   label: 'Référence' },
+    { id: 'designation', label: 'Désignation' },
+    { id: 'partie',      label: 'Partie' },
+    { id: 'unite',       label: 'Unité' },
+    { id: 'stock',       label: 'Stock' },
+    { id: 'marque',      label: 'Marque' },
+    { id: 'prix',        label: 'Prix unitaire (MAD)' },
+    { id: 'niveau',      label: 'Niveau' },
+  ];
+  readonly exportDefaultIds = ['reference', 'designation', 'partie', 'unite', 'stock'];
+  readonly exportFilterDefs: ExportFilterDef[] = [
+    { key: 'categorie', label: 'Partie', type: 'select', options: [
+      { value: '', label: 'Toutes' },
+      { value: 'moteur',        label: 'Moteur' },
+      { value: 'pneumatique',   label: 'Pneumatique' },
+      { value: 'freinage',      label: 'Freinage' },
+      { value: 'hydraulique',   label: 'Hydraulique' },
+      { value: 'electrique',    label: 'Électrique' },
+      { value: 'transmission',  label: 'Transmission' },
+      { value: 'autre',         label: 'Autre' },
+    ]},
+  ];
+  searchQuery  = signal('');
+  partieFilter = signal('all');
+
+  flatNodes = computed<ComposantNode[]>(() => {
+    const all: ComposantNode[] = [];
+    const walk = (n: ComposantNode) => { all.push(n); n.children.forEach(walk); };
+    this.tree().forEach(walk);
+    return all;
+  });
+
+  // Tree view rows: flattened tree honoring expandedIds, any depth.
+  treeRows = computed<ComposantNode[]>(() => {
+    const expanded = this.expandedIds();
+    const walk = (nodes: ComposantNode[]): ComposantNode[] =>
+      nodes.flatMap(n => expanded.has(n.id) ? [n, ...walk(n.children ?? [])] : [n]);
+    return walk(this.tree());
+  });
+
+  // Table view collapse state (independent from the tree-view expandedIds).
+  tableExpandedIds = signal<Set<number>>(new Set());
+  tableFilterActive = computed(() =>
+    !!this.searchQuery().toLowerCase().trim() || this.partieFilter() !== 'all');
+
+  filteredNodes = computed<ComposantNode[]>(() => {
+    const q = this.searchQuery().toLowerCase().trim();
+    const p = this.partieFilter();
+    if (this.tableFilterActive()) {
+      // Filtering bypasses collapse: show every matching node, flat.
+      return this.flatNodes().filter(n =>
+        (p === 'all' || n.categorie === p) &&
+        (!q || n.designation.toLowerCase().includes(q) || (n.reference ?? '').toLowerCase().includes(q))
+      );
+    }
+    // No filter: collapsible tree — children only under expanded parents.
+    const expanded = this.tableExpandedIds();
+    const walk = (nodes: ComposantNode[]): ComposantNode[] =>
+      nodes.flatMap(n => expanded.has(n.id) ? [n, ...walk(n.children ?? [])] : [n]);
+    return walk(this.tree());
+  });
 
   readonly categorieOptions: { value: ComposantCategorie; label: string }[] = [
     { value: 'moteur', label: 'Moteur' },
@@ -695,14 +748,31 @@ export class ComposantsTabComponent {
     { value: 'suspension', label: 'Suspension' },
     { value: 'autre', label: 'Autre' },
   ];
+  get partieFilters() { return this.categorieOptions; }
 
-  constructor() {
+  /** Initial load happens in ngOnInit — @Input vehiculeId is not bound yet in
+   *  the constructor, which used to make this tab fetch the global template
+   *  tree instead of the vehicle's own tree. */
+  ngOnInit(): void {
     this.loadTree();
+  }
+
+  /** Vehicle id owning the currently displayed tree (tracteur or attached semi). */
+  currentScopeVehiculeId(): number | null {
+    return this.activeScope() === 'semi' && this.currentAttelage
+      ? this.currentAttelage.semiId
+      : this.vehiculeId;
   }
 
   loadTree(): void {
     this.loading.set(true);
-    this.composantService.tree(this.vehiculeType || undefined).pipe(
+    // each vehicle owns its tree; the CAM/SMR toggle switches between the
+    // tracteur's and the attached semi's trees
+    const id = this.activeScope() === 'semi' && this.currentAttelage
+      ? this.currentAttelage.semiId
+      : (this.vehiculeId ?? undefined);
+    const type = id == null ? (this.vehiculeType || undefined) : undefined;
+    this.composantService.tree(type, id).pipe(
       takeUntilDestroyed(this.destroyRef),
     ).subscribe({
       next: (data) => { this.tree.set(data); this.loading.set(false); },
@@ -710,8 +780,26 @@ export class ComposantsTabComponent {
     });
   }
 
+  setScope(scope: 'tracteur' | 'semi'): void {
+    if (this.activeScope() === scope) return;
+    this.activeScope.set(scope);
+    this.selectedId.set(null);
+    this.selectedNode.set(null);
+    this.selectedDetail.set(null);
+    this.expandedIds.set(new Set());
+    this.loadTree();
+  }
+
   toggleExpand(id: number): void {
     this.expandedIds.update(s => {
+      const next = new Set(s);
+      next.has(id) ? next.delete(id) : next.add(id);
+      return next;
+    });
+  }
+
+  toggleTableRow(id: number): void {
+    this.tableExpandedIds.update(s => {
       const next = new Set(s);
       next.has(id) ? next.delete(id) : next.add(id);
       return next;
@@ -753,22 +841,18 @@ export class ComposantsTabComponent {
   }
 
   // ── Export ────────────────────────────────────────────────────────────────
-  onExport(): void {
-    if (this.exporting()) return;
+  onExportConfirmed(result: ExportResult): void {
     this.exporting.set(true);
-    const params: { entites: string; vehiculeType?: string } = { entites: 'composants' };
-    if (this.vehiculeType) params.vehiculeType = this.vehiculeType;
-    this.excelExportService.download(params).pipe(
-      take(1),
-    ).subscribe({
-      next: (blob) => {
-        downloadBlobAs(blob, 'composants.xlsx');
-        this.exporting.set(false);
-      },
-      error: () => {
-        this.toastr.error('Erreur lors de l\'export Excel.');
-        this.exporting.set(false);
-      },
+    this.showExportModal.set(false);
+    this.excelExportService.download({
+      entites: 'composants',
+      columns: result.columns,
+      vehiculeId: this.currentScopeVehiculeId() ?? undefined,
+      vehiculeType: this.vehiculeType || undefined,
+      categorie: result.filters['categorie'] || undefined,
+    }).pipe(take(1)).subscribe({
+      next: (blob) => { downloadBlobAs(blob, 'composants.xlsx'); this.exporting.set(false); },
+      error: () => { this.toastr.error('Erreur lors de l\'export Excel.'); this.exporting.set(false); },
     });
   }
 
@@ -836,10 +920,9 @@ export class ComposantsTabComponent {
     this.showCreateModal.set(true);
   }
 
-  /** New child composant under the given node (niveau + 1, capped at 3). */
+  /** New child composant under the given node (unlimited depth). */
   openCreateChild(parent: ComposantNode): void {
     const parentNiveau = parent.niveau ?? 1;
-    if (parentNiveau >= 3) return;
     this.modalMode.set('create');
     this.editingId.set(null);
     this.formParentId = parent.id;
@@ -888,12 +971,14 @@ export class ComposantsTabComponent {
       prixUnitaire: this.newPrix ?? null,
       stock: this.newStock ?? 0,
       imageUrl: this.newImageUrl || null,
-      niveau: this.formNiveau as 1 | 2 | 3,
       parentId: this.formParentId,
       vehiculeType: this.vehiculeType || null,
+      vehiculeId: this.formParentId == null ? this.currentScopeVehiculeId() : null,
     };
     const id = this.editingId();
-    const req$ = this.modalMode() === 'edit' && id != null
+    const isEdit = this.modalMode() === 'edit' && id != null;
+    const parentId = this.formParentId;
+    const req$ = isEdit
       ? this.composantService.update(id, body)
       : this.composantService.create(body);
     req$.pipe(takeUntilDestroyed(this.destroyRef)).subscribe({
@@ -901,12 +986,26 @@ export class ComposantsTabComponent {
         this.creating.set(false);
         this.showCreateModal.set(false);
         this.resetCreateForm();
+        // Expand the parent so the freshly created child is visible right away.
+        if (!isEdit && parentId != null) {
+          this.expandedIds.update(s => new Set(s).add(parentId));
+          this.tableExpandedIds.update(s => new Set(s).add(parentId));
+        }
         this.refreshAfterMutation();
       },
       error: (err: any) => {
         this.creating.set(false);
         this.createError.set(err?.error?.error || 'Erreur lors de l\'enregistrement.');
       },
+    });
+  }
+
+  downloadFiche(node: ComposantNode): void {
+    if (this.downloadingFiche()) return;
+    this.downloadingFiche.set(true);
+    this.composantService.downloadFiche(node.id).pipe(take(1)).subscribe({
+      next: (blob) => { downloadBlobAs(blob, `fiche-composant-${node.id}.pdf`); this.downloadingFiche.set(false); },
+      error: () => { this.toastr.error('Erreur lors du téléchargement de la fiche.'); this.downloadingFiche.set(false); },
     });
   }
 

@@ -67,7 +67,7 @@ export const DEFAULT_VISIBLE_IDS = ['code', 'type', 'marque_modele', 'matricule'
               <div class="cm-item cm-item--drag" cdkDrag>
                 <lucide-icon name="grip-vertical" [size]="14" class="cm-drag-handle" cdkDragHandle />
                 <span>{{ col.label }}</span>
-                <button class="cm-remove" type="button" (click)="removeColumn(col)" aria-label="Retirer">✕</button>
+                <button class="cm-remove" type="button" (click)="removeColumn(col)" aria-label="Retirer">×</button>
               </div>
             }
             @if (_visible().length === 0) {

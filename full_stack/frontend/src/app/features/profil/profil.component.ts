@@ -1,6 +1,8 @@
 import { Component, inject, signal, computed } from '@angular/core';
+import { NgTemplateOutlet } from '@angular/common';
 import { ReactiveFormsModule, FormBuilder, FormGroup, Validators } from '@angular/forms';
 import { ProfilService } from './profil.service';
+import { AuthService } from '../../core/auth/auth.service';
 import { User } from '../../shared/models/user.model';
 import {
   SkeletonComponent,
@@ -12,7 +14,7 @@ import {
 @Component({
   selector: 'app-profil',
   standalone: true,
-  imports: [ReactiveFormsModule, SkeletonComponent, PageHeaderComponent, CardComponent, FRowComponent],
+  imports: [ReactiveFormsModule, NgTemplateOutlet, SkeletonComponent, PageHeaderComponent, CardComponent, FRowComponent],
   template: `
     <div class="profil-screen">
 
@@ -70,8 +72,8 @@ import {
                   <app-f-row label="Nom">
                     <input type="text" formControlName="nom" class="profil__input" placeholder="Nom" />
                   </app-f-row>
-                  <app-f-row label="Email" [required]="true">
-                    <input type="email" formControlName="email" class="profil__input" placeholder="email@exemple.com" />
+                  <app-f-row label="Email">
+                    <input type="email" class="profil__input profil__input--readonly" [value]="user()?.email" readonly />
                   </app-f-row>
                   <app-f-row label="Téléphone">
                     <input type="tel" formControlName="telephone" class="profil__input" placeholder="+212 6 00 00 00 00" />
@@ -80,6 +82,9 @@ import {
                 <div class="profil-form__actions">
                   @if (infosSaved()) {
                     <span class="profil__success">Enregistré !</span>
+                  }
+                  @if (infosError()) {
+                    <span class="profil__error">{{ infosError() }}</span>
                   }
                   <button type="submit" class="profil__btn" [disabled]="infosForm.invalid || saving()">Enregistrer</button>
                 </div>
@@ -92,15 +97,36 @@ import {
               <form class="profil-form" [formGroup]="passwordForm" (ngSubmit)="savePassword()">
                 <div class="profil-form__grid">
                   <app-f-row label="Mot de passe actuel">
-                    <input type="password" formControlName="currentPassword" class="profil__input" placeholder="••••••••••••" />
+                    <div class="profil__pw">
+                      <input [type]="show().current ? 'text' : 'password'" autocomplete="current-password" formControlName="currentPassword" class="profil__input profil__input--pw" placeholder="••••••••••••" />
+                      <button type="button" class="profil__pw-toggle" (click)="toggle('current')"
+                              [attr.aria-label]="show().current ? 'Masquer le mot de passe' : 'Afficher le mot de passe'">
+                        @if (show().current) { <ng-container [ngTemplateOutlet]="eyeOff" /> } @else { <ng-container [ngTemplateOutlet]="eye" /> }
+                      </button>
+                    </div>
                   </app-f-row>
                   <app-f-row label="Nouveau mot de passe">
-                    <input type="password" formControlName="newPassword" class="profil__input" placeholder="••••••••••••" />
+                    <div class="profil__pw">
+                      <input [type]="show().next ? 'text' : 'password'" autocomplete="new-password" formControlName="newPassword" class="profil__input profil__input--pw" placeholder="••••••••••••" />
+                      <button type="button" class="profil__pw-toggle" (click)="toggle('next')"
+                              [attr.aria-label]="show().next ? 'Masquer le mot de passe' : 'Afficher le mot de passe'">
+                        @if (show().next) { <ng-container [ngTemplateOutlet]="eyeOff" /> } @else { <ng-container [ngTemplateOutlet]="eye" /> }
+                      </button>
+                    </div>
                   </app-f-row>
                   <app-f-row label="Confirmer">
-                    <input type="password" formControlName="confirmPassword" class="profil__input" placeholder="••••••••••••" />
+                    <div class="profil__pw">
+                      <input [type]="show().confirm ? 'text' : 'password'" autocomplete="new-password" formControlName="confirmPassword" class="profil__input profil__input--pw" placeholder="••••••••••••" />
+                      <button type="button" class="profil__pw-toggle" (click)="toggle('confirm')"
+                              [attr.aria-label]="show().confirm ? 'Masquer le mot de passe' : 'Afficher le mot de passe'">
+                        @if (show().confirm) { <ng-container [ngTemplateOutlet]="eyeOff" /> } @else { <ng-container [ngTemplateOutlet]="eye" /> }
+                      </button>
+                    </div>
                   </app-f-row>
                 </div>
+                @if (passwordForm.get('newPassword')?.touched && passwordForm.get('newPassword')?.hasError('minlength')) {
+                  <span class="profil__error">Le mot de passe doit contenir au moins 8 caractères.</span>
+                }
                 @if (passwordForm.errors?.['mismatch']) {
                   <span class="profil__error">Les mots de passe ne correspondent pas.</span>
                 }
@@ -120,15 +146,28 @@ import {
         </div>
       }
     </div>
+
+    <ng-template #eye>
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+        <path d="M1 12s4-7 11-7 11 7 11 7-4 7-11 7-11-7-11-7z" />
+        <circle cx="12" cy="12" r="3" />
+      </svg>
+    </ng-template>
+    <ng-template #eyeOff>
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+        <path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-7-11-7a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 7 11 7a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24" />
+        <line x1="1" y1="1" x2="23" y2="23" />
+      </svg>
+    </ng-template>
   `,
   styles: [`
     @keyframes screenEnter {
-      from { opacity: 0; transform: translateY(12px); }
-      to   { opacity: 1; transform: translateY(0); }
+      from { opacity: 0; }
+      to   { opacity: 1; }
     }
 
     .profil-screen {
-      min-height: calc(100vh - 72px);
+      min-height: calc(100vh - 88px);
       background: #F5F5F5;
       animation: screenEnter 0.25s ease both;
     }
@@ -279,6 +318,43 @@ import {
       cursor: not-allowed;
     }
 
+    /* Password field with show/hide toggle */
+    .profil__pw {
+      position: relative;
+      display: flex;
+      align-items: center;
+    }
+
+    .profil__input--pw {
+      padding-right: 40px;
+    }
+
+    .profil__pw-toggle {
+      position: absolute;
+      right: 8px;
+      top: 50%;
+      transform: translateY(-50%);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 4px;
+      border: none;
+      background: transparent;
+      color: var(--color-text-muted, #6B7280);
+      cursor: pointer;
+      line-height: 0;
+    }
+
+    .profil__pw-toggle:hover {
+      color: var(--color-primary, #F7941D);
+    }
+
+    .profil__pw-toggle:focus-visible {
+      outline: 2px solid var(--color-primary, #F7941D);
+      outline-offset: 2px;
+      border-radius: 4px;
+    }
+
     /* Button */
     .profil__btn {
       font-family: 'Montserrat', sans-serif;
@@ -314,14 +390,21 @@ import {
 })
 export class ProfilComponent {
   private profilService = inject(ProfilService);
+  private authService = inject(AuthService);
   private fb = inject(FormBuilder);
 
   loading = signal(true);
   saving = signal(false);
   infosSaved = signal(false);
+  infosError = signal('');
   passwordSaved = signal(false);
   passwordError = signal('');
   user = signal<User | null>(null);
+  show = signal({ current: false, next: false, confirm: false });
+
+  toggle(field: 'current' | 'next' | 'confirm'): void {
+    this.show.update(s => ({ ...s, [field]: !s[field] }));
+  }
 
   initials = computed(() => {
     const u = this.user();
@@ -338,13 +421,12 @@ export class ProfilComponent {
     this.infosForm = this.fb.group({
       prenom:    ['', Validators.required],
       nom:       ['', Validators.required],
-      email:     ['', [Validators.required, Validators.email]],
       telephone: [''],
     });
 
     this.passwordForm = this.fb.group({
       currentPassword: ['', Validators.required],
-      newPassword:     ['', [Validators.required, Validators.minLength(6)]],
+      newPassword:     ['', [Validators.required, Validators.minLength(8)]],
       confirmPassword: ['', Validators.required],
     }, { validators: this.passwordMatch });
 
@@ -365,7 +447,6 @@ export class ProfilComponent {
         this.infosForm.patchValue({
           prenom:    user.prenom,
           nom:       user.nom,
-          email:     user.email,
           telephone: user.telephone ?? '',
         });
         this.loading.set(false);
@@ -378,13 +459,22 @@ export class ProfilComponent {
     if (this.infosForm.invalid) return;
     this.saving.set(true);
     this.infosSaved.set(false);
+    this.infosError.set('');
     this.profilService.updateMe(this.infosForm.value).subscribe({
       next: (updated) => {
         this.saving.set(false);
         this.infosSaved.set(true);
-        this.user.set(updated);
+        this.user.update(u => (u ? { ...u, ...updated } : updated));
+        this.authService.patchUser({
+          prenom: updated.prenom,
+          nom: updated.nom,
+          telephone: updated.telephone,
+        });
       },
-      error: () => this.saving.set(false),
+      error: (err) => {
+        this.saving.set(false);
+        this.infosError.set(err?.error?.error ?? err?.error?.message ?? 'Erreur lors de l\'enregistrement du profil.');
+      },
     });
   }
 
@@ -393,9 +483,12 @@ export class ProfilComponent {
     this.saving.set(true);
     this.passwordSaved.set(false);
     this.passwordError.set('');
-    this.profilService.updatePassword(this.passwordForm.value).subscribe({
+    this.authService.changePassword({
+      current_password: this.passwordForm.value.currentPassword,
+      new_password: this.passwordForm.value.newPassword,
+    }).subscribe({
       next: () => { this.saving.set(false); this.passwordSaved.set(true); this.passwordForm.reset(); },
-      error: (err) => { this.saving.set(false); this.passwordError.set(err?.error?.message ?? 'Erreur lors du changement de mot de passe.'); },
+      error: (err) => { this.saving.set(false); this.passwordError.set(err?.error?.error ?? err?.error?.message ?? 'Erreur lors du changement de mot de passe.'); },
     });
   }
 }

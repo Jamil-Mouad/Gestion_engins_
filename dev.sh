@@ -7,6 +7,7 @@
 #   PostgreSQL    — via docker-compose (db service only)  unless --no-db
 #   gateway-auth  — Spring Boot on 127.0.0.1:8086
 #   fleet-core    — Spring Boot on 127.0.0.1:8081
+#   magasin       — Spring Boot on 127.0.0.1:8084
 #   gateway-proxy — Spring Cloud Gateway on 0.0.0.0:8080
 #   frontend      — Angular dev server on 0.0.0.0:4200
 #
@@ -32,6 +33,7 @@ SERVICES="$FULL_STACK/services"
 FRONTEND="$FULL_STACK/frontend"
 AUTH_DIR="$SERVICES/gateway-auth"
 CORE_DIR="$SERVICES/fleet-core"
+MAGASIN_DIR="$SERVICES/magasin-service"
 PROXY_DIR="$SERVICES/gateway-proxy"
 LOG_DIR="/tmp/st3-logs"
 ENV_FILE="$AUTH_DIR/.env"
@@ -168,6 +170,10 @@ fi
 if ! $FRONTEND_ONLY; then
   section "Backend services"
 
+  # Local dev convenience: expose Swagger UI + full actuator (off by default in prod)
+  export SWAGGER_ENABLED=true
+  export MANAGEMENT_ENDPOINTS=health,metrics,prometheus,caches
+
   # gateway-auth first — its Flyway applies V1–V11 before fleet-core needs them
   start_spring "gateway-auth" "$AUTH_DIR" \
     ./mvnw spring-boot:run -Dspring-boot.run.profiles=local -q
@@ -179,10 +185,39 @@ if ! $FRONTEND_ONLY; then
     ./mvnw spring-boot:run -q
   wait_for_port 127.0.0.1 8081 "fleet-core" 120
 
+  # magasin-service (gasoil) — Flyway applies V201+ only, baselining at V11
+  start_spring "magasin" "$MAGASIN_DIR" \
+    ./mvnw spring-boot:run -q
+  wait_for_port 127.0.0.1 8084 "magasin" 120
+
   # gateway-proxy (needs JWT_SECRET from sourced .env)
   start_spring "gateway-proxy" "$PROXY_DIR" \
     ./mvnw spring-boot:run -q
   wait_for_port 0.0.0.0 8080 "gateway-proxy" 60
+
+  # ai-engine (Flask/gunicorn on 127.0.0.1:8090 — requires Python + packages)
+  AI_DIR="$SERVICES/ai-engine"
+  if command -v gunicorn &>/dev/null && python3 -c "import flask, psycopg2, pgvector" 2>/dev/null; then
+    logfile="$LOG_DIR/ai-engine.log"
+    info "Starting ai-engine → $logfile"
+    (
+      export DB_URL="postgresql://${POSTGRES_USER:-intersig}:${POSTGRES_PASSWORD}@localhost:5432/fleettracker"
+      export OLLAMA_BASE_URL="${OLLAMA_BASE_URL:-http://localhost:11434/v1}"
+      export OLLAMA_MODEL="${OLLAMA_MODEL:-gemma4:e2b}"
+      # multilingual model — fleet data and chat questions are in French;
+      # must match config.py's default (English-only bge ruins recall)
+      export EMBED_MODEL="${EMBED_MODEL:-sentence-transformers/paraphrase-multilingual-MiniLM-L12-v2}"
+      cd "$AI_DIR" && exec gunicorn "app:create_app()" \
+        --bind 127.0.0.1:8090 --timeout 120 --workers 1 \
+        --log-file "$logfile" --log-level info
+    ) >/dev/null 2>&1 &
+    PIDS+=($!)
+    echo "$!" >> "$PID_FILE"
+    ok "ai-engine started (PID ${PIDS[-1]})"
+    wait_for_port 127.0.0.1 8090 "ai-engine" 30
+  else
+    warn "ai-engine skipped — install gunicorn + Python deps: pip3 install -r $AI_DIR/requirements.txt"
+  fi
 fi
 
 # ── frontend ───────────────────────────────────────────────────────────────────

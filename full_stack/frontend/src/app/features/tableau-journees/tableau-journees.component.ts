@@ -92,7 +92,7 @@ type StatutFilter = 'all' | 'in-service' | 'workshop' | 'maintenance' | 'out-of-
             </div>
 
             @if (filteredVehicules().length === 0) {
-              <app-empty-state icon="📋" message="Aucun véhicule pour ce filtre." />
+              <app-empty-state icon="clipboard-list" message="Aucun véhicule pour ce filtre." />
             } @else {
               @for (v of filteredVehicules(); track v.id; let i = $index) {
                 <div class="tj-trow" [style.animation-delay]="i * 20 + 'ms'">
@@ -122,7 +122,7 @@ type StatutFilter = 'all' | 'in-service' | 'workshop' | 'maintenance' | 'out-of-
           </div>
 
         } @else {
-          <app-empty-state icon="📋" message="Aucune donnée pour cette date." />
+          <app-empty-state icon="clipboard-list" message="Aucune donnée pour cette date." />
         }
 
       </div>
@@ -130,13 +130,13 @@ type StatutFilter = 'all' | 'in-service' | 'workshop' | 'maintenance' | 'out-of-
   `,
   styles: [`
     @keyframes screenEnter {
-      from { opacity: 0; transform: translateY(8px); }
-      to   { opacity: 1; transform: translateY(0); }
+      from { opacity: 0; }
+      to   { opacity: 1; }
     }
 
     .tj-page {
       background: #F5F5F5;
-      min-height: calc(100vh - 72px);
+      min-height: calc(100vh - 88px);
     }
 
     /* ── Header extras ─────────────────────────────────────── */

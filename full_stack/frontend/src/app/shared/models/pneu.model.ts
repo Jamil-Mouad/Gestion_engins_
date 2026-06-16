@@ -9,6 +9,7 @@ export interface Pneu {
   composantId?: number | null;
   composant?: Pick<import('./composant.model').Composant, 'id' | 'designation'> | null;
   nSerie: string | null;
+  reference: string | null;
   marque: string | null;
   dateMontage: string | null;
   kmMontage: number | null;
@@ -45,7 +46,8 @@ export interface PneuInspection {
 
 export interface CreatePneuForm {
   position: number;
-  nSerie?: string | null;
+  nSerie: string;
+  reference: string;
   marque?: string | null;
   dateMontage?: string | null;
   expectedLifeKm: number;

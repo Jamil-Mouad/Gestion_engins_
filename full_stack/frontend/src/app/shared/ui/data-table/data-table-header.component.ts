@@ -29,6 +29,8 @@ export interface DataTableCol {
       border-bottom: 1px solid var(--color-border);
     }
     .dth-cell {
+      box-sizing: border-box;
+      min-width: 0;
       padding: 0 16px;
       height: 44px;
       display: flex;
@@ -40,6 +42,8 @@ export interface DataTableCol {
       text-transform: uppercase;
       letter-spacing: 0.06em;
       white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
     }
   `],
 })

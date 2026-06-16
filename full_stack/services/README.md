@@ -9,7 +9,7 @@
 | 8081 | `fleet-core` | `127.0.0.1` (internal) | Fleet management — vehicles, interventions, pneus, KPIs |
 | 8082 | `admin` _(future)_ | `127.0.0.1` (internal) | Admin service |
 | 8083 | `logistique` _(future)_ | `127.0.0.1` (internal) | Logistics service |
-| 8084 | `magasin` _(future)_ | `127.0.0.1` (internal) | Warehouse service |
+| 8084 | `magasin-service` | `127.0.0.1` (internal) | Magasin — gasoil stock (citerne, arrivages, sorties, jaugeage), fuel KPIs |
 
 ## Architecture
 
@@ -34,7 +34,8 @@ injected by the proxy and do **not** parse JWTs or hold `APP_JWT_SECRET`.
 
 `db/migrations/` (at repo root) contains Flyway migrations V1–V11 used by both
 `gateway-auth` and `fleet-core`. Service-specific migrations live in each service's
-`src/main/resources/db/migrations/` (V101+).
+`src/main/resources/db/migrations/`, each with its own Flyway history table and
+version range: fleet-core V101+, magasin-service V201+.
 
 ## Adding a New Service
 

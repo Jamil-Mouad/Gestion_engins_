@@ -37,13 +37,16 @@ public class VehiculeService {
     private final VehiculeRepository vehiculeRepository;
     private final ApplicationEventPublisher eventPublisher;
     private final TracteurSemiAssignmentRepository attelageRepo;
+    private final ComposantService composantService;
 
     public VehiculeService(VehiculeRepository vehiculeRepository,
                            ApplicationEventPublisher eventPublisher,
-                           TracteurSemiAssignmentRepository attelageRepo) {
+                           TracteurSemiAssignmentRepository attelageRepo,
+                           ComposantService composantService) {
         this.vehiculeRepository = vehiculeRepository;
         this.eventPublisher = eventPublisher;
         this.attelageRepo = attelageRepo;
+        this.composantService = composantService;
     }
 
     @Transactional(readOnly = true)
@@ -93,7 +96,10 @@ public class VehiculeService {
 
     @CacheEvict(value = {"vehicules-page", "vehicules"}, allEntries = true)
     public VehiculeDto create(CreateVehiculeRequest req) {
-        validateUniqueConstraints(req.code(), req.matricule(), req.nChassis(), null);
+        if (req.nChassis() == null || req.nChassis().isBlank()) {
+            throw new BusinessException("Chassis number is required", "N_CHASSIS_REQUIRED", 422);
+        }
+        validateUniqueConstraints(req.code(), req.type(), req.matricule(), req.nChassis(), null);
 
         if (isCamionType(req.type()) && req.camionDetails() == null) {
             throw new BusinessException("camionDetails is required when type is camion", "CAMION_DETAILS_REQUIRED", 422);
@@ -123,6 +129,9 @@ public class VehiculeService {
             vehicule = vehiculeRepository.save(vehicule);
         }
 
+        // every vehicle starts with its own copy of the per-type starter tree
+        composantService.copyTemplateToVehicle(vehicule);
+
         eventPublisher.publishEvent(new EntityChangedEvent(this, "vehicule", vehicule.getId(), "create"));
         return VehiculeDto.from(vehicule, null);
     }
@@ -133,7 +142,7 @@ public class VehiculeService {
                 .orElseThrow(() -> new ResourceNotFoundException("Vehicle not found", "VEHICLE_NOT_FOUND"));
 
         validateStatut(req.statut());
-        validateUniqueConstraints(null, req.matricule(), req.nChassis(), id);
+        validateUniqueConstraints(null, null, req.matricule(), req.nChassis(), id);
         vehicule.setMarque(req.marque());
         vehicule.setModele(req.modele() != null ? req.modele() : "");
         vehicule.setMatricule(req.matricule());
@@ -186,10 +195,12 @@ public class VehiculeService {
         eventPublisher.publishEvent(new EntityChangedEvent(this, "vehicule", id, "delete"));
     }
 
-    private void validateUniqueConstraints(String code, String matricule, String nChassis, Long excludeId) {
+    private void validateUniqueConstraints(String code, String type, String matricule, String nChassis, Long excludeId) {
+        // a code may be shared across types (tracteur + semi pair share one
+        // fleet code) — uniqueness is per (code, type)
         if (code != null && !code.isBlank()) {
-            vehiculeRepository.findByCodeAndIdNot(code, excludeId != null ? excludeId : -1L).ifPresent(v -> {
-                throw new BusinessException("Code already exists", "CODE_ALREADY_EXISTS", 409);
+            vehiculeRepository.findByCodeAndTypeAndIdNot(code, type, excludeId != null ? excludeId : -1L).ifPresent(v -> {
+                throw new BusinessException("Code already exists for this vehicle type", "CODE_ALREADY_EXISTS", 409);
             });
         }
         if (matricule != null && !matricule.isBlank()) {
@@ -245,7 +256,12 @@ public class VehiculeService {
         if (details.visiteTechTracteurExpiration() != null) c.setVisiteTechTracteurExpiration(details.visiteTechTracteurExpiration());
         if (details.visiteTechSemiExpiration() != null) c.setVisiteTechSemiExpiration(details.visiteTechSemiExpiration());
         if (details.carnetCirculationExpiration() != null) c.setCarnetCirculationExpiration(details.carnetCirculationExpiration());
+        if (details.metrologieDateControle() != null) c.setMetrologieDateControle(details.metrologieDateControle());
         if (details.metrologieExpiration() != null) c.setMetrologieExpiration(details.metrologieExpiration());
+        // métrologie is valid 2 years from the control date — derive when not given
+        if (c.getMetrologieDateControle() != null && c.getMetrologieExpiration() == null) {
+            c.setMetrologieExpiration(c.getMetrologieDateControle().plusYears(2));
+        }
         if (details.extincteurExpiration() != null) c.setExtincteurExpiration(details.extincteurExpiration());
         if (details.batterieModele() != null) c.setBatterieModele(details.batterieModele());
         if (details.batterieDateAchat() != null) c.setBatterieDateAchat(details.batterieDateAchat());
@@ -253,5 +269,7 @@ public class VehiculeService {
         if (details.consoGasoilLitresMois() != null) c.setConsoGasoilLitresMois(details.consoGasoilLitresMois());
         if (details.voyagesMois() != null) c.setVoyagesMois(details.voyagesMois());
         if (details.kmParcourus() != null) c.setKmParcourus(details.kmParcourus());
+        if (details.chauffeurPrenom() != null) c.setChauffeurPrenom(details.chauffeurPrenom());
+        if (details.chauffeurNom() != null) c.setChauffeurNom(details.chauffeurNom());
     }
 }

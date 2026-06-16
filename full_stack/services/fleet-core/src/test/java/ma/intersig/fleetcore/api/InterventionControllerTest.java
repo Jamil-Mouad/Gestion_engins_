@@ -37,7 +37,7 @@ class InterventionControllerTest {
         registry.add("spring.datasource.password", postgres::getPassword);
         registry.add("spring.flyway.enabled", () -> "true");
         registry.add("spring.flyway.baseline-on-migrate", () -> "true");
-        registry.add("spring.flyway.locations", () -> "classpath:db/migrations");
+        registry.add("spring.flyway.locations", () -> "classpath:db/migrations-shared,classpath:db/migrations");
         registry.add("spring.jpa.hibernate.ddl-auto", () -> "validate");
         registry.add("spring.mail.host", () -> "localhost");
         registry.add("spring.mail.port", () -> "1025");
@@ -164,6 +164,7 @@ class InterventionControllerTest {
         Map<String, Object> camionDetails = Map.of("capaciteTonnes", 20.0, "configAxle", "4x2");
         Map<String, Object> body = Map.of(
                 "code", "CI-" + (System.currentTimeMillis() % 10000000L),
+                "nChassis", "NCH-" + System.nanoTime(),
                 "type", "camion",
                 "marque", "IVECO",
                 "modele", "Stralis",

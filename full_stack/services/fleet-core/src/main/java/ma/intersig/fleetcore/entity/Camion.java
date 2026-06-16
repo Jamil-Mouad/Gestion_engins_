@@ -23,6 +23,9 @@ public class Camion extends Vehicule {
     @Column(name = "carnet_circulation_expiration")
     private LocalDate carnetCirculationExpiration;
 
+    @Column(name = "metrologie_date_controle")
+    private LocalDate metrologieDateControle;
+
     @Column(name = "metrologie_expiration")
     private LocalDate metrologieExpiration;
 
@@ -69,6 +72,8 @@ public class Camion extends Vehicule {
     public void setVisiteTechSemiExpiration(LocalDate date) { this.visiteTechSemiExpiration = date; }
     public LocalDate getCarnetCirculationExpiration() { return carnetCirculationExpiration; }
     public void setCarnetCirculationExpiration(LocalDate date) { this.carnetCirculationExpiration = date; }
+    public LocalDate getMetrologieDateControle() { return metrologieDateControle; }
+    public void setMetrologieDateControle(LocalDate date) { this.metrologieDateControle = date; }
     public LocalDate getMetrologieExpiration() { return metrologieExpiration; }
     public void setMetrologieExpiration(LocalDate date) { this.metrologieExpiration = date; }
     public LocalDate getExtincteurExpiration() { return extincteurExpiration; }

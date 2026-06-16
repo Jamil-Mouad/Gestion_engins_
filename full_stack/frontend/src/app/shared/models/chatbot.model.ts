@@ -1,4 +1,4 @@
-export type ChunkType = 'text' | 'source' | 'done';
+export type ChunkType = 'text' | 'source' | 'done' | 'error';
 
 export interface ChatbotChunk {
   type: ChunkType;
@@ -7,6 +7,14 @@ export interface ChatbotChunk {
     title: string;
     url: string;
   };
+}
+
+export interface Conversation {
+  id: number;
+  titre: string;
+  favori: boolean;
+  updatedAt: string;
+  lastMessage?: string;
 }
 
 export interface ChatbotMessage {

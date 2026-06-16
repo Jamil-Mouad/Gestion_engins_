@@ -18,8 +18,10 @@ import { InfosTabComponent } from './tabs/infos-tab.component';
 import { PneusTabComponent } from './tabs/pneus-tab.component';
 import { InterventionsTabComponent } from './tabs/interventions-tab.component';
 import { ComposantsTabComponent } from './tabs/composants-tab.component';
+import { ImageLightboxComponent } from '../../../shared/ui/image-lightbox/image-lightbox.component';
 import { EditVehiculeModalComponent } from '../list/edit-vehicule-modal.component';
 import { PneusTableTabComponent } from '../../pneus/pneus-table-tab.component';
+import { downloadBlobAs } from '../../../shared/utils/download-blob';
 
 @Component({
   selector: 'app-vehicule-detail',
@@ -30,7 +32,7 @@ import { PneusTableTabComponent } from '../../pneus/pneus-table-tab.component';
     StatusBadgeComponent, StatusLabelPipe, SkeletonComponent, SpinnerOverlayComponent,
     ConfirmDeleteModalComponent, EmptyStateComponent,
     BreadcrumbComponent, TabGroupComponent,
-    InfosTabComponent, PneusTabComponent, InterventionsTabComponent, ComposantsTabComponent,
+    InfosTabComponent, PneusTabComponent, InterventionsTabComponent, ComposantsTabComponent, ImageLightboxComponent,
     EditVehiculeModalComponent, PneusTableTabComponent,
   ],
   template: `
@@ -46,7 +48,9 @@ import { PneusTableTabComponent } from '../../pneus/pneus-table-tab.component';
         <div class="veh-detail-header">
           <div class="veh-detail-header__main">
             @if (vehicule()?.photoUrl) {
-              <img [src]="vehicule()!.photoUrl" alt="" class="veh-photo-img" />
+              <div class="veh-photo-img">
+                <app-image-lightbox [src]="vehicule()!.photoUrl" [fill]="true" />
+              </div>
             } @else {
               <div class="veh-photo-placeholder">
                 <lucide-icon name="truck" [size]="28" />
@@ -87,6 +91,10 @@ import { PneusTableTabComponent } from '../../pneus/pneus-table-tab.component';
             </div>
           </div>
           <div class="veh-detail-header__actions">
+            <button class="btn-edit" type="button" [disabled]="downloadingFiche()" (click)="downloadFiche()">
+              <lucide-icon name="download" [size]="14" />
+              {{ downloadingFiche() ? '…' : 'Fiche PDF' }}
+            </button>
             <button class="btn-edit" type="button" (click)="showEdit.set(true)">
               <lucide-icon name="edit" [size]="14" />
               Éditer
@@ -128,7 +136,11 @@ import { PneusTableTabComponent } from '../../pneus/pneus-table-tab.component';
             }
             @defer (when isActivated('composants')) {
               <div [hidden]="activeTab() !== 'composants'">
-                <app-composants-tab [vehiculeType]="vehicule()!.type" />
+                <app-composants-tab
+                  [vehiculeId]="vehicule()!.id"
+                  [vehiculeType]="vehicule()!.type"
+                  [vehiculeCode]="vehicule()!.code"
+                  [currentAttelage]="vehicule()!.currentAttelage ?? null" />
               </div>
             }
           </div>
@@ -152,13 +164,14 @@ import { PneusTableTabComponent } from '../../pneus/pneus-table-tab.component';
     </div>
   `,
   styles: [`
-    .veh-detail-page { background: #F5F5F5; min-height: calc(100vh - 72px); }
+    .veh-detail-page { background: #F5F5F5; min-height: calc(100vh - 88px); }
 
     /* Header */
     .veh-detail-header { background: white; padding: 20px 32px; border-bottom: 1px solid var(--color-border); display: flex; align-items: flex-start; justify-content: space-between; }
     .veh-detail-header__main { display: flex; align-items: flex-start; gap: 20px; }
     .veh-photo-placeholder { width: 80px; height: 80px; background: repeating-linear-gradient(45deg,#F5F5F5,#F5F5F5 4px,#FAFAFA 4px,#FAFAFA 12px); border-radius: 12px; border: 1px solid #E5E5E5; display: flex; flex-direction: column; align-items: center; justify-content: center; flex-shrink: 0; color: #9CA3AF; gap: 4px; }
-    .veh-photo-img { width: 80px; height: 80px; object-fit: cover; border-radius: 12px; border: 1px solid #E5E5E5; flex-shrink: 0; }
+    .veh-photo-img { width: 80px; height: 80px; object-fit: cover; border-radius: 12px; border: 1px solid #E5E5E5; flex-shrink: 0; overflow: hidden; }
+    .veh-photo-img app-image-lightbox { display: block; width: 100%; height: 100%; }
     .veh-photo-placeholder span { font-family: 'JetBrains Mono',monospace; font-size: 10px; color: #6B7280; }
     .veh-detail-info { display: flex; flex-direction: column; gap: 6px; }
     .veh-detail-info__meta { display: flex; align-items: center; gap: 8px; }
@@ -180,7 +193,7 @@ import { PneusTableTabComponent } from '../../pneus/pneus-table-tab.component';
     /* Tabs + content */
     .veh-tabs-bar { background: white; border-bottom: 1px solid var(--color-border); padding: 0 32px; }
     .veh-tab-content { padding: 24px 32px 40px; }
-    @keyframes tabsFadeIn { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: translateY(0); } }
+    @keyframes tabsFadeIn { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; } }
     .veh-tabs-fadein { animation: tabsFadeIn 180ms ease-out; }
 
     /* Inline skeleton bars for header fields */
@@ -207,6 +220,7 @@ export class VehiculeDetailComponent {
   showDelete = signal(false);
   showEdit = signal(false);
   deleting = signal(false);
+  downloadingFiche = signal(false);
   showSpinner = signal(false);
   private _spinnerTimer: ReturnType<typeof setTimeout> | null = null;
   private activated = signal(new Set<string>(['infos']));
@@ -311,5 +325,15 @@ export class VehiculeDetailComponent {
   onVehiculeEdited(_v: Vehicule): void {
     this.showEdit.set(false);
     this.reloadVehicule();
+  }
+
+  downloadFiche(): void {
+    const v = this.vehicule();
+    if (!v || this.downloadingFiche()) return;
+    this.downloadingFiche.set(true);
+    this.vehiculeService.downloadFiche(v.id).pipe(takeUntilDestroyed(this.destroyRef)).subscribe({
+      next: blob => { downloadBlobAs(blob, `fiche-vehicule-${v.id}.pdf`); this.downloadingFiche.set(false); },
+      error: () => this.downloadingFiche.set(false),
+    });
   }
 }

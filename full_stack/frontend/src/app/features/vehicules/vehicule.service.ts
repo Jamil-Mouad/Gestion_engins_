@@ -72,6 +72,10 @@ export class VehiculeService {
     return this.http.delete<void>(`${this.API}/${id}`).pipe(tap(() => this.invalidate()));
   }
 
+  downloadFiche(id: number): Observable<Blob> {
+    return this.http.get(`${this.API}/${id}/fiche.pdf`, { responseType: 'blob' });
+  }
+
   createAttelage(tracteurId: number, semiId: number, dateDebut: string): Observable<Attelage> {
     return this.http.post<Attelage>(this.ATTELAGE_API, { tracteurId, semiId, dateDebut }).pipe(
       tap(() => {

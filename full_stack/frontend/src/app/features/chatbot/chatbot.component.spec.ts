@@ -59,6 +59,26 @@ describe('ChatbotComponent', () => {
     subject.complete();
   });
 
+  it('isTyping() shows only before the first token, not during/after streaming', () => {
+    const subject = new Subject<ChatbotChunk>();
+    mockService.sendMessage.and.returnValue(subject.asObservable());
+
+    const fixture = TestBed.createComponent(ChatbotComponent);
+    const component = fixture.componentInstance;
+    component.onSend('Salut');
+
+    // Streaming started, no token yet → thinking indicator.
+    expect(component.isTyping()).toBe(true);
+
+    // First token arrived → bubble (with cursor) represents progress, no dots.
+    subject.next({ type: 'text', content: 'Bon' });
+    expect(component.isTyping()).toBe(false);
+
+    subject.next({ type: 'done' });
+    subject.complete();
+    expect(component.isTyping()).toBe(false);
+  });
+
   it('onSend() does nothing when prompt is empty or whitespace', () => {
     const fixture = TestBed.createComponent(ChatbotComponent);
     const component = fixture.componentInstance;
@@ -141,16 +161,33 @@ describe('ChatbotComponent', () => {
     expect(component.isTyping()).toBe(false);
   });
 
-  it('onSuggestion() sets inputText', () => {
-    const fixture = TestBed.createComponent(ChatbotComponent);
-    const component = fixture.componentInstance;
-    component.onSuggestion('Quels véhicules sont en maintenance?');
-    expect(component.inputText).toBe('Quels véhicules sont en maintenance?');
-  });
-
   it('ngOnDestroy() calls abort on the service', () => {
     const fixture = TestBed.createComponent(ChatbotComponent);
     fixture.componentInstance.ngOnDestroy();
     expect(mockService.abort).toHaveBeenCalled();
+  });
+
+  it('onConversationDeleted() clears the view when the active conversation is deleted', () => {
+    const fixture = TestBed.createComponent(ChatbotComponent);
+    const component = fixture.componentInstance;
+    component.activeConversationId.set(42);
+    component.messages.set([{ role: 'user', content: 'hi', timestamp: '' }]);
+
+    component.onConversationDeleted(42);
+
+    expect(component.activeConversationId()).toBeNull();
+    expect(component.messages()).toEqual([]);
+  });
+
+  it('onConversationDeleted() leaves the view intact when another conversation is deleted', () => {
+    const fixture = TestBed.createComponent(ChatbotComponent);
+    const component = fixture.componentInstance;
+    component.activeConversationId.set(42);
+    component.messages.set([{ role: 'user', content: 'hi', timestamp: '' }]);
+
+    component.onConversationDeleted(7);
+
+    expect(component.activeConversationId()).toBe(42);
+    expect(component.messages().length).toBe(1);
   });
 });

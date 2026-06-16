@@ -18,6 +18,7 @@ describe('PneuService', () => {
     position: 1,
     composant: { id: 11, designation: 'Pneu avant gauche' },
     nSerie: 'SN-2026-001',
+    reference: 'REF-2026-001',
     marque: 'Michelin',
     dateMontage: '2026-01-15',
     kmMontage: 0,

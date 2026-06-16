@@ -7,6 +7,7 @@ import { provideToastr } from 'ngx-toastr';
 import {
   LucideAngularModule, Search, Image,
   ChevronDown, ChevronRight, Pencil, Plus, Trash2, Download, Settings, GripVertical,
+  LayoutGrid, Table2, Upload, Maximize2, X,
 } from 'lucide-angular';
 
 import { ComposantsComponent } from './composants.component';
@@ -42,6 +43,7 @@ describe('ComposantsComponent', () => {
       imports: [LucideAngularModule.pick({
         Search, Image,
         ChevronDown, ChevronRight, Pencil, Plus, Trash2, Download, Settings, GripVertical,
+        LayoutGrid, Table2, Upload, Maximize2, X,
       })],
       providers: [
         provideHttpClient(),
@@ -89,15 +91,17 @@ describe('ComposantsComponent', () => {
     expect(header).toBeTruthy();
   });
 
-  it('renders data rows for each top-level node after loading', () => {
+  it('renders tree items for each top-level node after loading', () => {
     const fixture = TestBed.createComponent(ComposantsComponent);
+    const component = fixture.componentInstance;
     const req = httpMock.expectOne('/api/v1/composants/tree');
     req.flush(mockTree);
+    component.viewMode.set('tree'); // explicitly set tree view (default is now flat)
     fixture.detectChanges();
 
     const nativeEl = fixture.nativeElement as HTMLElement;
-    const rows = nativeEl.querySelectorAll('app-data-table-row');
-    // 2 top-level nodes (Moteur + Pneu)
+    // In tree view, top-level nodes render as .tree-item--l1 divs
+    const rows = nativeEl.querySelectorAll('.tree-item--l1');
     expect(rows.length).toBeGreaterThanOrEqual(2);
   });
 
@@ -129,57 +133,60 @@ describe('ComposantsComponent', () => {
     req.flush(mockTree);
     fixture.detectChanges();
 
-    expect(component.expanded().has(1)).toBe(false);
+    expect(component.expandedIds().has(1)).toBe(false);
     component.toggle(1);
-    expect(component.expanded().has(1)).toBe(true);
+    expect(component.expandedIds().has(1)).toBe(true);
     component.toggle(1);
-    expect(component.expanded().has(1)).toBe(false);
+    expect(component.expandedIds().has(1)).toBe(false);
   });
 
-  it('renders children rows when node is expanded', () => {
+  it('renders children items when node is expanded in tree view', () => {
     const fixture = TestBed.createComponent(ComposantsComponent);
     const component = fixture.componentInstance;
     const req = httpMock.expectOne('/api/v1/composants/tree');
     req.flush(mockTree);
+    component.viewMode.set('tree'); // explicitly set tree view (default is now flat)
     fixture.detectChanges();
 
-    component.toggle(1); // expand 'Moteur'
+    component.toggle(1); // expand 'Moteur' → shows Culasse + Piston as .tree-item--l2
     fixture.detectChanges();
 
     const nativeEl = fixture.nativeElement as HTMLElement;
-    // Moteur(1) + Pneu(1) + Culasse(1) + Piston(1) = 4 rows
-    const rows = nativeEl.querySelectorAll('app-data-table-row');
-    expect(rows.length).toBeGreaterThanOrEqual(4);
+    // l1: Moteur + Pneu = 2; l2: Culasse + Piston = 2 → total tree-item ≥ 4
+    const items = nativeEl.querySelectorAll('.tree-item');
+    expect(items.length).toBeGreaterThanOrEqual(4);
   });
 
-  it('renders leaf nodes when child is expanded', () => {
+  it('renders leaf nodes when child is expanded in tree view', () => {
     const fixture = TestBed.createComponent(ComposantsComponent);
     const component = fixture.componentInstance;
     const req = httpMock.expectOne('/api/v1/composants/tree');
     req.flush(mockTree);
+    component.viewMode.set('tree'); // explicitly set tree view (default is now flat)
     fixture.detectChanges();
 
     component.toggle(1); // expand Moteur
     fixture.detectChanges();
-    component.toggle(2); // expand Culasse
+    component.toggle(2); // expand Culasse → shows Joint de culasse as .tree-item--l3
     fixture.detectChanges();
 
     const nativeEl = fixture.nativeElement as HTMLElement;
-    // Moteur(1)+Pneu(1)+Culasse(1)+Piston(1)+JointDeCulasse(1) = 5
-    const rows = nativeEl.querySelectorAll('app-data-table-row');
-    expect(rows.length).toBeGreaterThanOrEqual(5);
+    const items = nativeEl.querySelectorAll('.tree-item');
+    expect(items.length).toBeGreaterThanOrEqual(5);
     expect((nativeEl as HTMLElement).textContent).toContain('Joint de culasse');
   });
 
-  it('renders partie badges for nodes with categorie', () => {
+  it('renders partie badges for nodes with categorie in flat view', () => {
     const fixture = TestBed.createComponent(ComposantsComponent);
+    const component = fixture.componentInstance;
     const req = httpMock.expectOne('/api/v1/composants/tree');
     req.flush(mockTree);
+    component.viewMode.set('flat');
     fixture.detectChanges();
 
     const nativeEl = fixture.nativeElement as HTMLElement;
     const badges = nativeEl.querySelectorAll('.partie-badge');
-    // 2 top-level nodes with categories: moteur, pneumatique
+    // moteur + pneumatique nodes
     expect(badges.length).toBeGreaterThanOrEqual(2);
   });
 
@@ -232,6 +239,122 @@ describe('ComposantsComponent', () => {
     const chips = nativeEl.querySelectorAll('app-filter-chip');
     // "Toutes" + 7 parties (incl. 'autre') = 8
     expect(chips.length).toBe(8);
+  });
+
+  it('table view shows only roots by default (collapsed)', () => {
+    const fixture = TestBed.createComponent(ComposantsComponent);
+    const component = fixture.componentInstance;
+    const req = httpMock.expectOne('/api/v1/composants/tree');
+    req.flush(mockTree);
+
+    expect(component.flattenedFiltered().map(n => n.id)).toEqual([1, 5]);
+  });
+
+  it('toggleTableRow reveals children, then grandchildren', () => {
+    const fixture = TestBed.createComponent(ComposantsComponent);
+    const component = fixture.componentInstance;
+    const req = httpMock.expectOne('/api/v1/composants/tree');
+    req.flush(mockTree);
+
+    component.toggleTableRow(1); // expand Moteur
+    expect(component.flattenedFiltered().map(n => n.id)).toEqual([1, 2, 4, 5]);
+
+    component.toggleTableRow(2); // expand Culasse
+    expect(component.flattenedFiltered().map(n => n.id)).toEqual([1, 2, 3, 4, 5]);
+
+    component.toggleTableRow(1); // collapse Moteur hides whole subtree
+    expect(component.flattenedFiltered().map(n => n.id)).toEqual([1, 5]);
+  });
+
+  it('search bypasses collapse and matches nested nodes', () => {
+    const fixture = TestBed.createComponent(ComposantsComponent);
+    const component = fixture.componentInstance;
+    const req = httpMock.expectOne('/api/v1/composants/tree');
+    req.flush(mockTree);
+
+    component.searchQuery.set('culasse');
+    expect(component.tableFilterActive()).toBe(true);
+    expect(component.flattenedFiltered().map(n => n.designation))
+      .toEqual(['Culasse', 'Joint de culasse']);
+  });
+
+  it('gear button opens the column manager modal, not the export modal', () => {
+    const fixture = TestBed.createComponent(ComposantsComponent);
+    const component = fixture.componentInstance;
+    const req = httpMock.expectOne('/api/v1/composants/tree');
+    req.flush(mockTree);
+    fixture.detectChanges();
+
+    const nativeEl = fixture.nativeElement as HTMLElement;
+    (nativeEl.querySelector('.btn-settings') as HTMLButtonElement).click();
+    fixture.detectChanges();
+
+    expect(component.showColManager()).toBe(true);
+    expect(component.showExportModal()).toBe(false);
+    expect(nativeEl.querySelector('app-column-manager-modal')).toBeTruthy();
+  });
+
+  it('counts descendants of the delete target', () => {
+    const fixture = TestBed.createComponent(ComposantsComponent);
+    const component = fixture.componentInstance;
+    const req = httpMock.expectOne('/api/v1/composants/tree');
+    req.flush(mockTree);
+
+    component.confirmDelete(component.tree()[0]); // Moteur → Culasse, Joint, Piston
+    expect(component.deleteDescendants()).toBe(3);
+
+    component.confirmDelete(component.tree()[1]); // Pneu (leaf)
+    expect(component.deleteDescendants()).toBe(0);
+  });
+
+  it('tree view renders a niveau-4 node when all ancestors are expanded', () => {
+    const deepTree: ComposantNode[] = [
+      {
+        id: 1, designation: 'Carrosserie', niveau: 1, categorie: 'autre',
+        children: [{
+          id: 2, designation: 'Capot', niveau: 2, categorie: null,
+          children: [{
+            id: 3, designation: 'Vérins', niveau: 3, categorie: null,
+            children: [
+              { id: 4, designation: 'Joint vérin', niveau: 4, categorie: null, children: [] },
+            ],
+          }],
+        }],
+      },
+    ];
+    const fixture = TestBed.createComponent(ComposantsComponent);
+    const component = fixture.componentInstance;
+    const req = httpMock.expectOne('/api/v1/composants/tree');
+    req.flush(deepTree);
+    component.viewMode.set('tree');
+
+    component.toggle(1);
+    component.toggle(2);
+    expect(component.treeRows().map(n => n.id)).toEqual([1, 2, 3]);
+    component.toggle(3);
+    expect(component.treeRows().map(n => n.id)).toEqual([1, 2, 3, 4]);
+
+    fixture.detectChanges();
+    const nativeEl = fixture.nativeElement as HTMLElement;
+    expect(nativeEl.textContent).toContain('Joint vérin');
+    const verinsRow = Array.from(nativeEl.querySelectorAll('.tree-item'))
+      .find(el => el.textContent?.includes('Vérins')) as HTMLElement;
+    expect(verinsRow.querySelector('.tree-chevron')).toBeTruthy();
+  });
+
+  it('saving a sous-composant auto-expands its parent in both views', () => {
+    const fixture = TestBed.createComponent(ComposantsComponent);
+    const component = fixture.componentInstance;
+    const req = httpMock.expectOne('/api/v1/composants/tree');
+    req.flush(mockTree);
+
+    component.openCreateChild(component.tree()[0].children[0]); // Culasse (id 2)
+    component.onFormSaved();
+    const reloadReq = httpMock.expectOne('/api/v1/composants/tree');
+    reloadReq.flush(mockTree);
+
+    expect(component.expandedIds().has(2)).toBe(true);
+    expect(component.tableExpandedIds().has(2)).toBe(true);
   });
 
   it('partieLabel returns correct display label', () => {

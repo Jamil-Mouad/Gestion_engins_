@@ -23,4 +23,8 @@ public interface DemandeAchatRepository extends JpaRepository<DemandeAchat, Long
 
     @Query("SELECT d FROM DemandeAchat d LEFT JOIN FETCH d.composant")
     List<DemandeAchat> findAllWithComposant();
+
+    @Query("SELECT d FROM DemandeAchat d LEFT JOIN FETCH d.composant " +
+           "WHERE (CAST(:statut AS string) IS NULL OR d.statut = CAST(:statut AS string))")
+    List<DemandeAchat> findAllWithComposantFiltered(@Param("statut") String statut);
 }

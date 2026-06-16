@@ -10,9 +10,12 @@ export class ComposantService {
   private readonly API = '/api/v1/composants';
   private http = inject(HttpClient);
 
-  tree(type?: string): Observable<ComposantNode[]> {
+  // With a vehiculeId, returns that vehicle's own composant tree; the
+  // type-only form returns the per-type starter template.
+  tree(type?: string, vehiculeId?: number): Observable<ComposantNode[]> {
     let httpParams = new HttpParams();
-    if (type) httpParams = httpParams.set('type', type);
+    if (vehiculeId != null) httpParams = httpParams.set('vehiculeId', String(vehiculeId));
+    else if (type) httpParams = httpParams.set('type', type);
     return this.http.get<ComposantNode[]>(`${this.API}/tree`, { params: httpParams });
   }
 
@@ -50,5 +53,9 @@ export class ComposantService {
     const formData = new FormData();
     formData.append('file', file);
     return this.http.post<{ url: string; filename: string }>('/api/v1/files/composant-photos', formData);
+  }
+
+  downloadFiche(id: number): Observable<Blob> {
+    return this.http.get(`${this.API}/${id}/fiche.pdf`, { responseType: 'blob' });
   }
 }

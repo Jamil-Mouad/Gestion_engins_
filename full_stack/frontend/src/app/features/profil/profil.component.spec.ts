@@ -63,7 +63,6 @@ describe('ProfilComponent', () => {
 
     expect(component.infosForm.value.prenom).toBe('Jean');
     expect(component.infosForm.value.nom).toBe('Dupont');
-    expect(component.infosForm.value.email).toBe('jean.dupont@mail.com');
     expect(component.infosForm.value.telephone).toBe('+212 6 00 00 00 00');
   });
 
@@ -154,7 +153,7 @@ describe('ProfilComponent', () => {
     const saveReq = httpMock.expectOne((r) => r.url === '/api/v1/users/me' && r.method === 'PATCH');
     expect(saveReq.request.body.prenom).toBe('Jean');
     expect(saveReq.request.body.nom).toBe('Dupont');
-    expect(saveReq.request.body.email).toBe('jean.dupont@mail.com');
+    expect(saveReq.request.body.telephone).toBe('+212 6 00 00 00 00');
     saveReq.flush(mockUser);
 
     expect(component.infosSaved()).toBe(true);
@@ -167,7 +166,7 @@ describe('ProfilComponent', () => {
     const initReq = httpMock.expectOne('/api/v1/users/me');
     initReq.flush(mockUser);
 
-    component.infosForm.patchValue({ prenom: '', nom: '', email: '' });
+    component.infosForm.patchValue({ prenom: '', nom: '' });
     component.saveInfos();
 
     expect(component.saving()).toBe(false);
@@ -187,8 +186,9 @@ describe('ProfilComponent', () => {
 
     component.savePassword();
 
-    const saveReq = httpMock.expectOne('/api/v1/users/me/password');
-    expect(saveReq.request.method).toBe('PATCH');
+    const saveReq = httpMock.expectOne('/api/v1/auth/me/password');
+    expect(saveReq.request.method).toBe('PUT');
+    expect(saveReq.request.body).toEqual({ current_password: 'oldPass123', new_password: 'newPass456' });
     saveReq.flush(null);
 
     expect(component.passwordSaved()).toBe(true);
@@ -209,23 +209,23 @@ describe('ProfilComponent', () => {
 
     component.savePassword();
 
-    const saveReq = httpMock.expectOne('/api/v1/users/me/password');
+    const saveReq = httpMock.expectOne('/api/v1/auth/me/password');
     saveReq.error(new ProgressEvent('error'));
 
     expect(component.saving()).toBe(false);
     expect(component.passwordError()).toContain('Erreur');
   });
 
-  it('infosForm is required with email validation', () => {
+  it('infosForm requires prenom and nom', () => {
     const fixture = TestBed.createComponent(ProfilComponent);
     const component = fixture.componentInstance;
     const req = httpMock.expectOne('/api/v1/users/me');
     req.flush(mockUser);
 
-    component.infosForm.patchValue({ prenom: '', nom: '', email: 'invalid' });
+    component.infosForm.patchValue({ prenom: '', nom: '' });
     expect(component.infosForm.invalid).toBe(true);
 
-    component.infosForm.patchValue({ prenom: 'A', nom: 'B', email: 'valid@mail.com' });
+    component.infosForm.patchValue({ prenom: 'A', nom: 'B' });
     expect(component.infosForm.valid).toBe(true);
   });
 

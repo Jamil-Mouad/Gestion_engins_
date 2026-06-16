@@ -141,7 +141,11 @@ export interface DemandeIntervention {
 
             @if (filteredDemandes().length === 0) {
               <div class="di-empty">
-                <span class="di-empty-icon">📋</span>
+                <svg class="di-empty-icon" width="44" height="44" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">
+                  <rect x="8" y="2" width="8" height="4" rx="1"/>
+                  <path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2"/>
+                  <path d="M9 12h6M9 16h6"/>
+                </svg>
                 <p>Aucune demande d'intervention pour ce filtre.</p>
               </div>
             }
@@ -155,7 +159,7 @@ export interface DemandeIntervention {
           <div class="di-modal" (click)="$event.stopPropagation()" role="dialog" aria-modal="true">
             <div class="di-modal-header">
               <span class="di-modal-title">Détail — {{ selectedDemande()!.code }}</span>
-              <button class="di-modal-close" (click)="selectedDemande.set(null)">✕</button>
+              <button class="di-modal-close" (click)="selectedDemande.set(null)">×</button>
             </div>
             <div class="di-modal-body">
               <div class="di-frow"><span class="di-frow-label">ID demande</span><span class="di-frow-value di-mono">{{ selectedDemande()!.code }}</span></div>
@@ -187,7 +191,7 @@ export interface DemandeIntervention {
           <div class="di-modal" (click)="$event.stopPropagation()" role="dialog" aria-modal="true">
             <div class="di-modal-header">
               <span class="di-modal-title">Nouvelle demande d'intervention</span>
-              <button class="di-modal-close" (click)="showNewModal.set(false)">✕</button>
+              <button class="di-modal-close" (click)="showNewModal.set(false)">×</button>
             </div>
             <div class="di-modal-body">
               <div class="di-form-group">
@@ -226,12 +230,12 @@ export interface DemandeIntervention {
   `,
   styles: [`
     @keyframes screenEnter {
-      from { opacity: 0; transform: translateY(8px); }
-      to   { opacity: 1; transform: translateY(0); }
+      from { opacity: 0; }
+      to   { opacity: 1; }
     }
 
     .di-screen {
-      min-height: calc(100vh - 72px);
+      min-height: calc(100vh - 88px);
       background: #F5F5F5;
       animation: screenEnter 280ms ease-out both;
     }

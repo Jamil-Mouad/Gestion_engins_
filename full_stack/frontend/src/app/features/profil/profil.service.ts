@@ -16,8 +16,4 @@ export class ProfilService {
   updateMe(form: Partial<User>): Observable<User> {
     return this.http.patch<User>(this.API, form);
   }
-
-  updatePassword(form: { currentPassword: string; newPassword: string; confirmPassword: string }): Observable<void> {
-    return this.http.patch<void>(`${this.API}/password`, form);
-  }
 }

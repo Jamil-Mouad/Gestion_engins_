@@ -15,7 +15,12 @@ import { ModalShellComponent } from '../../shared/ui/modal/modal-shell.component
 
         <div class="form-group">
           <label class="form-label">N° Série</label>
-          <input class="form-input" type="text" [(ngModel)]="nSerie" placeholder="ex. MIC-789012" />
+          <input class="form-input" type="text" [(ngModel)]="nSerie" placeholder="ex. SN-2026-000123" />
+        </div>
+
+        <div class="form-group">
+          <label class="form-label">Référence</label>
+          <input class="form-input" type="text" [(ngModel)]="reference" placeholder="ex. MIC-789012" />
         </div>
 
         <div class="form-group">
@@ -108,6 +113,7 @@ export class EditPneuModalComponent implements OnInit {
   @Output() close = new EventEmitter<void>();
 
   nSerie = '';
+  reference = '';
   marque = '';
   dateMontage = '';
   expectedLifeKm: number | null = null;
@@ -124,6 +130,7 @@ export class EditPneuModalComponent implements OnInit {
 
   ngOnInit(): void {
     this.nSerie = this.pneu.nSerie ?? '';
+    this.reference = this.pneu.reference ?? '';
     this.marque = this.pneu.marque ?? '';
     this.dateMontage = this.pneu.dateMontage ?? '';
     this.expectedLifeKm = this.pneu.expectedLifeKm ?? null;
@@ -153,6 +160,7 @@ export class EditPneuModalComponent implements OnInit {
     this.error.set(null);
     this.pneuService.update(this.pneu.id, {
       nSerie: this.nSerie || null,
+      reference: this.reference || null,
       marque: this.marque || null,
       dateMontage: this.dateMontage || null,
       expectedLifeKm: this.expectedLifeKm,

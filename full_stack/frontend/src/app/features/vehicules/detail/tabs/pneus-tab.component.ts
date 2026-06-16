@@ -1,6 +1,7 @@
 import { Component, Input, inject, signal, computed, SimpleChanges, DestroyRef, OnChanges } from '@angular/core';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { CommonModule } from '@angular/common';
+import { take } from 'rxjs/operators';
 import { PneuService } from '../../../pneus/pneu.service';
 import { Pneu } from '../../../../shared/models/pneu.model';
 import { Attelage, VehiculeType, isCamionTracteur } from '../../../../shared/models/vehicule.model';
@@ -12,6 +13,9 @@ import { PermuterPneuModalComponent } from '../../../pneus/permuter-pneu-modal.c
 import { RemplacerPneuModalComponent } from '../../../pneus/remplacer-pneu-modal.component';
 import { AjouterPneuModalComponent } from '../../../pneus/ajouter-pneu-modal.component';
 import { AxleSchemaComponent as _AxleSchemaRef } from '../../../../shared/ui/axle-schema/axle-schema.component';
+import { ExportExcelModalComponent, ExportColDef, ExportFilterDef, ExportResult } from '../../../../shared/ui/export-excel-modal/export-excel-modal.component';
+import { ExcelExportService } from '../../../../shared/services/excel-export.service';
+import { downloadBlobAs } from '../../../../shared/utils/download-blob';
 
 @Component({
   selector: 'app-pneus-tab',
@@ -25,6 +29,7 @@ import { AxleSchemaComponent as _AxleSchemaRef } from '../../../../shared/ui/axl
     PermuterPneuModalComponent,
     RemplacerPneuModalComponent,
     AjouterPneuModalComponent,
+    ExportExcelModalComponent,
   ],
   template: `
     <div class="pneus-tab">
@@ -90,12 +95,18 @@ import { AxleSchemaComponent as _AxleSchemaRef } from '../../../../shared/ui/axl
               </div>
 
               <div class="pneus-tab__card-footer">
+                <button class="btn-secondary-sm" (click)="openExport()">Exporter Excel</button>
                 <button class="btn-secondary-sm"
                         [disabled]="!selectedPneu()"
                         (click)="openPermuter()">Permuter positions</button>
-                <button class="btn-primary-sm"
-                        [disabled]="!selectedPosition()"
-                        (click)="openRemplacer()">Remplacer un pneu</button>
+                @if (selectedPosition() !== null && !selectedPneu()) {
+                  <button class="btn-primary-sm"
+                          (click)="openAjouter(selectedPosition())">Monter un pneu (P{{ selectedPosition() }})</button>
+                } @else {
+                  <button class="btn-primary-sm"
+                          [disabled]="!selectedPneu()"
+                          (click)="openRemplacer()">Remplacer un pneu</button>
+                }
               </div>
             </div>
           </div>
@@ -115,9 +126,18 @@ import { AxleSchemaComponent as _AxleSchemaRef } from '../../../../shared/ui/axl
                 <div class="pneus-tab__action-row">
                   <button class="btn-secondary-sm" (click)="openPermuter()">Permuter</button>
                   <button class="btn-primary-sm" (click)="openRemplacer()">Remplacer</button>
+                  <button class="btn-secondary-sm" [disabled]="downloadingFiche()" (click)="downloadFiche()">
+                    {{ downloadingFiche() ? '…' : 'Fiche PDF' }}
+                  </button>
                   <button class="btn-danger-sm" [disabled]="deleting()" (click)="deletePneu()">
                     {{ deleting() ? '…' : 'Supprimer' }}
                   </button>
+                </div>
+              } @else if (selectedPosition() !== null) {
+                <div class="pneus-tab__empty-pos">
+                  <p>Position P{{ selectedPosition() }} libre.</p>
+                  <button class="btn-primary-sm pneus-tab__mount-btn"
+                          (click)="openAjouter(selectedPosition())">+ Monter un pneu ici</button>
                 </div>
               } @else {
                 <div class="pneus-tab__empty-pos">
@@ -189,8 +209,19 @@ import { AxleSchemaComponent as _AxleSchemaRef } from '../../../../shared/ui/axl
         [vehiculeId]="effectiveVehiculeId()"
         [availablePositions]="emptyPositions()"
         [maxPosition]="totalPositions()"
+        [initialPosition]="ajouterInitialPosition()"
         (saved)="onModalSaved()"
         (close)="showAjouterModal.set(false)" />
+    }
+
+    <!-- Export Excel modal -->
+    @if (showExportModal()) {
+      <app-export-excel-modal
+        [allColumns]="exportColDefs()"
+        [filterDefs]="exportFilterDefs()"
+        [initialVisible]="exportDefaultColIds()"
+        (exported)="onExportConfirmed($event)"
+        (cancel)="showExportModal.set(false)" />
     }
   `,
   styles: [`
@@ -218,8 +249,9 @@ import { AxleSchemaComponent as _AxleSchemaRef } from '../../../../shared/ui/axl
 
     .pneus-tab__action-row { display: flex; gap: 8px; margin-top: 12px; flex-wrap: wrap; }
 
-    .pneus-tab__empty-pos { padding: 16px 0; }
+    .pneus-tab__empty-pos { padding: 16px 0; display: flex; flex-direction: column; gap: 12px; align-items: center; }
     .pneus-tab__empty-pos p { font-family: 'Open Sans', sans-serif; font-size: 13px; color: var(--color-text-muted); text-align: center; line-height: 1.5; margin: 0; }
+    .pneus-tab__mount-btn { flex: 0 0 auto; padding: 0 16px; }
 
     .pneus-tab__resume-row { display: flex; justify-content: space-between; align-items: center; padding: 8px 0; border-bottom: 1px solid var(--color-border); font-size: 13px; }
     .pneus-tab__resume-row--last { border-bottom: none; }
@@ -240,6 +272,7 @@ import { AxleSchemaComponent as _AxleSchemaRef } from '../../../../shared/ui/axl
 })
 export class PneusTabComponent implements OnChanges {
   private pneuService = inject(PneuService);
+  private excelExportService = inject(ExcelExportService);
   private destroyRef = inject(DestroyRef);
 
   @Input() vehiculeId!: number;
@@ -255,7 +288,11 @@ export class PneusTabComponent implements OnChanges {
   showPermuterModal = signal(false);
   showRemplacerModal = signal(false);
   showAjouterModal = signal(false);
+  showExportModal = signal(false);
   deleting = signal(false);
+  downloadingFiche = signal(false);
+  exporting = signal(false);
+  ajouterInitialPosition = signal<number | null>(null);
 
   selectedPneu = computed(() => {
     const pos = this.selectedPosition();
@@ -332,8 +369,84 @@ export class PneusTabComponent implements OnChanges {
     this.showRemplacerModal.set(true);
   }
 
-  openAjouter(): void {
+  openAjouter(prefillPosition: number | null = null): void {
+    this.ajouterInitialPosition.set(prefillPosition);
     this.showAjouterModal.set(true);
+  }
+
+  openExport(): void {
+    this.showExportModal.set(true);
+  }
+
+  downloadFiche(): void {
+    const pneu = this.selectedPneu();
+    if (!pneu || this.downloadingFiche()) return;
+    this.downloadingFiche.set(true);
+    this.pneuService.downloadFiche(pneu.id).pipe(take(1)).subscribe({
+      next: blob => { downloadBlobAs(blob, `fiche-pneu-${pneu.id}.pdf`); this.downloadingFiche.set(false); },
+      error: () => this.downloadingFiche.set(false),
+    });
+  }
+
+  // The « partie » column only makes sense for an attelage (tracteur + semi)
+  exportColDefs = computed<ExportColDef[]>(() => {
+    const cols: ExportColDef[] = [
+      { id: 'vehicule', label: 'Véhicule' },
+      ...(isCamionTracteur(this.vehiculeType) ? [{ id: 'partie', label: 'Partie' }] : []),
+      { id: 'position', label: 'Position' },
+      { id: 'reference', label: 'Référence' },
+      { id: 'nSerie', label: 'N° Série' },
+      { id: 'marque', label: 'Marque' },
+      { id: 'dateMontage', label: 'Date de montage' },
+      { id: 'kmParcourus', label: 'Km parcourus' },
+      { id: 'kmRestant', label: 'Km restants' },
+      { id: 'expectedLifeKm', label: 'Durée de vie (km)' },
+      { id: 'pressionPsi', label: 'Pression (PSI)' },
+      { id: 'profondeur32e', label: 'Profondeur (32e)' },
+      { id: 'status', label: 'Statut' },
+      { id: 'actif', label: 'Actif' },
+    ];
+    return cols;
+  });
+
+  exportDefaultColIds = computed(() => this.exportColDefs()
+    .filter(c => !['expectedLifeKm', 'pressionPsi', 'profondeur32e', 'actif'].includes(c.id))
+    .map(c => c.id));
+
+  // The « partie » filter only makes sense for an attelage (tracteur + semi).
+  // Plain method (not computed): it depends on a non-signal @Input.
+  exportFilterDefs = (): ExportFilterDef[] => [
+    ...(isCamionTracteur(this.vehiculeType) ? [{
+      key: 'partie', label: 'Partie', type: 'select' as const,
+      options: [
+        { value: 'camion_tracteur', label: 'Tracteur' },
+        { value: 'semi_remorque', label: 'Semi-remorque' },
+      ],
+    }] : []),
+    {
+      key: 'statut', label: 'Statut', type: 'select' as const,
+      options: [
+        { value: 'ok', label: 'OK' },
+        { value: 'warn', label: 'Alerte' },
+        { value: 'empty', label: 'Vide' },
+      ],
+    },
+  ];
+
+  onExportConfirmed(result: ExportResult): void {
+    this.showExportModal.set(false);
+    if (this.exporting()) return;
+    this.exporting.set(true);
+    this.excelExportService.download({
+      entites: 'pneus',
+      vehiculeId: this.vehiculeId,
+      vehiculeType: result.filters['partie'],
+      columns: result.columns,
+      statut: result.filters['statut'],
+    }).pipe(take(1)).subscribe({
+      next: blob => { downloadBlobAs(blob, 'pneus.xlsx'); this.exporting.set(false); },
+      error: () => this.exporting.set(false),
+    });
   }
 
   deletePneu(): void {

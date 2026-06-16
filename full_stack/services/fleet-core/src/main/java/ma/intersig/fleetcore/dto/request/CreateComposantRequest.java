@@ -13,5 +13,6 @@ public record CreateComposantRequest(
         BigDecimal prixUnitaire,
         Integer stock,
         String imageUrl,
-        String vehiculeType
+        String vehiculeType,
+        Long vehiculeId
 ) {}

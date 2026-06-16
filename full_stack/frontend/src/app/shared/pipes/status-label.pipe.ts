@@ -1,7 +1,6 @@
 import { Pipe, PipeTransform } from '@angular/core';
 import { VehiculeStatut } from '../models/vehicule.model';
 import { InterventionStatut } from '../models/intervention.model';
-import { VidangeStatut } from '../models/vidange.model';
 import { PneuStatus } from '../models/pneu.model';
 import { DemandeStatut } from '../models/demande-achat.model';
 

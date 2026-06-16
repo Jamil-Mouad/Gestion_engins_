@@ -14,6 +14,7 @@ function makePneu(position: number, status: Pneu['status'] = 'ok'): Pneu {
     vehiculeCode: 'CAM-001',
     position,
     nSerie: `SN-${position}`,
+    reference: `REF-${position}`,
     marque: 'Michelin',
     dateMontage: '2025-01-01',
     kmMontage: 0,
@@ -242,5 +243,42 @@ describe('PneusTabComponent', () => {
     expect(empty).not.toContain(1);
     expect(empty).not.toContain(2);
     expect(empty).toContain(3); // 4x2 has positions 1-4
+  });
+
+  it('exportFilterDefs includes the partie filter only for camion_tracteur', () => {
+    const fixture = TestBed.createComponent(PneusTabComponent);
+    const comp = fixture.componentInstance;
+    comp.vehiculeId = 1;
+    comp.configAxle = '4x2';
+    comp.ngOnChanges({ vehiculeId: new SimpleChange(undefined, 1, true) });
+    httpMock.expectOne((r) => r.url === '/api/v1/vehicules/1/pneus').flush([]);
+
+    comp.vehiculeType = 'camion';
+    expect(comp.exportFilterDefs().map(f => f.key)).toEqual(['statut']);
+
+    comp.vehiculeType = 'camion_tracteur';
+    const defs = comp.exportFilterDefs();
+    expect(defs.map(f => f.key)).toEqual(['partie', 'statut']);
+    expect(defs[0].options.map(o => o.value)).toEqual(['camion_tracteur', 'semi_remorque']);
+  });
+
+  it('onExportConfirmed forwards the partie filter as vehiculeType', () => {
+    const fixture = TestBed.createComponent(PneusTabComponent);
+    const comp = fixture.componentInstance;
+    comp.vehiculeId = 1;
+    comp.vehiculeType = 'camion_tracteur';
+    comp.configAxle = '4x2';
+    comp.ngOnChanges({ vehiculeId: new SimpleChange(undefined, 1, true) });
+    httpMock.expectOne((r) => r.url === '/api/v1/vehicules/1/pneus').flush([]);
+
+    comp.onExportConfirmed({ columns: ['position'], filters: { partie: 'semi_remorque', statut: 'ok' } });
+
+    const req = httpMock.expectOne((r) => r.url === '/api/v1/export/excel');
+    expect(req.request.params.get('entites')).toBe('pneus');
+    expect(req.request.params.get('vehiculeId')).toBe('1');
+    expect(req.request.params.get('vehiculeType')).toBe('semi_remorque');
+    expect(req.request.params.get('statut')).toBe('ok');
+    req.flush(new Blob());
+    expect(comp.exporting()).toBe(false);
   });
 });

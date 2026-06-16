@@ -38,6 +38,7 @@ export class PneuService {
 
   update(pneuId: number, body: {
     nSerie?: string | null;
+    reference?: string | null;
     marque?: string | null;
     dateMontage?: string | null;
     expectedLifeKm?: number | null;
@@ -62,10 +63,23 @@ export class PneuService {
     );
   }
 
-  remplacer(pneuId: number, body: { nSerie?: string; marque?: string; position: number }): Observable<void> {
+  remplacer(pneuId: number, body: {
+    nSerie: string;
+    reference: string;
+    marque: string;
+    dateMontage: string;
+    expectedLifeKm: number;
+    pressionPsi: number;
+    profondeur32e: number;
+    position: number;
+  }): Observable<void> {
     return this.http.patch<void>(`${this.API}/${pneuId}/remplacer`, body).pipe(
       tap(() => this.byVehiculeCache.clear())
     );
+  }
+
+  downloadFiche(pneuId: number): Observable<Blob> {
+    return this.http.get(`${this.API}/${pneuId}/fiche.pdf`, { responseType: 'blob' });
   }
 
   assign(vehiculeId: number, form: CreatePneuForm): Observable<Pneu> {
@@ -82,10 +96,6 @@ export class PneuService {
 
   getActivityLog(pneuId: number): Observable<any[]> {
     return this.http.get<any[]>(`${this.API}/${pneuId}/activity-log`);
-  }
-
-  listAll(): Observable<Pneu[]> {
-    return this.http.get<Pneu[]>(`${this.API}`);
   }
 
   listAvailable(): Observable<Pneu[]> {

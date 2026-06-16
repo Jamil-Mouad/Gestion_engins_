@@ -2,7 +2,6 @@ export * from './vehicule.model';
 export * from './intervention.model';
 export * from './composant.model';
 export * from './pneu.model';
-export * from './vidange.model';
 export * from './notification.model';
 export * from './demande-achat.model';
 export * from './import.model';

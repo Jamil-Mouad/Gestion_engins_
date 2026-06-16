@@ -1,5 +1,7 @@
-import { Component, signal, computed, inject, ElementRef, ViewChild } from '@angular/core';
-import { Router, RouterLink, RouterLinkActive } from '@angular/router';
+import { Component, signal, computed, inject, ViewChildren, QueryList, ElementRef, AfterViewInit, DestroyRef } from '@angular/core';
+import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
+import { Router, RouterLink, RouterLinkActive, NavigationEnd } from '@angular/router';
+import { filter } from 'rxjs';
 import { LucideAngularModule, ChevronDown } from 'lucide-angular';
 import { AuthService } from '../../../core/auth/auth.service';
 import { NotificationService } from '../../../core/notifications/notification.service';
@@ -14,7 +16,7 @@ import { ClickOutsideDirective } from '../../directives/click-outside.directive'
     <header class="top-bar">
 
       <!-- Logo lockup -->
-      <a routerLink="/vehicules" class="logo-wrap">
+      <a [routerLink]="homeLink()" class="logo-wrap">
         <img src="assets/logo.png" alt="INTERSIG" class="logo-img" />
         <div class="logo-arrow-square">
           <svg width="20" height="16" viewBox="0 0 20 16" fill="none">
@@ -27,60 +29,99 @@ import { ClickOutsideDirective } from '../../directives/click-outside.directive'
         </div>
       </a>
 
-      <!-- Nav + liquid-glass pill -->
-      <div #navContainer class="nav-container" (mouseleave)="hidePill()">
+      <!-- Nav -->
+      <div class="nav-container">
 
-        <!-- Glass pill -->
-        <div #hoverPill class="hover-pill"></div>
+        @if (!isMagasinOnly()) {
+          <!-- Véhicules -->
+          <div class="nav-item-wrap" (mouseenter)="onNavHover($any($event.currentTarget))" (mouseleave)="onNavLeave()">
+            <a #navLink routerLink="/vehicules" routerLinkActive="nav-link--active" class="nav-link">
+              <span class="nav-label" [class.nav-label--active]="router.url.startsWith('/vehicules')">Véhicules</span>
+            </a>
+          </div>
 
-        <!-- Véhicules -->
-        <div class="nav-item-wrap" (mouseenter)="movePill($event.currentTarget)">
-          <a routerLink="/vehicules" routerLinkActive="nav-link--active" class="nav-link">
-            <span class="nav-label" [class.nav-label--active]="router.url.startsWith('/vehicules')">Véhicules</span>
-          </a>
-        </div>
+          <!-- Interventions -->
+          <div class="nav-item-wrap" (mouseenter)="onNavHover($any($event.currentTarget))" (mouseleave)="onNavLeave()">
+            <a #navLink routerLink="/interventions" routerLinkActive="nav-link--active" class="nav-link">
+              <span class="nav-label" [class.nav-label--active]="router.url.startsWith('/interventions')">Interventions</span>
+            </a>
+          </div>
 
-        <!-- Interventions -->
-        <div class="nav-item-wrap" (mouseenter)="movePill($event.currentTarget)">
-          <a routerLink="/interventions" routerLinkActive="nav-link--active" class="nav-link">
-            <span class="nav-label" [class.nav-label--active]="router.url.startsWith('/interventions')">Interventions</span>
-          </a>
-        </div>
+          <!-- Composants -->
+          <div class="nav-item-wrap" (mouseenter)="onNavHover($any($event.currentTarget))" (mouseleave)="onNavLeave()">
+            <a #navLink routerLink="/composants" routerLinkActive="nav-link--active" class="nav-link">
+              <span class="nav-label" [class.nav-label--active]="router.url.startsWith('/composants')">Composants</span>
+            </a>
+          </div>
 
-        <!-- Composants -->
-        <div class="nav-item-wrap" (mouseenter)="movePill($event.currentTarget)">
-          <a routerLink="/composants" routerLinkActive="nav-link--active" class="nav-link">
-            <span class="nav-label" [class.nav-label--active]="router.url.startsWith('/composants')">Composants</span>
-          </a>
-        </div>
+          <!-- Demandes achat -->
+          <div class="nav-item-wrap" (mouseenter)="onNavHover($any($event.currentTarget))" (mouseleave)="onNavLeave()">
+            <a #navLink routerLink="/demandes-achat" routerLinkActive="nav-link--active" class="nav-link">
+              <span class="nav-label" [class.nav-label--active]="router.url.startsWith('/demandes-achat')">Demandes</span>
+            </a>
+          </div>
+        }
 
-        <!-- Demandes achat -->
-        <div class="nav-item-wrap" (mouseenter)="movePill($event.currentTarget)">
-          <a routerLink="/demandes-achat" routerLinkActive="nav-link--active" class="nav-link">
-            <span class="nav-label" [class.nav-label--active]="router.url.startsWith('/demandes-achat')">Demandes</span>
-          </a>
-        </div>
+        <!-- Magasin (gasoil) -->
+        @if (isMagasinOnly()) {
+          <!-- MAGASIN role: the magasin section links live directly in the top bar -->
+          <div class="nav-item-wrap" (mouseenter)="onNavHover($any($event.currentTarget))" (mouseleave)="onNavLeave()">
+            <a #navLink routerLink="/magasin" routerLinkActive="nav-link--active" [routerLinkActiveOptions]="{ exact: true }" class="nav-link">
+              <span class="nav-label" [class.nav-label--active]="router.url === '/magasin'">Tableau de bord</span>
+            </a>
+          </div>
+          <div class="nav-item-wrap" (mouseenter)="onNavHover($any($event.currentTarget))" (mouseleave)="onNavLeave()">
+            <a #navLink routerLink="/magasin/sorties" routerLinkActive="nav-link--active" class="nav-link">
+              <span class="nav-label" [class.nav-label--active]="router.url.startsWith('/magasin/sorties')">Sorties</span>
+            </a>
+          </div>
+          <div class="nav-item-wrap" (mouseenter)="onNavHover($any($event.currentTarget))" (mouseleave)="onNavLeave()">
+            <a #navLink routerLink="/magasin/arrivages" routerLinkActive="nav-link--active" class="nav-link">
+              <span class="nav-label" [class.nav-label--active]="router.url.startsWith('/magasin/arrivages')">Arrivages</span>
+            </a>
+          </div>
+          <div class="nav-item-wrap" (mouseenter)="onNavHover($any($event.currentTarget))" (mouseleave)="onNavLeave()">
+            <a #navLink routerLink="/magasin/jaugeages" routerLinkActive="nav-link--active" class="nav-link">
+              <span class="nav-label" [class.nav-label--active]="router.url.startsWith('/magasin/jaugeages')">Jaugeages</span>
+            </a>
+          </div>
+          <div class="nav-item-wrap" (mouseenter)="onNavHover($any($event.currentTarget))" (mouseleave)="onNavLeave()">
+            <a #navLink routerLink="/magasin/configuration" routerLinkActive="nav-link--active" class="nav-link">
+              <span class="nav-label" [class.nav-label--active]="router.url.startsWith('/magasin/configuration')">Configuration</span>
+            </a>
+          </div>
+        } @else if (canSeeMagasin()) {
+          <div class="nav-item-wrap" (mouseenter)="onNavHover($any($event.currentTarget))" (mouseleave)="onNavLeave()">
+            <a #navLink routerLink="/magasin" routerLinkActive="nav-link--active" class="nav-link">
+              <span class="nav-label" [class.nav-label--active]="router.url.startsWith('/magasin')">Magasin</span>
+            </a>
+          </div>
+        }
 
-        <!-- Chat AI -->
-        <div class="nav-item-wrap" (mouseenter)="movePill($event.currentTarget)">
-          <a routerLink="/chatbot" routerLinkActive="nav-link--active" class="nav-link">
-            <span class="nav-label" [class.nav-label--active]="router.url.startsWith('/chatbot')">Chat AI</span>
-          </a>
-        </div>
+        @if (!isMagasinOnly()) {
+          <!-- Chat AI -->
+          <div class="nav-item-wrap" (mouseenter)="onNavHover($any($event.currentTarget))" (mouseleave)="onNavLeave()">
+            <a #navLink routerLink="/chatbot" routerLinkActive="nav-link--active" class="nav-link">
+              <span class="nav-label" [class.nav-label--active]="router.url.startsWith('/chatbot')">Chat AI</span>
+            </a>
+          </div>
 
-        <!-- Import -->
-        <div class="nav-item-wrap" (mouseenter)="movePill($event.currentTarget)">
-          <a routerLink="/import-export" routerLinkActive="nav-link--active" class="nav-link">
-            <span class="nav-label" [class.nav-label--active]="router.url.startsWith('/import-export')">Import</span>
-          </a>
-        </div>
+          <!-- Import -->
+          <div class="nav-item-wrap" (mouseenter)="onNavHover($any($event.currentTarget))" (mouseleave)="onNavLeave()">
+            <a #navLink routerLink="/import-export" routerLinkActive="nav-link--active" class="nav-link">
+              <span class="nav-label" [class.nav-label--active]="router.url.startsWith('/import-export')">Import</span>
+            </a>
+          </div>
+        }
 
-        <!-- Journées -->
-        <div class="nav-item-wrap" (mouseenter)="movePill($event.currentTarget)">
-          <a routerLink="/tableau-journees" routerLinkActive="nav-link--active" class="nav-link">
-            <span class="nav-label" [class.nav-label--active]="router.url.startsWith('/tableau-journees')">Journées</span>
-          </a>
-        </div>
+        <!-- Sliding active indicator -->
+        <div class="nav-indicator" [style.left]="indicatorLeft()" [style.width]="indicatorWidth()"></div>
+
+        <!-- Sliding hover glass pill -->
+        <div class="nav-hover-pill"
+             [style.left]="hoverLeft()"
+             [style.width]="hoverWidth()"
+             [class.nav-hover-pill--visible]="isHovering()"></div>
 
       </div><!-- /nav-container -->
 
@@ -117,7 +158,7 @@ import { ClickOutsideDirective } from '../../directives/click-outside.directive'
       top: 0;
       left: 0;
       right: 0;
-      height: 72px;
+      height: 88px;
       z-index: 100;
       gap: 0;
       flex-shrink: 0;
@@ -166,31 +207,14 @@ import { ClickOutsideDirective } from '../../directives/click-outside.directive'
       letter-spacing: 0.03em;
     }
 
-    /* ── Nav container ── */
+    /* ── Nav container — absolutely centered so logo width doesn't shift it ── */
     .nav-container {
-      display: flex;
-      flex: 1;
-      height: 100%;
-      position: relative;
-      overflow: visible;
-    }
-
-    /* ── Hover pill ── */
-    .hover-pill {
       position: absolute;
-      top: 50%;
-      transform: translateY(-50%);
-      height: 36px;
-      border-radius: 8px;
-      pointer-events: none;
-      z-index: 0;
-      background: rgba(255,255,255,0.10);
-      border: 1px solid rgba(255,255,255,0.13);
-      box-shadow: 0 2px 8px rgba(0,0,0,0.12);
-      backdrop-filter: blur(20px) saturate(180%);
-      -webkit-backdrop-filter: blur(20px) saturate(180%);
-      transition: left 320ms cubic-bezier(0.34,1.2,0.64,1), width 320ms cubic-bezier(0.34,1.2,0.64,1), opacity 180ms ease;
-      opacity: 0;
+      left: 50%;
+      transform: translateX(-50%);
+      height: 100%;
+      display: flex;
+      align-items: center;
     }
 
     /* ── Nav items ── */
@@ -199,7 +223,7 @@ import { ClickOutsideDirective } from '../../directives/click-outside.directive'
       z-index: 1;
     }
     .nav-link {
-      height: 72px;
+      height: 88px;
       padding: 0 14px;
       display: flex;
       align-items: center;
@@ -209,28 +233,41 @@ import { ClickOutsideDirective } from '../../directives/click-outside.directive'
       text-decoration: none;
       position: relative;
     }
+    /* Sliding indicator replaces per-link border-bottom */
     .nav-link--active,
     .nav-link.active {
-      border-bottom-color: #F7941D;
+      border-bottom-color: transparent;
     }
-    /* Glass pill behind the active tab label */
-    .nav-link--active::before,
-    .nav-link.active::before {
-      content: '';
+
+    /* Sliding orange underline indicator */
+    .nav-indicator {
       position: absolute;
-      top: 19px;
-      left: 0;
-      right: 0;
-      height: 32px;
-      border-radius: 8px;
-      background: rgba(255,255,255,0.10);
-      border: 1px solid rgba(255,255,255,0.14);
-      backdrop-filter: blur(20px) saturate(180%);
-      -webkit-backdrop-filter: blur(20px) saturate(180%);
-      box-shadow: 0 2px 8px rgba(0,0,0,0.18), inset 0 1px 0 rgba(255,255,255,0.08);
+      bottom: 0;
+      height: 2px;
+      background: #F7941D;
+      border-radius: 2px 2px 0 0;
+      transition: left 280ms cubic-bezier(0.4, 0, 0.2, 1), width 280ms cubic-bezier(0.4, 0, 0.2, 1);
       pointer-events: none;
     }
 
+    /* Sliding hover glass pill */
+    .nav-hover-pill {
+      position: absolute;
+      top: 50%;
+      transform: translateY(-50%);
+      height: 36px;
+      border-radius: 8px;
+      background: rgba(255,255,255,0.08);
+      border: 1px solid rgba(255,255,255,0.12);
+      backdrop-filter: blur(20px) saturate(180%);
+      -webkit-backdrop-filter: blur(20px) saturate(180%);
+      pointer-events: none;
+      opacity: 0;
+      transition: left 180ms cubic-bezier(0.4,0,0.2,1),
+                  width 180ms cubic-bezier(0.4,0,0.2,1),
+                  opacity 120ms ease;
+    }
+    .nav-hover-pill--visible { opacity: 1; }
     .nav-label {
       font-family: 'Open Sans', sans-serif;
       font-size: 13.5px;
@@ -253,6 +290,7 @@ import { ClickOutsideDirective } from '../../directives/click-outside.directive'
       display: flex;
       align-items: center;
       gap: 12px;
+      margin-left: auto;
     }
     .topbar-divider {
       width: 1px;
@@ -323,35 +361,67 @@ import { ClickOutsideDirective } from '../../directives/click-outside.directive'
     }
   `],
 })
-export class TopBarComponent {
+export class TopBarComponent implements AfterViewInit {
   auth = inject(AuthService);
   router = inject(Router);
   private notificationService = inject(NotificationService);
+  private destroyRef = inject(DestroyRef);
 
-  @ViewChild('navContainer') navContainerRef!: ElementRef;
-  @ViewChild('hoverPill') hoverPillRef!: ElementRef;
+  @ViewChildren('navLink') navLinks!: QueryList<ElementRef<HTMLAnchorElement>>;
 
   unreadCount = this.notificationService.unreadCount;
   userMenuOpen = signal(false);
+  indicatorLeft = signal('0px');
+  indicatorWidth = signal('0px');
+  hoverLeft  = signal('0px');
+  hoverWidth = signal('0px');
+  isHovering = signal(false);
 
   initials = computed(() => (this.auth.user()?.prenom?.[0] ?? '') + (this.auth.user()?.nom?.[0] ?? ''));
+  isMagasinOnly = computed(() => this.auth.user()?.role === 'MAGASIN');
+  canSeeMagasin = computed(() => {
+    const role = this.auth.user()?.role;
+    return role === 'MAGASIN' || role === 'ADMIN' || role === 'FLEET_MANAGER';
+  });
+  homeLink = computed(() => this.isMagasinOnly() ? '/magasin' : '/vehicules');
 
-  movePill(el: EventTarget | null): void {
-    const pill = this.hoverPillRef?.nativeElement;
-    const container = this.navContainerRef?.nativeElement;
-    if (!pill || !container || !el) return;
-    const htmlEl = el as HTMLElement;
-    const elRect = htmlEl.getBoundingClientRect();
-    const cRect = container.getBoundingClientRect();
-    pill.style.left = (elRect.left - cRect.left) + 'px';
-    pill.style.width = elRect.width + 'px';
-    pill.style.opacity = '1';
+  ngAfterViewInit(): void {
+    this.moveIndicator();
+    this.router.events.pipe(
+      filter(e => e instanceof NavigationEnd),
+      takeUntilDestroyed(this.destroyRef),
+    ).subscribe(() => setTimeout(() => this.moveIndicator(), 0));
+    // Role-conditional links render after the async /me resolves — recompute then.
+    this.navLinks.changes.pipe(
+      takeUntilDestroyed(this.destroyRef),
+    ).subscribe(() => setTimeout(() => this.moveIndicator(), 0));
   }
 
-  hidePill(): void {
-    if (this.hoverPillRef?.nativeElement) {
-      this.hoverPillRef.nativeElement.style.opacity = '0';
-    }
+  private moveIndicator(): void {
+    const container = this.navLinks.first?.nativeElement?.closest('.nav-container') as HTMLElement | null;
+    const active = this.navLinks.find(r =>
+      r.nativeElement.classList.contains('nav-link--active') ||
+      r.nativeElement.classList.contains('active')
+    );
+    if (!active || !container) { this.indicatorWidth.set('0px'); return; }
+    const cr = container.getBoundingClientRect();
+    const ar = active.nativeElement.getBoundingClientRect();
+    this.indicatorLeft.set(`${ar.left - cr.left}px`);
+    this.indicatorWidth.set(`${ar.width}px`);
+  }
+
+  onNavHover(el: HTMLElement): void {
+    const container = el.closest('.nav-container') as HTMLElement | null;
+    if (!container) return;
+    const cr = container.getBoundingClientRect();
+    const ar = el.getBoundingClientRect();
+    this.hoverLeft.set(`${ar.left - cr.left}px`);
+    this.hoverWidth.set(`${ar.width}px`);
+    this.isHovering.set(true);
+  }
+
+  onNavLeave(): void {
+    this.isHovering.set(false);
   }
 
   logout(): void {

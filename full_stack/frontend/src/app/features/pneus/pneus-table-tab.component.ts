@@ -1,7 +1,8 @@
-import { Component, Input, OnInit, inject, signal, DestroyRef } from '@angular/core';
-import { CommonModule } from '@angular/common';
+import { Component, Input, OnInit, inject, signal, computed, DestroyRef, LOCALE_ID } from '@angular/core';
+import { CommonModule, formatDate, formatNumber } from '@angular/common';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { catchError, of } from 'rxjs';
+import { take } from 'rxjs/operators';
 import { LucideAngularModule } from 'lucide-angular';
 import { Pneu, PneuStatus } from '../../shared/models/pneu.model';
 import { PneuService } from './pneu.service';
@@ -13,17 +14,36 @@ import { SkeletonComponent } from '../../shared/ui/skeleton/skeleton.component';
 import { ConfirmDeleteModalComponent } from '../../shared/ui/confirm-delete-modal/confirm-delete-modal.component';
 import { AjouterPneuModalComponent } from './ajouter-pneu-modal.component';
 import { EditPneuModalComponent } from './edit-pneu-modal.component';
+import { ColumnDef, ColumnManagerModalComponent } from '../vehicules/list/column-manager-modal.component';
+import { ExportExcelModalComponent, ExportColDef, ExportFilterDef, ExportResult } from '../../shared/ui/export-excel-modal/export-excel-modal.component';
+import { ExcelExportService } from '../../shared/services/excel-export.service';
+import { downloadBlobAs } from '../../shared/utils/download-blob';
 
-const COLS: DataTableCol[] = [
-  { label: 'Position',         flex: 0.8 },
-  { label: 'Marque',           flex: 1.2 },
-  { label: 'N° série',         flex: 1.5 },
-  { label: 'Profondeur (32è)', flex: 1.2 },
-  { label: 'Pression (PSI)',   flex: 1.2 },
-  { label: 'Km parcourus',     flex: 1.2 },
-  { label: 'Statut',           flex: 0.9 },
-  { label: 'Actions',          flex: 0.8 },
+export const ALL_PNEU_COLUMN_DEFS: ColumnDef[] = [
+  { id: 'position',       label: 'Position',          flex: 0.8 },
+  { id: 'marque',         label: 'Marque',            flex: 1.2 },
+  { id: 'nSerie',         label: 'N° série',          flex: 1.5 },
+  { id: 'reference',      label: 'Référence',         flex: 1.3 },
+  { id: 'dateMontage',    label: 'Date de montage',   flex: 1.2 },
+  { id: 'profondeur32e',  label: 'Profondeur (32è)',  flex: 1.2 },
+  { id: 'pressionPsi',    label: 'Pression (PSI)',    flex: 1.2 },
+  { id: 'kmParcourus',    label: 'Km parcourus',      flex: 1.2 },
+  { id: 'kmRestant',      label: 'Km restants',       flex: 1.2 },
+  { id: 'expectedLifeKm', label: 'Durée de vie (km)', flex: 1.2 },
+  { id: 'status',         label: 'Statut',            flex: 0.9 },
+  { id: 'actif',          label: 'Actif',             flex: 0.7 },
 ];
+
+export const DEFAULT_PNEU_VISIBLE_IDS = [
+  'position', 'marque', 'nSerie', 'profondeur32e', 'pressionPsi', 'kmParcourus', 'status',
+];
+
+const MONO_COL_IDS = new Set([
+  'position', 'nSerie', 'reference', 'dateMontage', 'profondeur32e',
+  'pressionPsi', 'kmParcourus', 'kmRestant', 'expectedLifeKm',
+]);
+
+const ACTIONS_COL: DataTableCol = { label: 'Actions', flex: 0.8 };
 
 @Component({
   selector: 'app-pneus-table-tab',
@@ -39,6 +59,8 @@ const COLS: DataTableCol[] = [
     ConfirmDeleteModalComponent,
     AjouterPneuModalComponent,
     EditPneuModalComponent,
+    ColumnManagerModalComponent,
+    ExportExcelModalComponent,
   ],
   template: `
     <app-card title="Gestion pneus">
@@ -54,27 +76,23 @@ const COLS: DataTableCol[] = [
         <app-skeleton [rows]="4" height="52px" />
       } @else if (pneus().length > 0) {
         <div class="ptt-table-wrap">
-          <app-data-table-header [cols]="cols" />
+          <app-data-table-header [cols]="tableCols()" />
           @for (p of pneus(); track p.id; let i = $index) {
             <app-data-table-row [idx]="i">
-              <div class="dtr-cell dtr-cell--mono" [style.flex]="cols[0].flex">{{ p.position }}</div>
-              <div class="dtr-cell" [style.flex]="cols[1].flex">{{ p.marque ?? '—' }}</div>
-              <div class="dtr-cell dtr-cell--mono" [style.flex]="cols[2].flex">{{ p.nSerie ?? '—' }}</div>
-              <div class="dtr-cell dtr-cell--mono" [style.flex]="cols[3].flex">
-                {{ p.profondeur32e != null ? p.profondeur32e : '—' }}
-              </div>
-              <div class="dtr-cell dtr-cell--mono" [style.flex]="cols[4].flex">
-                {{ p.pressionPsi != null ? p.pressionPsi : '—' }}
-              </div>
-              <div class="dtr-cell dtr-cell--mono" [style.flex]="cols[5].flex">
-                {{ p.kmParcourus | number }}
-              </div>
-              <div class="dtr-cell" [style.flex]="cols[6].flex">
-                <span class="badge badge--{{ getStatusVariant(p.status) }}">
-                  {{ statusLabel(p.status) }}
-                </span>
-              </div>
-              <div class="dtr-cell dtr-cell--actions" [style.flex]="cols[7].flex">
+              @for (col of visibleCols(); track col.id) {
+                @if (col.id === 'status') {
+                  <div class="dtr-cell" [style.flex]="col.flex">
+                    <span class="badge badge--{{ getStatusVariant(p.status) }}">
+                      {{ statusLabel(p.status) }}
+                    </span>
+                  </div>
+                } @else {
+                  <div class="dtr-cell" [class.dtr-cell--mono]="isMono(col.id)" [style.flex]="col.flex">
+                    {{ cellValue(col.id, p) }}
+                  </div>
+                }
+              }
+              <div class="dtr-cell dtr-cell--actions" [style.flex]="actionsFlex">
                 <button class="btn-icon" type="button" title="Modifier" (click)="openEdit(p)">
                   <lucide-icon name="pencil" [size]="14" />
                 </button>
@@ -87,6 +105,18 @@ const COLS: DataTableCol[] = [
         </div>
       } @else {
         <app-empty-state message="Aucun pneu enregistré pour ce véhicule" />
+      }
+
+      @if (!loading()) {
+        <div class="ptt-toolbar">
+          <button class="btn-export" type="button" (click)="showExportModal.set(true)" [disabled]="exporting()">
+            <lucide-icon name="download" [size]="14" />
+            {{ exporting() ? 'Exportation…' : 'Export Excel' }}
+          </button>
+          <button class="btn-settings" type="button" (click)="showColManager.set(true)" title="Gérer les colonnes">
+            <lucide-icon name="settings" [size]="16" />
+          </button>
+        </div>
       }
     </app-card>
 
@@ -114,6 +144,24 @@ const COLS: DataTableCol[] = [
         (confirm)="onDeleteConfirm()"
         (cancel)="deleteTarget.set(null)" />
     }
+
+    @if (showColManager()) {
+      <app-column-manager-modal
+        [allColumnDefs]="allColumnDefs"
+        [defaultVisibleIds]="defaultVisibleIds"
+        [currentVisible]="visibleColIds()"
+        (applied)="onColumnsApplied($event)"
+        (cancel)="showColManager.set(false)" />
+    }
+
+    @if (showExportModal()) {
+      <app-export-excel-modal
+        [allColumns]="exportColDefs"
+        [filterDefs]="exportFilterDefs"
+        [initialVisible]="exportDefaultColIds"
+        (exported)="onExportConfirmed($event)"
+        (cancel)="showExportModal.set(false)" />
+    }
   `,
   styles: [`
     .btn-add {
@@ -133,7 +181,49 @@ const COLS: DataTableCol[] = [
     }
     .btn-add:hover { opacity: 0.9; }
 
-    .ptt-table-wrap { margin: 0 -24px -24px; }
+    .ptt-table-wrap { margin: 0 -24px; }
+
+    .ptt-toolbar {
+      display: flex;
+      justify-content: flex-end;
+      align-items: center;
+      gap: 8px;
+      padding: 12px 0 0;
+      border-top: 1px solid var(--color-border);
+      margin: 12px -24px -12px;
+      padding-left: 24px;
+      padding-right: 24px;
+    }
+    .btn-export {
+      height: 34px;
+      padding: 0 14px;
+      background: white;
+      border: 1px solid var(--color-border);
+      border-radius: 8px;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      font-family: 'Open Sans', sans-serif;
+      font-size: 13px;
+      font-weight: 600;
+      color: #374151;
+    }
+    .btn-export:hover:not(:disabled) { border-color: var(--color-primary); color: var(--color-primary); }
+    .btn-export:disabled { opacity: 0.5; cursor: not-allowed; }
+    .btn-settings {
+      width: 34px;
+      height: 34px;
+      background: white;
+      border: 1px solid var(--color-border);
+      border-radius: 8px;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      color: #374151;
+    }
+    .btn-settings:hover { border-color: var(--color-primary); color: var(--color-primary); }
 
     .dtr-cell {
       display: flex;
@@ -185,9 +275,13 @@ export class PneusTableTabComponent implements OnInit {
   @Input() vehiculeType = '';
 
   private pneuService = inject(PneuService);
+  private excelExportService = inject(ExcelExportService);
   private destroyRef = inject(DestroyRef);
+  private locale = inject(LOCALE_ID);
 
-  readonly cols = COLS;
+  readonly allColumnDefs = ALL_PNEU_COLUMN_DEFS;
+  readonly defaultVisibleIds = DEFAULT_PNEU_VISIBLE_IDS;
+  readonly actionsFlex = ACTIONS_COL.flex;
 
   pneus    = signal<Pneu[]>([]);
   loading  = signal(true);
@@ -195,6 +289,104 @@ export class PneusTableTabComponent implements OnInit {
   editTarget   = signal<Pneu | null>(null);
   deleteTarget = signal<Pneu | null>(null);
   deleting     = signal(false);
+  showColManager  = signal(false);
+  showExportModal = signal(false);
+  exporting       = signal(false);
+
+  private readonly LS_KEY = 'fleet.pneus-table.columns';
+
+  private loadColConfig(): string[] {
+    try {
+      const raw = localStorage.getItem(this.LS_KEY);
+      if (raw) return JSON.parse(raw) as string[];
+    } catch { /* ignore */ }
+    return DEFAULT_PNEU_VISIBLE_IDS;
+  }
+
+  visibleColIds = signal<string[]>(this.loadColConfig());
+
+  visibleCols = computed<ColumnDef[]>(() => {
+    const byId = new Map(ALL_PNEU_COLUMN_DEFS.map(c => [c.id, c]));
+    return this.visibleColIds().map(id => byId.get(id)!).filter(Boolean);
+  });
+
+  tableCols = computed<DataTableCol[]>(() => [
+    ...this.visibleCols().map(c => ({ label: c.label, flex: c.flex })),
+    ACTIONS_COL,
+  ]);
+
+  onColumnsApplied(ids: string[]): void {
+    this.visibleColIds.set(ids);
+    localStorage.setItem(this.LS_KEY, JSON.stringify(ids));
+    this.showColManager.set(false);
+  }
+
+  isMono(colId: string): boolean {
+    return MONO_COL_IDS.has(colId);
+  }
+
+  cellValue(colId: string, p: Pneu): string {
+    switch (colId) {
+      case 'position':       return String(p.position);
+      case 'marque':         return p.marque ?? '—';
+      case 'nSerie':         return p.nSerie ?? '—';
+      case 'reference':      return p.reference ?? '—';
+      case 'dateMontage':    return p.dateMontage ? formatDate(p.dateMontage, 'dd/MM/yyyy', this.locale) : '—';
+      case 'profondeur32e':  return p.profondeur32e != null ? String(p.profondeur32e) : '—';
+      case 'pressionPsi':    return p.pressionPsi != null ? String(p.pressionPsi) : '—';
+      case 'kmParcourus':    return formatNumber(p.kmParcourus, this.locale);
+      case 'kmRestant':      return p.kmRestant != null ? formatNumber(p.kmRestant, this.locale) : '—';
+      case 'expectedLifeKm': return formatNumber(p.expectedLifeKm, this.locale);
+      case 'actif':          return p.actif ? 'Oui' : 'Non';
+      default:               return '—';
+    }
+  }
+
+  readonly exportColDefs: ExportColDef[] = [
+    { id: 'vehicule',       label: 'Véhicule' },
+    { id: 'position',       label: 'Position' },
+    { id: 'reference',      label: 'Référence' },
+    { id: 'nSerie',         label: 'N° Série' },
+    { id: 'marque',         label: 'Marque' },
+    { id: 'dateMontage',    label: 'Date de montage' },
+    { id: 'kmParcourus',    label: 'Km parcourus' },
+    { id: 'kmRestant',      label: 'Km restants' },
+    { id: 'expectedLifeKm', label: 'Durée de vie (km)' },
+    { id: 'pressionPsi',    label: 'Pression (PSI)' },
+    { id: 'profondeur32e',  label: 'Profondeur (32e)' },
+    { id: 'status',         label: 'Statut' },
+    { id: 'actif',          label: 'Actif' },
+  ];
+
+  readonly exportDefaultColIds = this.exportColDefs
+    .filter(c => !['expectedLifeKm', 'pressionPsi', 'profondeur32e', 'actif'].includes(c.id))
+    .map(c => c.id);
+
+  readonly exportFilterDefs: ExportFilterDef[] = [
+    {
+      key: 'statut', label: 'Statut', type: 'select',
+      options: [
+        { value: 'ok', label: 'OK' },
+        { value: 'warn', label: 'Alerte' },
+        { value: 'empty', label: 'Vide' },
+      ],
+    },
+  ];
+
+  onExportConfirmed(result: ExportResult): void {
+    this.showExportModal.set(false);
+    if (this.exporting()) return;
+    this.exporting.set(true);
+    this.excelExportService.download({
+      entites: 'pneus',
+      vehiculeId: this.vehiculeId,
+      columns: result.columns,
+      statut: result.filters['statut'],
+    }).pipe(take(1)).subscribe({
+      next: blob => { downloadBlobAs(blob, 'pneus.xlsx'); this.exporting.set(false); },
+      error: () => this.exporting.set(false),
+    });
+  }
 
   deleteTargetLabel(): string {
     const p = this.deleteTarget();

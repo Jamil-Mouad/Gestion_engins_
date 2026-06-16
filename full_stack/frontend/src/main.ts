@@ -10,7 +10,7 @@ import {
   LUCIDE_ICONS, LucideIconProvider,
   ChevronDown, ChevronRight, Circle, CircleAlert, CircleCheck,
   CloudUpload, Download, Edit, Filter, GripVertical, Image, LayoutGrid,
-  Pencil, Plus, RefreshCw, Search, Settings, Settings2, Table2, Trash2, TriangleAlert, Truck, Upload,
+  Link, Maximize2, Pencil, Plus, RefreshCw, Ruler, Search, Settings, Settings2, Table2, Trash2, TriangleAlert, Truck, Upload, X,
 } from 'lucide-angular';
 
 import { AppComponent } from './app/app.component';
@@ -19,6 +19,7 @@ import { authInterceptor } from './app/core/auth/auth.interceptor';
 import { errorInterceptor } from './app/core/http/error.interceptor';
 import { ChatbotService } from './app/core/chatbot/chatbot.service';
 import { MockChatbotService } from './app/core/chatbot/mock-chatbot.service';
+import { SseRealChatbotService } from './app/core/chatbot/sse-real-chatbot.service';
 import { AppErrorHandler } from './app/core/http/app-error-handler';
 import { ENVIRONMENT } from './environments/environment.token';
 import { environment } from './environments/environment';
@@ -32,7 +33,7 @@ bootstrapApplication(AppComponent, {
     provideAnimations(),
     { provide: LOCALE_ID, useValue: 'fr-FR' },
     provideToastr({ timeOut: 4000, positionClass: 'toast-top-right', preventDuplicates: true }),
-    { provide: ChatbotService, useClass: MockChatbotService },
+    { provide: ChatbotService, useClass: SseRealChatbotService },
     { provide: ErrorHandler, useClass: AppErrorHandler },
     { provide: ENVIRONMENT, useValue: environment },
     {
@@ -41,7 +42,7 @@ bootstrapApplication(AppComponent, {
       useValue: new LucideIconProvider({
         ChevronDown, ChevronRight, Circle, CircleAlert, CircleCheck,
         CloudUpload, Download, Edit, Filter, GripVertical, Image, LayoutGrid,
-        Pencil, Plus, RefreshCw, Search, Settings, Settings2, Table2, Trash2, TriangleAlert, Truck, Upload,
+        Link, Maximize2, Pencil, Plus, RefreshCw, Ruler, Search, Settings, Settings2, Table2, Trash2, TriangleAlert, Truck, Upload, X,
       }),
     },
   ]

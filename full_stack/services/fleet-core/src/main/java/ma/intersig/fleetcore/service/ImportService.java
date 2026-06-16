@@ -5,15 +5,22 @@ import ma.intersig.fleetcore.dto.report.ImportReportDto.ImportRowError;
 import ma.intersig.fleetcore.dto.response.PageResponse;
 import ma.intersig.fleetcore.entity.Camion;
 import ma.intersig.fleetcore.entity.Composant;
+import ma.intersig.fleetcore.entity.DemandeAchat;
 import ma.intersig.fleetcore.entity.ImportsHistorique;
+import ma.intersig.fleetcore.entity.Intervention;
+import ma.intersig.fleetcore.entity.TypeIntervention;
 import ma.intersig.fleetcore.entity.User;
 import ma.intersig.fleetcore.entity.Vehicule;
 import ma.intersig.fleetcore.exception.BusinessException;
 import ma.intersig.fleetcore.repository.ComposantRepository;
+import ma.intersig.fleetcore.repository.DemandeAchatRepository;
 import ma.intersig.fleetcore.repository.ImportsHistoriqueRepository;
+import ma.intersig.fleetcore.repository.InterventionRepository;
+import ma.intersig.fleetcore.repository.TypeInterventionRepository;
 import ma.intersig.fleetcore.repository.UserRepository;
 import ma.intersig.fleetcore.repository.VehiculeRepository;
 import org.apache.poi.ss.usermodel.*;
+import org.apache.poi.ss.usermodel.DateUtil;
 import org.apache.poi.xssf.usermodel.XSSFWorkbook;
 import org.springframework.cache.annotation.CacheEvict;
 import org.springframework.data.domain.Pageable;
@@ -23,33 +30,55 @@ import org.springframework.web.multipart.MultipartFile;
 
 import java.io.IOException;
 import java.io.InputStream;
+import java.math.BigDecimal;
+import java.text.SimpleDateFormat;
+import java.time.LocalDate;
+import java.time.OffsetDateTime;
+import java.time.ZoneOffset;
 import java.util.*;
 
 @Service
 @Transactional
 public class ImportService {
 
-    private static final Map<String, List<String>> ENTITY_FIELDS = Map.of(
-            "vehicules", List.of("code", "statut", "chauffeur_nom", "chauffeur_prenom", "km_initial"),
-            "composants", List.of("reference", "designation", "parent_code")
+    private static final Map<String, List<String>> ENTITY_FIELDS = Map.ofEntries(
+            Map.entry("vehicules", List.of("code", "statut", "chauffeur_nom", "chauffeur_prenom", "km_initial")),
+            Map.entry("composants", List.of("reference", "designation", "parent_code")),
+            Map.entry("interventions", List.of("vehicule_code", "type_intervention", "categorie",
+                    "partie", "n_bs", "date_debut", "date_fin",
+                    "cout_pieces", "cout_main_oeuvre", "cout_sous_traitance", "observations")),
+            Map.entry("demandes-achat", List.of("piece_libre", "reference", "quantite",
+                    "motif", "urgence", "demandeur_nom"))
     );
 
     private static final Set<String> VALID_STATUTS = Set.of(
             "in-service", "workshop", "maintenance", "out-of-service");
 
+    private static final Set<String> VALID_CATEGORIES = Set.of(
+            "preventive", "corrective", "depannage", "controle");
+
     private final VehiculeRepository vehiculeRepository;
     private final ComposantRepository composantRepository;
+    private final InterventionRepository interventionRepository;
+    private final DemandeAchatRepository demandeAchatRepository;
+    private final TypeInterventionRepository typeInterventionRepository;
     private final ImportsHistoriqueRepository importsHistoriqueRepository;
     private final UserRepository userRepository;
     private final VehiculeService vehiculeService;
 
     public ImportService(VehiculeRepository vehiculeRepository,
                          ComposantRepository composantRepository,
+                         InterventionRepository interventionRepository,
+                         DemandeAchatRepository demandeAchatRepository,
+                         TypeInterventionRepository typeInterventionRepository,
                          ImportsHistoriqueRepository importsHistoriqueRepository,
                          UserRepository userRepository,
                          VehiculeService vehiculeService) {
         this.vehiculeRepository = vehiculeRepository;
         this.composantRepository = composantRepository;
+        this.interventionRepository = interventionRepository;
+        this.demandeAchatRepository = demandeAchatRepository;
+        this.typeInterventionRepository = typeInterventionRepository;
         this.importsHistoriqueRepository = importsHistoriqueRepository;
         this.userRepository = userRepository;
         this.vehiculeService = vehiculeService;
@@ -97,6 +126,8 @@ public class ImportService {
                     boolean success = switch (entite) {
                         case "vehicules" -> importVehicule(values, errors, i);
                         case "composants" -> importComposant(values, errors, i);
+                        case "interventions" -> importIntervention(values, errors, i);
+                        case "demandes-achat" -> importDemandeAchat(values, errors, i, userId);
                         default -> false;
                     };
                     if (success) ok++;
@@ -109,7 +140,7 @@ public class ImportService {
         }
 
         int erreur = total - ok;
-        saveHistorique(file.getOriginalFilename(), "excel_" + entite, total, ok, erreur, userId);
+        saveHistorique(file.getOriginalFilename(), "excel_general", total, ok, erreur, userId);
 
         return ImportReportDto.of(total, ok, erreur, errors);
     }
@@ -150,6 +181,9 @@ public class ImportService {
         return switch (cell.getCellType()) {
             case STRING -> cell.getStringCellValue();
             case NUMERIC -> {
+                if (DateUtil.isCellDateFormatted(cell)) {
+                    yield new SimpleDateFormat("yyyy-MM-dd").format(cell.getDateCellValue());
+                }
                 double d = cell.getNumericCellValue();
                 if (d == Math.floor(d) && !Double.isInfinite(d)) {
                     yield String.valueOf((long) d);
@@ -175,10 +209,26 @@ public class ImportService {
             return false;
         }
 
-        Optional<Vehicule> existing = vehiculeRepository.findByCodeAndIdNot(code, -1L);
+        // codes are unique per (code, type) since V121 — a tracteur+semi pair
+        // shares one code, so the row's type column disambiguates
+        List<Vehicule> matches = vehiculeRepository.findByCode(code);
+        String rowType = values.get("type");
+        Vehicule existingMatch = null;
+        if (!matches.isEmpty()) {
+            if (rowType != null && !rowType.isBlank()) {
+                existingMatch = matches.stream()
+                        .filter(v -> rowType.equalsIgnoreCase(v.getType()))
+                        .findFirst().orElse(null);
+            } else if (matches.size() == 1) {
+                existingMatch = matches.get(0);
+            } else {
+                errors.add(new ImportRowError(rowIdx + 1, "code", "CODE_AMBIGUOUS_TYPE_REQUIRED"));
+                return false;
+            }
+        }
         Vehicule vehicule;
-        if (existing.isPresent()) {
-            vehicule = existing.get();
+        if (existingMatch != null) {
+            vehicule = existingMatch;
             if (values.get("statut") != null) vehicule.setStatut(values.get("statut"));
             vehiculeRepository.save(vehicule);
         } else {
@@ -232,6 +282,150 @@ public class ImportService {
         }
         composantRepository.save(c);
         return true;
+    }
+
+    private boolean importIntervention(Map<String, String> values, List<ImportRowError> errors, int rowIdx) {
+        String vehiculeCode = values.get("vehicule_code");
+        if (vehiculeCode == null || vehiculeCode.isBlank()) {
+            errors.add(new ImportRowError(rowIdx + 1, "vehicule_code", "VEHICULE_CODE_REQUIRED"));
+            return false;
+        }
+
+        List<Vehicule> vehiculeMatches = vehiculeRepository.findByCode(vehiculeCode);
+        if (vehiculeMatches.isEmpty()) {
+            errors.add(new ImportRowError(rowIdx + 1, "vehicule_code", "VEHICULE_NOT_FOUND"));
+            return false;
+        }
+        if (vehiculeMatches.size() > 1) {
+            // tracteur + semi pair sharing one code — interventions target the camion
+            vehiculeMatches = vehiculeMatches.stream()
+                    .filter(v -> v instanceof Camion)
+                    .toList();
+            if (vehiculeMatches.size() != 1) {
+                errors.add(new ImportRowError(rowIdx + 1, "vehicule_code", "VEHICULE_CODE_AMBIGUOUS"));
+                return false;
+            }
+        }
+        Optional<Vehicule> vehiculeOpt = Optional.of(vehiculeMatches.get(0));
+
+        String categorie = values.get("categorie");
+        if (categorie == null || categorie.isBlank()) {
+            errors.add(new ImportRowError(rowIdx + 1, "categorie", "CATEGORIE_REQUIRED"));
+            return false;
+        }
+        if (!VALID_CATEGORIES.contains(categorie)) {
+            errors.add(new ImportRowError(rowIdx + 1, "categorie", "INVALID_CATEGORIE"));
+            return false;
+        }
+
+        TypeIntervention typeIntervention;
+        String typeLibelle = values.get("type_intervention");
+        if (typeLibelle != null && !typeLibelle.isBlank()) {
+            Optional<TypeIntervention> typeOpt = typeInterventionRepository.findByLibelleIgnoreCase(typeLibelle);
+            if (typeOpt.isEmpty()) {
+                errors.add(new ImportRowError(rowIdx + 1, "type_intervention", "TYPE_NOT_FOUND"));
+                return false;
+            }
+            typeIntervention = typeOpt.get();
+        } else {
+            List<TypeIntervention> types = typeInterventionRepository.findAll();
+            if (types.isEmpty()) {
+                errors.add(new ImportRowError(rowIdx + 1, "type_intervention", "NO_TYPES_AVAILABLE"));
+                return false;
+            }
+            typeIntervention = types.get(0);
+        }
+
+        OffsetDateTime dateDebut = parseDate(values.get("date_debut"));
+        if (dateDebut == null) dateDebut = OffsetDateTime.now();
+
+        Intervention intervention = new Intervention();
+        intervention.setVehicule(vehiculeOpt.get());
+        intervention.setTypeIntervention(typeIntervention);
+        intervention.setCategorie(categorie);
+        intervention.setDateDebut(dateDebut);
+
+        String partie = values.get("partie");
+        if (partie != null && !partie.isBlank()) intervention.setPartie(partie);
+
+        String nBs = values.get("n_bs");
+        if (nBs != null && !nBs.isBlank()) intervention.setNBs(nBs);
+
+        String observations = values.get("observations");
+        if (observations != null && !observations.isBlank()) intervention.setObservations(observations);
+
+        OffsetDateTime dateFin = parseDate(values.get("date_fin"));
+        if (dateFin != null) intervention.setDateFin(dateFin);
+
+        intervention.setCoutPieces(parseBigDecimalOrZero(values.get("cout_pieces")));
+        intervention.setCoutMainOeuvre(parseBigDecimalOrZero(values.get("cout_main_oeuvre")));
+        intervention.setCoutSousTraitance(parseBigDecimalOrZero(values.get("cout_sous_traitance")));
+
+        interventionRepository.save(intervention);
+        return true;
+    }
+
+    private boolean importDemandeAchat(Map<String, String> values, List<ImportRowError> errors, int rowIdx, Long userId) {
+        User demandeur = userId != null ? userRepository.findById(userId).orElse(null) : null;
+        if (demandeur == null) {
+            errors.add(new ImportRowError(rowIdx + 1, "demandeur", "USER_NOT_FOUND"));
+            return false;
+        }
+
+        int year = OffsetDateTime.now().getYear();
+        Integer seq = demandeAchatRepository.nextCode(year);
+        if (seq == null) seq = 1;
+        String code = String.format("DA-%d-%04d", year, seq);
+
+        DemandeAchat da = new DemandeAchat();
+        da.setCode(code);
+        da.setDateDemande(OffsetDateTime.now());
+        da.setDemandeur(demandeur);
+        da.setStatut("Nouvelle");
+
+        String pieceLibre = values.get("piece_libre");
+        if (pieceLibre != null && !pieceLibre.isBlank()) da.setPieceLibre(pieceLibre);
+
+        String reference = values.get("reference");
+        if (reference != null && !reference.isBlank()) da.setReference(reference);
+
+        String quantiteStr = values.get("quantite");
+        if (quantiteStr != null && !quantiteStr.isBlank()) {
+            try { da.setQuantite(Integer.parseInt(quantiteStr)); } catch (NumberFormatException ignored) {}
+        }
+
+        String motif = values.get("motif");
+        if (motif != null && !motif.isBlank()) da.setMotif(motif);
+
+        String urgence = values.get("urgence");
+        if (urgence != null && !urgence.isBlank()) da.setUrgence(urgence);
+
+        String demandeurNom = values.get("demandeur_nom");
+        if (demandeurNom != null && !demandeurNom.isBlank()) da.setDemandeurNom(demandeurNom);
+
+        demandeAchatRepository.save(da);
+        return true;
+    }
+
+    private OffsetDateTime parseDate(String s) {
+        if (s == null || s.isBlank()) return null;
+        try {
+            return OffsetDateTime.parse(s);
+        } catch (Exception ignored) {}
+        try {
+            return LocalDate.parse(s).atStartOfDay().atOffset(ZoneOffset.UTC);
+        } catch (Exception ignored) {}
+        return null;
+    }
+
+    private BigDecimal parseBigDecimal(String s) {
+        if (s == null || s.isBlank()) return null;
+        try { return new BigDecimal(s); } catch (NumberFormatException ignored) { return null; }
+    }
+
+    private BigDecimal parseBigDecimalOrZero(String s) {
+        BigDecimal val = parseBigDecimal(s);
+        return val != null ? val : BigDecimal.ZERO;
     }
 
     private void saveHistorique(String filename, String type, int total, int ok, int erreur, Long userId) {

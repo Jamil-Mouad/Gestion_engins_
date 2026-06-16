@@ -42,9 +42,9 @@ import {
           <!-- Statut -->
           <div class="hit-cell" style="flex:0.9; min-width:80px">
             @if ((row.lignesErreur ?? 0) === 0) {
-              <span class="hit-badge hit-badge--ok">✓ OK</span>
+              <span class="hit-badge hit-badge--ok">OK</span>
             } @else {
-              <span class="hit-badge hit-badge--partial">⚠ Partiel</span>
+              <span class="hit-badge hit-badge--partial">Partiel</span>
             }
           </div>
         </app-data-table-row>

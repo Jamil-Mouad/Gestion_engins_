@@ -2,7 +2,10 @@ import { TestBed } from '@angular/core/testing';
 import { provideHttpClient } from '@angular/common/http';
 import { provideHttpClientTesting, HttpTestingController } from '@angular/common/http/testing';
 import { provideRouter } from '@angular/router';
-import { LucideAngularModule } from 'lucide-angular';
+import {
+  LucideAngularModule, Search, Image, Plus, Pencil, Trash2,
+  ChevronDown, ChevronRight, Upload, Download, Settings,
+} from 'lucide-angular';
 import { provideAnimations } from '@angular/platform-browser/animations';
 import { provideToastr } from 'ngx-toastr';
 
@@ -30,7 +33,10 @@ describe('ComposantsTabComponent', () => {
 
   beforeEach(() => {
     TestBed.configureTestingModule({
-      imports: [LucideAngularModule.pick({})],
+      imports: [LucideAngularModule.pick({
+        Search, Image, Plus, Pencil, Trash2,
+        ChevronDown, ChevronRight, Upload, Download, Settings,
+      })],
       providers: [
         provideHttpClient(),
         provideHttpClientTesting(),
@@ -49,6 +55,7 @@ describe('ComposantsTabComponent', () => {
 
   it('creates the component', () => {
     const fixture = TestBed.createComponent(ComposantsTabComponent);
+    fixture.detectChanges(); // triggers ngOnInit → initial tree load
     const req = httpMock.expectOne((r) => r.url === '/api/v1/composants/tree');
     req.flush([]);
     expect(fixture.componentInstance).toBeTruthy();
@@ -56,6 +63,7 @@ describe('ComposantsTabComponent', () => {
 
   it('loads tree on init via GET /api/v1/composants/tree', () => {
     const fixture = TestBed.createComponent(ComposantsTabComponent);
+    fixture.detectChanges(); // triggers ngOnInit → initial tree load
     const comp = fixture.componentInstance;
     const req = httpMock.expectOne((r) => r.url === '/api/v1/composants/tree');
     expect(req.request.method).toBe('GET');
@@ -65,23 +73,35 @@ describe('ComposantsTabComponent', () => {
     expect(comp.loading()).toBe(false);
   });
 
+  it('initial load uses the bound vehiculeId (per-vehicle tree, not template)', () => {
+    const fixture = TestBed.createComponent(ComposantsTabComponent);
+    fixture.componentRef.setInput('vehiculeId', 283);
+    fixture.detectChanges(); // ngOnInit runs after inputs are bound
+    const req = httpMock.expectOne((r) => r.url === '/api/v1/composants/tree');
+    expect(req.request.params.get('vehiculeId')).toBe('283');
+    req.flush([]);
+  });
+
   it('sets loading=false on error', () => {
     const fixture = TestBed.createComponent(ComposantsTabComponent);
+    fixture.detectChanges(); // triggers ngOnInit → initial tree load
     const comp = fixture.componentInstance;
     const req = httpMock.expectOne((r) => r.url === '/api/v1/composants/tree');
     req.flush('error', { status: 500, statusText: 'Server Error' });
     expect(comp.loading()).toBe(false);
   });
 
-  it('viewMode defaults to "tree"', () => {
+  it('viewMode defaults to "table"', () => {
     const fixture = TestBed.createComponent(ComposantsTabComponent);
+    fixture.detectChanges(); // triggers ngOnInit → initial tree load
     const req = httpMock.expectOne((r) => r.url === '/api/v1/composants/tree');
     req.flush([]);
-    expect(fixture.componentInstance.viewMode()).toBe('tree');
+    expect(fixture.componentInstance.viewMode()).toBe('table');
   });
 
   it('toggleExpand adds and removes id from expandedIds', () => {
     const fixture = TestBed.createComponent(ComposantsTabComponent);
+    fixture.detectChanges(); // triggers ngOnInit → initial tree load
     const comp = fixture.componentInstance;
     const req = httpMock.expectOne((r) => r.url === '/api/v1/composants/tree');
     req.flush([]);
@@ -94,6 +114,7 @@ describe('ComposantsTabComponent', () => {
 
   it('selectedId defaults to null', () => {
     const fixture = TestBed.createComponent(ComposantsTabComponent);
+    fixture.detectChanges(); // triggers ngOnInit → initial tree load
     const req = httpMock.expectOne((r) => r.url === '/api/v1/composants/tree');
     req.flush([]);
     expect(fixture.componentInstance.selectedId()).toBeNull();
@@ -101,6 +122,7 @@ describe('ComposantsTabComponent', () => {
 
   it('selectedNode defaults to null', () => {
     const fixture = TestBed.createComponent(ComposantsTabComponent);
+    fixture.detectChanges(); // triggers ngOnInit → initial tree load
     const req = httpMock.expectOne((r) => r.url === '/api/v1/composants/tree');
     req.flush([]);
     expect(fixture.componentInstance.selectedNode()).toBeNull();
@@ -108,6 +130,7 @@ describe('ComposantsTabComponent', () => {
 
   it('categorieLabel returns correct label for known category', () => {
     const fixture = TestBed.createComponent(ComposantsTabComponent);
+    fixture.detectChanges(); // triggers ngOnInit → initial tree load
     const req = httpMock.expectOne((r) => r.url === '/api/v1/composants/tree');
     req.flush([]);
     expect(fixture.componentInstance.categorieLabel('moteur')).toBe('Moteur');
@@ -117,6 +140,7 @@ describe('ComposantsTabComponent', () => {
 
   it('categorieLabel returns "—" for null/undefined', () => {
     const fixture = TestBed.createComponent(ComposantsTabComponent);
+    fixture.detectChanges(); // triggers ngOnInit → initial tree load
     const req = httpMock.expectOne((r) => r.url === '/api/v1/composants/tree');
     req.flush([]);
     expect(fixture.componentInstance.categorieLabel(null)).toBe('—');
@@ -125,6 +149,7 @@ describe('ComposantsTabComponent', () => {
 
   it('visibleTableCols includes action column at end', () => {
     const fixture = TestBed.createComponent(ComposantsTabComponent);
+    fixture.detectChanges(); // triggers ngOnInit → initial tree load
     const req = httpMock.expectOne((r) => r.url === '/api/v1/composants/tree');
     req.flush([]);
     const cols = fixture.componentInstance.visibleTableCols();
@@ -133,6 +158,7 @@ describe('ComposantsTabComponent', () => {
 
   it('onTableColumnsApplied updates tableColIds and closes manager', () => {
     const fixture = TestBed.createComponent(ComposantsTabComponent);
+    fixture.detectChanges(); // triggers ngOnInit → initial tree load
     const comp = fixture.componentInstance;
     const req = httpMock.expectOne((r) => r.url === '/api/v1/composants/tree');
     req.flush([]);
@@ -145,6 +171,7 @@ describe('ComposantsTabComponent', () => {
 
   it('selectNode loads composant detail and sets selectedId', () => {
     const fixture = TestBed.createComponent(ComposantsTabComponent);
+    fixture.detectChanges(); // triggers ngOnInit → initial tree load
     const comp = fixture.componentInstance;
     const initReq = httpMock.expectOne((r) => r.url === '/api/v1/composants/tree');
     initReq.flush([makeNode({ id: 1 })]);
@@ -161,6 +188,7 @@ describe('ComposantsTabComponent', () => {
 
   it('selectNode does nothing if same node already selected', () => {
     const fixture = TestBed.createComponent(ComposantsTabComponent);
+    fixture.detectChanges(); // triggers ngOnInit → initial tree load
     const comp = fixture.componentInstance;
     const initReq = httpMock.expectOne((r) => r.url === '/api/v1/composants/tree');
     initReq.flush([]);
@@ -174,6 +202,7 @@ describe('ComposantsTabComponent', () => {
 
   it('onTreeRowClick selects node and toggles expand when has children', () => {
     const fixture = TestBed.createComponent(ComposantsTabComponent);
+    fixture.detectChanges(); // triggers ngOnInit → initial tree load
     const comp = fixture.componentInstance;
     const initReq = httpMock.expectOne((r) => r.url === '/api/v1/composants/tree');
     initReq.flush([]);
@@ -190,6 +219,7 @@ describe('ComposantsTabComponent', () => {
 
   it('openCreateRoot sets modal mode and shows modal', () => {
     const fixture = TestBed.createComponent(ComposantsTabComponent);
+    fixture.detectChanges(); // triggers ngOnInit → initial tree load
     const comp = fixture.componentInstance;
     const initReq = httpMock.expectOne((r) => r.url === '/api/v1/composants/tree');
     initReq.flush([]);
@@ -201,6 +231,7 @@ describe('ComposantsTabComponent', () => {
 
   it('modalTitle computed returns "Ajouter composant" for create mode', () => {
     const fixture = TestBed.createComponent(ComposantsTabComponent);
+    fixture.detectChanges(); // triggers ngOnInit → initial tree load
     const comp = fixture.componentInstance;
     const initReq = httpMock.expectOne((r) => r.url === '/api/v1/composants/tree');
     initReq.flush([]);
@@ -211,6 +242,7 @@ describe('ComposantsTabComponent', () => {
 
   it('modalTitle computed returns "Modifier composant" for edit mode', () => {
     const fixture = TestBed.createComponent(ComposantsTabComponent);
+    fixture.detectChanges(); // triggers ngOnInit → initial tree load
     const comp = fixture.componentInstance;
     const initReq = httpMock.expectOne((r) => r.url === '/api/v1/composants/tree');
     initReq.flush([]);
@@ -219,8 +251,137 @@ describe('ComposantsTabComponent', () => {
     expect(comp.modalTitle()).toBe('Modifier composant');
   });
 
+  it('table view shows only roots until a row is expanded', () => {
+    const fixture = TestBed.createComponent(ComposantsTabComponent);
+    fixture.detectChanges(); // triggers ngOnInit → initial tree load
+    const comp = fixture.componentInstance;
+    const req = httpMock.expectOne((r) => r.url === '/api/v1/composants/tree');
+    req.flush([
+      makeNode({ id: 1, children: [makeNode({ id: 2, designation: 'Culasse', niveau: 2 })] }),
+      makeNode({ id: 3, designation: 'Freinage' }),
+    ]);
+
+    expect(comp.filteredNodes().map(n => n.id)).toEqual([1, 3]);
+
+    comp.toggleTableRow(1);
+    expect(comp.filteredNodes().map(n => n.id)).toEqual([1, 2, 3]);
+
+    comp.toggleTableRow(1);
+    expect(comp.filteredNodes().map(n => n.id)).toEqual([1, 3]);
+  });
+
+  it('search bypasses collapse and matches nested nodes', () => {
+    const fixture = TestBed.createComponent(ComposantsTabComponent);
+    fixture.detectChanges(); // triggers ngOnInit → initial tree load
+    const comp = fixture.componentInstance;
+    const req = httpMock.expectOne((r) => r.url === '/api/v1/composants/tree');
+    req.flush([
+      makeNode({ id: 1, children: [makeNode({ id: 2, designation: 'Culasse', niveau: 2, reference: null })] }),
+    ]);
+
+    comp.searchQuery.set('culasse');
+    expect(comp.tableFilterActive()).toBe(true);
+    expect(comp.filteredNodes().map(n => n.designation)).toEqual(['Culasse']);
+  });
+
+  it('deleteConfirmMessage mentions descendant count for a subtree', () => {
+    const fixture = TestBed.createComponent(ComposantsTabComponent);
+    fixture.detectChanges(); // triggers ngOnInit → initial tree load
+    const comp = fixture.componentInstance;
+    const req = httpMock.expectOne((r) => r.url === '/api/v1/composants/tree');
+    req.flush([]);
+
+    comp.askDelete(makeNode({ id: 1, children: [
+      makeNode({ id: 2, niveau: 2, children: [makeNode({ id: 3, niveau: 3 })] }),
+    ]}));
+    expect(comp.deleteDescendants()).toBe(2);
+    expect(comp.deleteConfirmMessage()).toContain('2 sous-composants');
+
+    comp.askDelete(makeNode({ id: 9 }));
+    expect(comp.deleteDescendants()).toBe(0);
+    expect(comp.deleteConfirmMessage()).not.toContain('sous-composants');
+  });
+
+  it('treeRows renders unlimited depth when ancestors are expanded', () => {
+    const fixture = TestBed.createComponent(ComposantsTabComponent);
+    fixture.detectChanges(); // triggers ngOnInit → initial tree load
+    const comp = fixture.componentInstance;
+    const req = httpMock.expectOne((r) => r.url === '/api/v1/composants/tree');
+    req.flush([
+      makeNode({ id: 1, designation: 'Carrosserie', children: [
+        makeNode({ id: 2, designation: 'Capot', niveau: 2, children: [
+          makeNode({ id: 3, designation: 'Vérins', niveau: 3, children: [
+            makeNode({ id: 4, designation: 'Joint vérin', niveau: 4 }),
+          ]}),
+        ]}),
+      ]}),
+    ]);
+
+    expect(comp.treeRows().map(n => n.id)).toEqual([1]);
+
+    comp.toggleExpand(1);
+    comp.toggleExpand(2);
+    expect(comp.treeRows().map(n => n.id)).toEqual([1, 2, 3]);
+
+    comp.toggleExpand(3);
+    expect(comp.treeRows().map(n => n.id)).toEqual([1, 2, 3, 4]);
+  });
+
+  it('tree view renders a niveau-4 node and a chevron on its N3 parent', () => {
+    const fixture = TestBed.createComponent(ComposantsTabComponent);
+    fixture.detectChanges(); // triggers ngOnInit → initial tree load
+    const comp = fixture.componentInstance;
+    const req = httpMock.expectOne((r) => r.url === '/api/v1/composants/tree');
+    req.flush([
+      makeNode({ id: 1, designation: 'Carrosserie', children: [
+        makeNode({ id: 2, designation: 'Capot', niveau: 2, children: [
+          makeNode({ id: 3, designation: 'Vérins', niveau: 3, children: [
+            makeNode({ id: 4, designation: 'Joint vérin', niveau: 4 }),
+          ]}),
+        ]}),
+      ]}),
+    ]);
+
+    comp.viewMode.set('tree');
+    comp.toggleExpand(1);
+    comp.toggleExpand(2);
+    comp.toggleExpand(3);
+    fixture.detectChanges();
+
+    const labels = Array.from(
+      fixture.nativeElement.querySelectorAll('.tree-item__label'),
+    ).map(el => (el as HTMLElement).textContent?.trim());
+    expect(labels).toContain('Joint vérin');
+
+    const verinsRow = Array.from(
+      fixture.nativeElement.querySelectorAll('.tree-item'),
+    ).find(el => (el as HTMLElement).textContent?.includes('Vérins')) as HTMLElement;
+    expect(verinsRow.querySelector('.tree-chevron')).toBeTruthy();
+  });
+
+  it('creating a sous-composant auto-expands its parent in both views', () => {
+    const fixture = TestBed.createComponent(ComposantsTabComponent);
+    fixture.detectChanges(); // triggers ngOnInit → initial tree load
+    const comp = fixture.componentInstance;
+    const initReq = httpMock.expectOne((r) => r.url === '/api/v1/composants/tree');
+    initReq.flush([]);
+
+    comp.openCreateChild(makeNode({ id: 3, designation: 'Vérins', niveau: 3 }));
+    comp.newDesignation = 'Joint vérin';
+    comp.onCreateSubmit();
+
+    const postReq = httpMock.expectOne((r) => r.url === '/api/v1/composants' && r.method === 'POST');
+    postReq.flush(makeNode({ id: 4, designation: 'Joint vérin', niveau: 4 }));
+    const reloadReq = httpMock.expectOne((r) => r.url === '/api/v1/composants/tree');
+    reloadReq.flush([]);
+
+    expect(comp.expandedIds().has(3)).toBe(true);
+    expect(comp.tableExpandedIds().has(3)).toBe(true);
+  });
+
   it('currentImageUrl returns null when no selected node', () => {
     const fixture = TestBed.createComponent(ComposantsTabComponent);
+    fixture.detectChanges(); // triggers ngOnInit → initial tree load
     const comp = fixture.componentInstance;
     const initReq = httpMock.expectOne((r) => r.url === '/api/v1/composants/tree');
     initReq.flush([]);
@@ -229,6 +390,7 @@ describe('ComposantsTabComponent', () => {
 
   it('currentImageUrl returns imageUrl from selectedDetail when available', () => {
     const fixture = TestBed.createComponent(ComposantsTabComponent);
+    fixture.detectChanges(); // triggers ngOnInit → initial tree load
     const comp = fixture.componentInstance;
     const initReq = httpMock.expectOne((r) => r.url === '/api/v1/composants/tree');
     initReq.flush([]);

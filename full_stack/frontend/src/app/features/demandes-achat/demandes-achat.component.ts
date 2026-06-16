@@ -18,6 +18,7 @@ import {
 import { NewDemandeModalComponent } from './new-demande-modal.component';
 import { ExcelExportService } from '../../shared/services/excel-export.service';
 import { downloadBlobAs } from '../../shared/utils/download-blob';
+import { ExportExcelModalComponent, ExportColDef, ExportFilterDef, ExportResult } from '../../shared/ui/export-excel-modal/export-excel-modal.component';
 
 // ── Column configuration ──────────────────────────────────────────────────────
 
@@ -59,7 +60,7 @@ function loadDaColIds(): string[] {
     EmptyStateComponent,
     NewDemandeModalComponent,
     ColumnManagerModalComponent,
-    ImageLightboxComponent,
+    ImageLightboxComponent, ExportExcelModalComponent,
   ],
   template: `
     <div class="da-page">
@@ -104,7 +105,7 @@ function loadDaColIds(): string[] {
           @if (loading()) {
             <app-skeleton [rows]="5" height="52px" />
           } @else if (filteredDemandes().length === 0) {
-            <app-empty-state icon="🛒" message="Aucune demande d'achat trouvée." />
+            <app-empty-state icon="shopping-cart" message="Aucune demande d'achat trouvée." />
           } @else {
             @for (d of filteredDemandes(); track d.id; let i = $index) {
               <app-data-table-row [idx]="i" [clickable]="false">
@@ -209,16 +210,26 @@ function loadDaColIds(): string[] {
         <app-new-demande-modal (saved)="onDemandeCreated()" (close)="showNewDemande.set(false)" />
       }
 
+      @if (showExportModal()) {
+        <app-export-excel-modal
+          [allColumns]="exportColDefs"
+          [filterDefs]="exportFilterDefs"
+          [initialVisible]="visibleColIds()"
+          [initialFilters]="currentExportFilters()"
+          (exported)="onExportConfirmed($event)"
+          (cancel)="showExportModal.set(false)" />
+      }
+
     </div>
   `,
   styles: [`
     @keyframes screenEnter {
-      from { opacity: 0; transform: translateY(8px); }
-      to   { opacity: 1; transform: translateY(0); }
+      from { opacity: 0; }
+      to   { opacity: 1; }
     }
 
     .da-page {
-      min-height: calc(100vh - 72px);
+      min-height: calc(100vh - 88px);
       background: #F5F5F5;
       animation: screenEnter 260ms ease-out both;
     }
@@ -408,6 +419,7 @@ export class DemandesAchatComponent {
   // ── Modals ────────────────────────────────────────────────────────────────
   showNewDemande = signal(false);
   exporting = signal(false);
+  showExportModal = signal(false);
 
   // ── Dynamic columns ───────────────────────────────────────────────────────
   readonly daColumnDefs    = DA_COL_DEFS;
@@ -501,20 +513,40 @@ export class DemandesAchatComponent {
   }
 
   // ── Export ────────────────────────────────────────────────────────────────
+  readonly exportColDefs: ExportColDef[] = DA_COL_DEFS.filter(c => c.id !== 'photo');
+  readonly currentExportFilters = computed<Record<string, string>>(() => {
+    const tab = this.activeTab();
+    const f: Record<string, string> = {};
+    if (tab !== 'all') f['statut'] = tab;
+    return f;
+  });
+  readonly exportFilterDefs: ExportFilterDef[] = [
+    {
+      key: 'statut', label: 'Statut', type: 'select',
+      options: [
+        { value: 'Nouvelle',  label: 'Nouvelle' },
+        { value: 'Approuvée', label: 'Approuvée' },
+        { value: 'Rejetée',   label: 'Rejetée' },
+        { value: 'Clôturée',  label: 'Clôturée' },
+      ],
+    },
+  ];
+
   onExport(): void {
+    this.showExportModal.set(true);
+  }
+
+  onExportConfirmed(result: ExportResult): void {
+    this.showExportModal.set(false);
     if (this.exporting()) return;
     this.exporting.set(true);
-    this.excelExportService.download({ entites: 'demandesAchat' }).pipe(
-      take(1),
-    ).subscribe({
-      next: (blob) => {
-        downloadBlobAs(blob, 'demandes-achat.xlsx');
-        this.exporting.set(false);
-      },
-      error: () => {
-        this.toastr.error('Erreur lors de l\'export Excel.');
-        this.exporting.set(false);
-      },
+    this.excelExportService.download({
+      entites: 'demandesAchat',
+      columns: result.columns,
+      statut: result.filters['statut'],
+    }).pipe(take(1)).subscribe({
+      next: blob => { downloadBlobAs(blob, 'demandes-achat.xlsx'); this.exporting.set(false); },
+      error: () => { this.toastr.error('Erreur lors de l\'export Excel.'); this.exporting.set(false); },
     });
   }
 

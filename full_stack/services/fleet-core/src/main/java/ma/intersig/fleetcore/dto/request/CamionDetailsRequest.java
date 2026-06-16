@@ -9,6 +9,7 @@ public record CamionDetailsRequest(
         LocalDate visiteTechTracteurExpiration,
         LocalDate visiteTechSemiExpiration,
         LocalDate carnetCirculationExpiration,
+        LocalDate metrologieDateControle,
         LocalDate metrologieExpiration,
         LocalDate extincteurExpiration,
         String batterieModele,

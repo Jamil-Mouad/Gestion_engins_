@@ -12,9 +12,6 @@ import { Component, Input, Output, EventEmitter } from '@angular/core';
       [attr.aria-pressed]="active"
       (click)="clicked.emit()"
       type="button">
-      @if (active) {
-        <span class="filter-chip-check">✓</span>
-      }
       {{ label }}
     </button>
   `,
@@ -46,10 +43,6 @@ import { Component, Input, Output, EventEmitter } from '@angular/core';
       border-color: #D1D5DB;
       background: white;
       color: #374151;
-    }
-    .filter-chip-check {
-      font-size: 12px;
-      line-height: 1;
     }
   `],
 })

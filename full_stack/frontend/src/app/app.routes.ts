@@ -1,5 +1,6 @@
 import { Routes } from '@angular/router';
 import { authGuard } from './core/auth/auth.guard';
+import { roleGuard } from './core/auth/role.guard';
 
 export const appRoutes: Routes = [
   {
@@ -39,11 +40,6 @@ export const appRoutes: Routes = [
     loadComponent: () => import('./features/interventions/interventions.component').then(m => m.InterventionsComponent),
   },
   {
-    path: 'pneus',
-    canActivate: [authGuard],
-    loadComponent: () => import('./features/pneus/list/pneus-list.component').then(m => m.PneusListComponent),
-  },
-  {
     path: 'pneus/:id',
     canActivate: [authGuard],
     loadComponent: () => import('./features/pneus/detail/pneu-detail.component').then(m => m.PneuDetailComponent),
@@ -54,24 +50,9 @@ export const appRoutes: Routes = [
     loadComponent: () => import('./features/composants/composants.component').then(m => m.ComposantsComponent),
   },
   {
-    path: 'vidanges',
-    canActivate: [authGuard],
-    loadComponent: () => import('./features/vidanges/vidanges.component').then(m => m.VidangesComponent),
-  },
-  {
-    path: 'historique',
-    canActivate: [authGuard],
-    loadComponent: () => import('./features/historique/historique.component').then(m => m.HistoriqueComponent),
-  },
-  {
     path: 'notifications',
     canActivate: [authGuard],
     loadComponent: () => import('./features/notifications/notifications.component').then(m => m.NotificationsComponent),
-  },
-  {
-    path: 'tableau-journees',
-    canActivate: [authGuard],
-    loadComponent: () => import('./features/tableau-journees/tableau-journees.component').then(m => m.TableauJourneesComponent),
   },
   {
     path: 'profil',
@@ -92,6 +73,11 @@ export const appRoutes: Routes = [
     path: 'chatbot',
     canActivate: [authGuard],
     loadComponent: () => import('./features/chatbot/chatbot.component').then(m => m.ChatbotComponent),
+  },
+  {
+    path: 'magasin',
+    canActivate: [authGuard, roleGuard(['MAGASIN', 'FLEET_MANAGER'])],
+    loadChildren: () => import('./features/magasin/magasin.routes').then(m => m.MAGASIN_ROUTES),
   },
   { path: '', redirectTo: 'login', pathMatch: 'full' },
   { path: '**', redirectTo: 'login' },

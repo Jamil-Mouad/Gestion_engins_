@@ -7,6 +7,7 @@ import java.time.LocalDate;
 
 public record UpdatePneuRequest(
         String nSerie,
+        String reference,
         String marque,
         LocalDate dateMontage,
         @Positive Integer expectedLifeKm,

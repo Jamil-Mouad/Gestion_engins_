@@ -74,7 +74,7 @@ describe('TopBarComponent', () => {
     expect(text).toContain('Demandes');
     expect(text).toContain('Chat AI');
     expect(text).toContain('Import');
-    expect(text).toContain('Journées');
+    expect(text).not.toContain('Journées');
   });
 
   it('Demandes item is a direct link to /demandes-achat', () => {
@@ -120,5 +120,74 @@ describe('TopBarComponent', () => {
 
   it('initials computed from user prenom and nom', () => {
     expect(component.initials()).toBe('AU');
+  });
+});
+
+describe('TopBarComponent — MAGASIN role', () => {
+  let fixture: ComponentFixture<TopBarComponent>;
+
+  beforeEach(async () => {
+    const _user = signal({
+      id: 2,
+      email: 'magasin@intersig.ma',
+      prenom: 'Magasin',
+      nom: 'Dev',
+      role: 'MAGASIN' as const,
+      dashboardConfig: null,
+      actif: true,
+    });
+
+    const authSpy = jasmine.createSpyObj('AuthService', ['logout', 'clearTokens', 'hasExpiredToken'], {
+      user: _user.asReadonly(),
+      isAuthenticated: signal(true),
+    });
+    authSpy.logout.and.returnValue(of(void 0));
+
+    const _unreadCount = signal(0);
+    const notifSpy = jasmine.createSpyObj('NotificationService', ['getRecentUnread'], {
+      unreadCount: _unreadCount,
+    });
+    notifSpy.getRecentUnread.and.returnValue(of([]));
+
+    await TestBed.configureTestingModule({
+      imports: [TopBarComponent, LucideAngularModule.pick({ ChevronDown })],
+      providers: [
+        { provide: AuthService, useValue: authSpy },
+        { provide: NotificationService, useValue: notifSpy },
+        provideRouter([]),
+      ],
+    }).compileComponents();
+
+    fixture = TestBed.createComponent(TopBarComponent);
+    fixture.detectChanges();
+  });
+
+  it('shows the magasin section links inline in the top bar', () => {
+    const text = (fixture.nativeElement as HTMLElement).textContent ?? '';
+    expect(text).toContain('Tableau de bord');
+    expect(text).toContain('Sorties');
+    expect(text).toContain('Arrivages');
+    expect(text).toContain('Jaugeages');
+    expect(text).toContain('Configuration');
+  });
+
+  it('hides the fleet links and the single Magasin tab', () => {
+    const text = (fixture.nativeElement as HTMLElement).textContent ?? '';
+    expect(text).not.toContain('Véhicules');
+    expect(text).not.toContain('Interventions');
+    expect(text).not.toContain('Chat AI');
+    const labels = Array.from(
+      (fixture.nativeElement as HTMLElement).querySelectorAll('.nav-label'),
+      el => el.textContent?.trim());
+    expect(labels).not.toContain('Magasin');
+  });
+
+  it('links point at the magasin routes', () => {
+    const hrefs = Array.from(
+      (fixture.nativeElement as HTMLElement).querySelectorAll('.nav-link'),
+      el => el.getAttribute('href'));
+    expect(hrefs).toContain('/magasin');
+    expect(hrefs).toContain('/magasin/sorties');
+    expect(hrefs).toContain('/magasin/configuration');
   });
 });

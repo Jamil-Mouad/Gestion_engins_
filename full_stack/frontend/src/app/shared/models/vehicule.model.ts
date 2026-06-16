@@ -43,6 +43,7 @@ export interface CamionDetails {
   visiteTechTracteurExpiration: string | null;
   visiteTechSemiExpiration: string | null;
   carnetCirculationExpiration: string | null;
+  metrologieDateControle: string | null;
   metrologieExpiration: string | null;
   extincteurExpiration: string | null;
   batterieModele: string | null;
@@ -86,5 +87,6 @@ export interface NewVehiculeForm {
   statut: VehiculeStatut;
   dateMiseService: string | null;
   photoUrl?: string | null;
+  configAxleSemi?: 'plateau-2x2' | 'semi-2-essieux' | 'semi-3-essieux' | null;
   camionDetails?: Partial<CamionDetails>;
 }

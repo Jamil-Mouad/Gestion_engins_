@@ -1,0 +1,16 @@
+[project]
+name = "fleettracker-import"
+version = "0.1.0"
+description = "One-shot ETL: Excel sources → FleetTracker PostgreSQL"
+requires-python = ">=3.11"
+dependencies = [
+    "openpyxl>=3.1",
+    "psycopg[binary]>=3.1",
+    "python-dotenv>=1.0",
+]
+
+[project.optional-dependencies]
+test = ["pytest>=8.0"]
+
+[project.scripts]
+import-data = "import_data:main"

@@ -9,6 +9,7 @@ function makePneu(position: number, status: Pneu['status'] = 'ok'): Pneu {
     vehiculeCode: 'CAM-001',
     position,
     nSerie: `SN-${position}`,
+    reference: `REF-${position}`,
     marque: 'Michelin',
     dateMontage: '2025-01-01',
     kmMontage: 0,

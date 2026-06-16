@@ -17,6 +17,9 @@ import {
 } from '../../../shared/ui';
 import { PneuDetailsTabComponent } from './tabs/details-tab.component';
 import { EditPneuModalComponent } from '../edit-pneu-modal.component';
+import { ImageLightboxComponent } from '../../../shared/ui/image-lightbox/image-lightbox.component';
+import { downloadBlobAs } from '../../../shared/utils/download-blob';
+import { take } from 'rxjs/operators';
 
 type TabId = 'overview' | 'inspections';
 
@@ -30,6 +33,7 @@ type TabId = 'overview' | 'inspections';
     CardComponent, KpiCardComponent,
     SkeletonComponent, EmptyStateComponent, SevBadgeComponent,
     PneuDetailsTabComponent, EditPneuModalComponent,
+    ImageLightboxComponent,
   ],
   template: `
     <div class="pneu-detail-page">
@@ -45,11 +49,15 @@ type TabId = 'overview' | 'inspections';
         <!-- Header -->
         <div class="pneu-detail__header">
           <div class="pneu-detail__header-main">
-            <!-- Tire icon / photo -->
+            <!-- Tire icon / photo (real photo opens the lightbox) -->
             <div class="pneu-detail__icon">
-              <img [src]="pneu()!.photoUrl || 'assets/tire-default.svg'"
-                   [alt]="pneu()!.nSerie ?? 'pneu'"
-                   class="pneu-detail__icon-img" />
+              @if (pneu()!.photoUrl) {
+                <app-image-lightbox [src]="pneu()!.photoUrl" [fill]="true" />
+              } @else {
+                <img src="assets/tire-default.svg"
+                     [alt]="pneu()!.nSerie ?? 'pneu'"
+                     class="pneu-detail__icon-img" />
+              }
             </div>
 
             <!-- Info block -->
@@ -70,7 +78,11 @@ type TabId = 'overview' | 'inspections';
               </div>
             </div>
 
-            <!-- Éditer button -->
+            <!-- Actions -->
+            <button class="btn-edit" type="button" [disabled]="downloadingFiche()" (click)="downloadFiche()">
+              <lucide-icon name="download" [size]="14" />
+              {{ downloadingFiche() ? '…' : 'Fiche PDF' }}
+            </button>
             <button class="btn-edit" type="button" (click)="showEdit.set(true)">
               <lucide-icon name="edit" [size]="14" />
               Éditer
@@ -159,13 +171,13 @@ type TabId = 'overview' | 'inspections';
   `,
   styles: [`
     @keyframes screenEnter {
-      from { opacity: 0; transform: translateY(12px); }
-      to   { opacity: 1; transform: translateY(0); }
+      from { opacity: 0; }
+      to   { opacity: 1; }
     }
 
     .pneu-detail-page {
       background: #F5F5F5;
-      min-height: calc(100vh - 72px);
+      min-height: calc(100vh - 88px);
       animation: screenEnter 400ms ease both;
     }
 
@@ -202,6 +214,7 @@ type TabId = 'overview' | 'inspections';
       object-fit: contain;
       padding: 6px;
     }
+    .pneu-detail__icon app-image-lightbox { display: block; width: 100%; height: 100%; }
 
     .pneu-detail__info { flex: 1; }
 
@@ -316,8 +329,19 @@ export class PneuDetailComponent {
   activeTab = signal<TabId>('overview');
   loading = signal(true);
   showEdit = signal(false);
+  downloadingFiche = signal(false);
 
   pneu = signal<Pneu | null>(null);
+
+  downloadFiche(): void {
+    const pneu = this.pneu();
+    if (!pneu || this.downloadingFiche()) return;
+    this.downloadingFiche.set(true);
+    this.pneuService.downloadFiche(pneu.id).pipe(take(1)).subscribe({
+      next: blob => { downloadBlobAs(blob, `fiche-pneu-${pneu.id}.pdf`); this.downloadingFiche.set(false); },
+      error: () => this.downloadingFiche.set(false),
+    });
+  }
 
   tabs = [
     { label: "Vue d'ensemble" },
@@ -364,6 +388,7 @@ export class PneuDetailComponent {
     const p = this.pneu();
     if (!p) return [];
     return [
+      { label: 'Référence',        value: p.reference ?? '—' },
       { label: 'Marque',           value: p.marque ?? '—' },
       { label: 'N° Série',         value: p.nSerie ?? '—' },
       { label: 'Position',         value: `Position ${p.position}` },

@@ -15,12 +15,34 @@ import { ModalShellComponent } from '../../shared/ui/modal/modal-shell.component
           Position : <strong>P{{ position }}</strong> (lecture seule)
         </p>
         <div class="form-group">
-          <label class="form-label">N° série</label>
-          <input class="form-input" type="text" [(ngModel)]="nSerie" placeholder="ex. MIC-789012" />
+          <label class="form-label">N° série <span class="required">*</span></label>
+          <input class="form-input" type="text" [(ngModel)]="nSerie" placeholder="ex. SN-2026-000123" />
         </div>
         <div class="form-group">
-          <label class="form-label">Marque</label>
+          <label class="form-label">Référence <span class="required">*</span></label>
+          <input class="form-input" type="text" [(ngModel)]="reference" placeholder="ex. MIC-789012" />
+        </div>
+        <div class="form-group">
+          <label class="form-label">Marque <span class="required">*</span></label>
           <input class="form-input" type="text" [(ngModel)]="marque" placeholder="ex. Michelin" />
+        </div>
+        <div class="form-group">
+          <label class="form-label">Date de montage <span class="required">*</span></label>
+          <input class="form-input" type="date" [(ngModel)]="dateMontage" />
+        </div>
+        <div class="form-group">
+          <label class="form-label">Durée de vie prévue (km) <span class="required">*</span></label>
+          <input class="form-input" type="number" [(ngModel)]="expectedLifeKm" min="1" placeholder="ex. 80000" />
+        </div>
+        <div class="form-row">
+          <div class="form-group">
+            <label class="form-label">Pression (PSI) <span class="required">*</span></label>
+            <input class="form-input" type="number" [(ngModel)]="pressionPsi" placeholder="ex. 110" />
+          </div>
+          <div class="form-group">
+            <label class="form-label">Profondeur (32è) <span class="required">*</span></label>
+            <input class="form-input" type="number" [(ngModel)]="profondeur32e" min="0" max="32" placeholder="ex. 32" />
+          </div>
         </div>
         @if (error()) {
           <div class="form-error">{{ error() }}</div>
@@ -28,7 +50,7 @@ import { ModalShellComponent } from '../../shared/ui/modal/modal-shell.component
         <div class="modal-actions">
           <button type="button" class="btn-cancel" (click)="close.emit()">Annuler</button>
           <button type="button" class="btn-confirm"
-                  [disabled]="saving()"
+                  [disabled]="saving() || !isValid()"
                   (click)="onConfirm()">
             {{ saving() ? 'En cours…' : 'Remplacer' }}
           </button>
@@ -40,7 +62,9 @@ import { ModalShellComponent } from '../../shared/ui/modal/modal-shell.component
     .remplacer-modal { display: flex; flex-direction: column; gap: 16px; }
     .remplacer-modal__info { font-family: 'Open Sans', sans-serif; font-size: 14px; color: var(--color-text); margin: 0; }
     .form-group { display: flex; flex-direction: column; gap: 6px; }
+    .form-row { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
     .form-label { font-family: 'Montserrat', sans-serif; font-size: 13px; font-weight: 600; color: var(--color-text); }
+    .required { color: var(--color-danger); }
     .form-input { height: 38px; border: 1px solid var(--color-border); border-radius: 8px; padding: 0 12px; font-family: 'Open Sans', sans-serif; font-size: 14px; color: var(--color-text); background: var(--color-surface); outline: none; }
     .form-input:focus { border-color: var(--color-primary); }
     .form-error { font-family: 'Open Sans', sans-serif; font-size: 13px; color: var(--color-danger); }
@@ -62,25 +86,42 @@ export class RemplacerPneuModalComponent {
   @Output() close = new EventEmitter<void>();
 
   nSerie = '';
+  reference = '';
   marque = '';
+  dateMontage = new Date().toISOString().slice(0, 10);
+  expectedLifeKm: number | null = 80000;
+  pressionPsi: number | null = null;
+  profondeur32e: number | null = 32;
   saving = signal(false);
   error = signal<string | null>(null);
 
+  isValid(): boolean {
+    return !!(this.nSerie.trim() && this.reference.trim() && this.marque.trim()
+      && this.dateMontage && this.expectedLifeKm && this.pressionPsi != null
+      && this.profondeur32e != null);
+  }
+
   onConfirm(): void {
+    if (!this.isValid()) return;
     this.saving.set(true);
     this.error.set(null);
     this.pneuService.remplacer(this.pneuId, {
-      nSerie: this.nSerie || undefined,
-      marque: this.marque || undefined,
+      nSerie: this.nSerie.trim(),
+      reference: this.reference.trim(),
+      marque: this.marque.trim(),
+      dateMontage: this.dateMontage,
+      expectedLifeKm: this.expectedLifeKm!,
+      pressionPsi: this.pressionPsi!,
+      profondeur32e: Number(this.profondeur32e),
       position: this.position,
     }).subscribe({
       next: () => {
         this.saving.set(false);
         this.saved.emit();
       },
-      error: () => {
+      error: (err: any) => {
         this.saving.set(false);
-        this.error.set('Une erreur est survenue. Veuillez réessayer.');
+        this.error.set(err?.error?.error || 'Une erreur est survenue. Veuillez réessayer.');
       },
     });
   }

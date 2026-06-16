@@ -59,6 +59,7 @@ class AttelageControllerTest {
 
         Map<String, Object> body = new HashMap<>();
         body.put("code", code);
+        body.put("nChassis", "NCH-" + System.nanoTime());
         body.put("type", "camion");
         body.put("marque", "IVECO");
         body.put("modele", "Stralis");
@@ -79,6 +80,7 @@ class AttelageControllerTest {
     private long createSemi(String code) {
         Map<String, Object> body = new HashMap<>();
         body.put("code", code);
+        body.put("nChassis", "NCH-" + System.nanoTime());
         body.put("type", "semi_remorque");
         body.put("marque", "Schmitz");
         body.put("modele", "S.KO");

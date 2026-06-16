@@ -62,9 +62,10 @@ export class LoginComponent {
       next: () => {
         this.loading.set(false);
         const redirect = this.route.snapshot.queryParamMap.get('redirect');
+        const home = this.auth.user()?.role === 'MAGASIN' ? '/magasin' : '/vehicules';
         const target = redirect && redirect.startsWith('/') && !redirect.startsWith('//')
           ? redirect
-          : '/vehicules';
+          : home;
         void this.router.navigateByUrl(target);
       },
       error: (err: HttpErrorResponse) => {

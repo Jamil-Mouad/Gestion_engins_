@@ -63,6 +63,13 @@ public interface InterventionRepository extends JpaRepository<Intervention, Long
     @Query("SELECT i FROM Intervention i LEFT JOIN FETCH i.vehicule")
     List<Intervention> findAllWithVehicule();
 
+    @Query("SELECT i FROM Intervention i LEFT JOIN FETCH i.vehicule LEFT JOIN FETCH i.typeIntervention LEFT JOIN FETCH i.composant " +
+           "WHERE (:enCours IS NULL OR (:enCours = true AND i.dateFin IS NULL) OR (:enCours = false AND i.dateFin IS NOT NULL)) " +
+           "AND (CAST(:categorie AS string) IS NULL OR i.categorie = CAST(:categorie AS string)) " +
+           "ORDER BY i.dateDebut DESC")
+    List<Intervention> findAllWithVehiculeFiltered(@Param("enCours") Boolean enCours,
+                                                   @Param("categorie") String categorie);
+
     @Query(value = "SELECT i FROM Intervention i LEFT JOIN FETCH i.vehicule LEFT JOIN FETCH i.typeIntervention LEFT JOIN FETCH i.composant",
            countQuery = "SELECT COUNT(i) FROM Intervention i")
     Page<Intervention> findAllWithRelations(Pageable pageable);

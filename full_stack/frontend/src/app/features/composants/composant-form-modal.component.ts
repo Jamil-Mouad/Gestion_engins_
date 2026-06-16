@@ -9,8 +9,8 @@ import { DoubleClickGuardDirective } from '../../shared/directives/double-click-
 export interface ComposantFormContext {
   /** Edit mode: existing composant to edit. */
   composant?: Composant;
-  /** Create-child mode: pre-sets parentId + niveau. */
-  parent?: { id: number; designation: string; niveau: 1 | 2 };
+  /** Create-child mode: pre-sets parentId + niveau (depth is unlimited). */
+  parent?: { id: number; designation: string; niveau: number };
 }
 
 const CATEGORIE_OPTIONS: { value: ComposantCategorie; label: string }[] = [

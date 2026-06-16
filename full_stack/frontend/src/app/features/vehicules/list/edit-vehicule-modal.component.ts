@@ -152,18 +152,9 @@ import { DoubleClickGuardDirective } from '../../../shared/directives/double-cli
                   <input formControlName="compteurHeures" type="number" placeholder="0" />
                 </div>
               </div>
-              <!-- Row: KPI — Voyages/mois / KM parcourus -->
-              <h3>KPIs véhicule</h3>
-              <div class="form-row">
-                <div class="form-group">
-                  <label>Voyages / mois</label>
-                  <input formControlName="voyagesMois" type="number" placeholder="0" min="0" />
-                </div>
-                <div class="form-group">
-                  <label>KM parcourus (mensuel)</label>
-                  <input formControlName="kmParcourus" type="number" placeholder="0" min="0" />
-                </div>
-              </div>
+              <!-- Voyages/mois, KM parcourus et conso. gasoil ne se saisissent
+                   plus ici : ils sont calculés depuis le registre gasoil du
+                   magasin (les contrôles restent pour compatibilité API). -->
             </div>
           }
         }
@@ -173,14 +164,21 @@ import { DoubleClickGuardDirective } from '../../../shared/directives/double-cli
           <div class="doc-section">
             <h3 class="doc-section__title">Visites & Réglementaire</h3>
             <div class="form-row">
-              <div class="form-group">
-                <label>Visite technique — Tracteur</label>
-                <input formControlName="visiteTechTracteurExpiration" type="date" />
-              </div>
-              <div class="form-group">
-                <label>Visite technique — Semi-remorque</label>
-                <input formControlName="visiteTechSemiExpiration" type="date" />
-              </div>
+              @if (isCamionTracteurSelected()) {
+                <div class="form-group">
+                  <label>Visite technique — Tracteur</label>
+                  <input formControlName="visiteTechTracteurExpiration" type="date" />
+                </div>
+                <div class="form-group">
+                  <label>Visite technique — Semi-remorque (attelée)</label>
+                  <input formControlName="visiteTechSemiExpiration" type="date" />
+                </div>
+              } @else {
+                <div class="form-group">
+                  <label>Visite technique — Camion</label>
+                  <input formControlName="visiteTechTracteurExpiration" type="date" />
+                </div>
+              }
               <div class="form-group">
                 <label>Extincteur — date d'expiration</label>
                 <input formControlName="extincteurExpiration" type="date" />
@@ -192,8 +190,13 @@ import { DoubleClickGuardDirective } from '../../../shared/directives/double-cli
                 <input formControlName="carnetCirculationExpiration" type="date" />
               </div>
               <div class="form-group">
+                <label>Métrologie — date du contrôle</label>
+                <input formControlName="metrologieDateControle" type="date" />
+              </div>
+              <div class="form-group">
                 <label>Métrologie — expiration</label>
                 <input formControlName="metrologieExpiration" type="date" />
+                <span class="doc-hint">Auto : date du contrôle + 2 ans (modifiable)</span>
               </div>
             </div>
           </div>
@@ -213,14 +216,6 @@ import { DoubleClickGuardDirective } from '../../../shared/directives/double-cli
                 <label>Dernier contrôle batterie</label>
                 <input formControlName="batterieDateControle" type="date" />
               </div>
-            </div>
-          </div>
-
-          <div class="doc-section">
-            <h3 class="doc-section__title">Consommation</h3>
-            <div class="form-group">
-              <label>Conso. gasoil (litres / mois)</label>
-              <input formControlName="consoGasoilLitresMois" type="number" placeholder="0" />
             </div>
           </div>
 
@@ -273,6 +268,7 @@ import { DoubleClickGuardDirective } from '../../../shared/directives/double-cli
     /* Documents sections */
     .doc-section { display: flex; flex-direction: column; gap: 12px; border-top: 1px solid var(--color-border); padding-top: 12px; margin-top: 4px; }
     .doc-section:first-of-type { border-top: none; margin-top: 0; padding-top: 0; }
+    .doc-hint { font-family: 'Open Sans', sans-serif; font-size: 11px; color: var(--color-text-muted); }
     .doc-section__title { font-family: 'Montserrat', sans-serif; font-size: 13px; font-weight: 700; color: var(--color-text); margin: 0; }
 
     /* Feedback */
@@ -363,6 +359,7 @@ export class EditVehiculeModalComponent implements OnInit {
     visiteTechTracteurExpiration: [null as string | null],
     visiteTechSemiExpiration: [null as string | null],
     carnetCirculationExpiration: [null as string | null],
+    metrologieDateControle: [null as string | null],
     metrologieExpiration: [null as string | null],
     extincteurExpiration: [null as string | null],
     batterieModele: ['' as string | null],
@@ -378,6 +375,7 @@ export class EditVehiculeModalComponent implements OnInit {
     { initialValue: this.form.get('type')!.value as VehiculeType },
   );
   isCamionTypeSelected = computed(() => isCamionType(this.typeValue() ?? ''));
+  isCamionTracteurSelected = computed(() => this.typeValue() === 'camion_tracteur');
   isSemiRemorqueSelected = computed(() => this.typeValue() === 'semi_remorque');
 
   ngOnInit(): void {
@@ -410,12 +408,25 @@ export class EditVehiculeModalComponent implements OnInit {
       visiteTechTracteurExpiration: cd?.visiteTechTracteurExpiration ?? null,
       visiteTechSemiExpiration: cd?.visiteTechSemiExpiration ?? null,
       carnetCirculationExpiration: cd?.carnetCirculationExpiration ?? null,
+      metrologieDateControle: cd?.metrologieDateControle ?? null,
       metrologieExpiration: cd?.metrologieExpiration ?? null,
       extincteurExpiration: cd?.extincteurExpiration ?? null,
       batterieModele: cd?.batterieModele ?? '',
       batterieDateAchat: cd?.batterieDateAchat ?? null,
       batterieDateControle: cd?.batterieDateControle ?? null,
       consoGasoilLitresMois: cd?.consoGasoilLitresMois ?? null,
+    });
+
+    // métrologie is valid 2 years from the control date — auto-fill the
+    // expiration whenever the control date is set (still user-editable after)
+    this.form.get('metrologieDateControle')!.valueChanges.subscribe(date => {
+      if (!date) return;
+      const exp = new Date(date);
+      exp.setFullYear(exp.getFullYear() + 2);
+      this.form.patchValue(
+        { metrologieExpiration: exp.toISOString().slice(0, 10) },
+        { emitEvent: false },
+      );
     });
   }
 
@@ -475,6 +486,7 @@ export class EditVehiculeModalComponent implements OnInit {
         visiteTechTracteurExpiration: fv.visiteTechTracteurExpiration || null,
         visiteTechSemiExpiration: fv.visiteTechSemiExpiration || null,
         carnetCirculationExpiration: fv.carnetCirculationExpiration || null,
+        metrologieDateControle: fv.metrologieDateControle || null,
         metrologieExpiration: fv.metrologieExpiration || null,
         extincteurExpiration: fv.extincteurExpiration || null,
         batterieModele: fv.batterieModele || null,
